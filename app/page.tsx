@@ -120,7 +120,7 @@ export default function Home() {
       for (let i = 0; i < 9; i++) {
         const x = (i % 3) * 300;
         const y = Math.floor(i / 3) * 300;
-        
+
         const img = await loadImage(albums[i].image[3]['#text']);
         ctx.drawImage(img, x, y, 300, 300);
       }
@@ -169,7 +169,7 @@ export default function Home() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
+              <Button
                 onClick={fetchTopAlbums}
                 disabled={loading}
               >
@@ -195,13 +195,17 @@ export default function Home() {
                     <div className="aspect-square relative">
                       <img
                         src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
-                        alt={`${album.name} by ${album.artist}`}
+                        alt={`${album.name} by ${album.artist.name}`}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="mt-2">
-                      <p className="font-semibold truncate">{album.name}</p>
-                      <p className="text-sm text-gray-600 truncate">{album.artist.name}</p>
+                      <p className="font-semibold truncate">
+                          <a href={`https://musicbrainz.org/release/${album.mbid}`}>{album.name}</a>
+                      </p>
+                      <p className="text-sm text-gray-600 truncate">
+                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`}>{album.artist.name}</a>
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
