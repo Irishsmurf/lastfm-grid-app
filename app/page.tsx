@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -99,17 +100,24 @@ export default function Home() {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Load all images first
+    // Modified loadImage function
     const loadImage = (url: string): Promise<HTMLImageElement> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous"; // Enable CORS
+      return new Promise((resolve, reject) => {
+        if (!url) {
+          // Handle empty URL case
+          reject(new Error('No image URL provided'));
+          return;
+        }
+
+        const img = document.createElement('img');
+        img.crossOrigin = "anonymous";
         img.onload = () => resolve(img);
         img.onerror = () => {
-          // Create a placeholder for failed images
-          const placeholder = new Image();
-          placeholder.src = '/api/placeholder/300/300';
-          resolve(placeholder);
+          // Create a fallback for failed images
+          const fallbackImg = document.createElement('img');
+          fallbackImg.src = '/api/placeholder/300/300';
+          fallbackImg.onload = () => resolve(fallbackImg);
+          fallbackImg.onerror = () => reject(new Error('Failed to load placeholder image'));
         };
         img.src = url;
       });
@@ -120,9 +128,20 @@ export default function Home() {
       for (let i = 0; i < 9; i++) {
         const x = (i % 3) * 300;
         const y = Math.floor(i / 3) * 300;
-
-        const img = await loadImage(albums[i].image[3]['#text']);
-        ctx.drawImage(img, x, y, 300, 300);
+        
+        try {
+          const img = await loadImage(albums[i].image[3]['#text']);
+          ctx.drawImage(img, x, y, 300, 300);
+        } catch (error) {
+          console.log('Image failed to load: ', error)
+          // If image fails to load, draw a placeholder rectangle
+          ctx.fillStyle = '#f0f0f0';
+          ctx.fillRect(x, y, 300, 300);
+          ctx.fillStyle = '#666666';
+          ctx.font = '14px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('Image not available', x + 150, y + 150);
+        }
       }
 
       // Add watermark
@@ -193,10 +212,12 @@ export default function Home() {
                 <Card key={index}>
                   <CardContent className="p-4">
                     <div className="aspect-square relative">
-                      <img
-                        src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
+                      <Image 
+                        src={album.image[3]?.['#text'] || '/api/placeholder/300/300' }
                         alt={`${album.name} by ${album.artist.name}`}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 300px"
                       />
                     </div>
                     <div className="mt-2">
