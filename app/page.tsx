@@ -20,10 +20,17 @@ const timeRanges = {
   'overall': 'Overall'
 };
 
+
 interface Album {
   name: string;
-  artist: string;
+  artist: Artist;
   image: string;
+}
+
+interface Artist {
+  name: string;
+  url: string;
+  mbid: string;
 }
 
 export default function Home() {
@@ -44,7 +51,7 @@ export default function Home() {
     setError('');
 
     try {
-      const period = timeRange.replace('month', '');
+      const period = timeRange;
       const response = await fetch(
         `${LASTFM_BASE_URL}?method=user.gettopalbums&user=${username}&period=${period}&api_key=${LASTFM_API_KEY}&format=json&limit=9`
       );
@@ -54,14 +61,16 @@ export default function Home() {
       }
 
       const data = await response.json();
-      const albumData = data.topalbums.album.slice(0, 9).map((album: any) => ({
+      const albumData = data.topalbums.album.slice(0, 9).map((album: Album) => ({
         name: album.name,
         artist: album.artist.name,
+        // @ts-expect-error Known issue with this.
         image: album.image[3]['#text'] // Get largest image
       }));
 
       setAlbums(albumData);
     } catch (err) {
+      console.error('An error occurred: ', err);
       setError('Error fetching albums. Please check the username and try again.');
     } finally {
       setLoading(false);
@@ -85,7 +94,7 @@ export default function Home() {
 
     // Load all images first
     const loadImage = (url: string): Promise<HTMLImageElement> => {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const img = new Image();
         img.crossOrigin = "anonymous"; // Enable CORS
         img.onload = () => resolve(img);
@@ -185,7 +194,7 @@ export default function Home() {
                     </div>
                     <div className="mt-2">
                       <p className="font-semibold truncate">{album.name}</p>
-                      <p className="text-sm text-gray-600 truncate">{album.artist}</p>
+                      <p className="text-sm text-gray-600 truncate">{album.artist.name}</p>
                     </div>
                   </CardContent>
                 </Card>
