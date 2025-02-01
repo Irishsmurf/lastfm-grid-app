@@ -20,11 +20,17 @@ const timeRanges = {
   'overall': 'Overall'
 };
 
+interface AlbumImage {
+  'size': string;
+  '#text': string;
+}
 
 interface Album {
   name: string;
   artist: Artist;
-  image: string;
+  image: Array<AlbumImage>;
+  mbid: string;
+  playcount: number;
 }
 
 interface Artist {
@@ -63,9 +69,10 @@ export default function Home() {
       const data = await response.json();
       const albumData = data.topalbums.album.slice(0, 9).map((album: Album) => ({
         name: album.name,
-        artist: album.artist.name,
-        // @ts-expect-error Known issue with this.
-        image: album.image[3]['#text'] // Get largest image
+        artist: album.artist,
+        image: album.image, // Get largest image
+        mbid: album.mbid,
+        playcount: album.playcount
       }));
 
       setAlbums(albumData);
@@ -114,7 +121,7 @@ export default function Home() {
         const x = (i % 3) * 300;
         const y = Math.floor(i / 3) * 300;
         
-        const img = await loadImage(albums[i].image);
+        const img = await loadImage(albums[i].image[3]['#text']);
         ctx.drawImage(img, x, y, 300, 300);
       }
 
@@ -187,7 +194,7 @@ export default function Home() {
                   <CardContent className="p-4">
                     <div className="aspect-square relative">
                       <img
-                        src={album.image || '/api/placeholder/300/300'}
+                        src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
                         alt={`${album.name} by ${album.artist}`}
                         className="w-full h-full object-cover"
                       />
