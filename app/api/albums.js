@@ -1,4 +1,4 @@
-// pages/api/albums.js
+// app/api/albums.js
 import { redis } from '../../lib/redis';
 
 export default async function handler(req, res) {

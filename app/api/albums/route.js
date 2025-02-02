@@ -1,4 +1,4 @@
-// pages/api/albums/route.js
+// app/api/albums/route.js
 
 import { NextResponse } from 'next/server';
 
