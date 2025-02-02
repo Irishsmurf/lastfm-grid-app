@@ -1,10 +1,15 @@
 // app/api/albums/route.js
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { redis } from '../../../lib/redis';
 
-export async function GET(req) {
-    console.log(req.query)
-    const { username, period } = req.query;
+
+export async function GET(req: NextRequest) {
+    const { searchParams } = new URL(req.url);
+    console.log(searchParams)
+    const username = searchParams.get('username');
+    const period = searchParams.get('period');
+
     const cacheKey = `lastfm:${username}:${period}`;
 
     try {
@@ -30,6 +35,6 @@ export async function GET(req) {
 
         return NextResponse.json(data, { status: 200 });
     } catch (error) {
-        return NextResponse.json({ message: 'Error fetching albums', error: error.message }, { status: 500 });
+        return NextResponse.json({ message: 'Error fetching albums', error: error }, { status: 500 });
     }
 }
