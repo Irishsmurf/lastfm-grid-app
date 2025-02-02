@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '../../../lib/redis';
+import { cache } from 'react';
 
 
 export async function GET(req: NextRequest) {
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
         // Check cache first
         const cachedData = await redis.get(cacheKey);
         if (cachedData) {
+            console.log(`Returning cached data for ${cacheKey}`)
             return NextResponse.json(JSON.parse(cachedData), { status: 200 });
         }
 
@@ -24,6 +26,7 @@ export async function GET(req: NextRequest) {
         );
 
         if (!response.ok) {
+            console.error(response)
             throw new Error('Failed to fetch from LastFM');
         }
 
