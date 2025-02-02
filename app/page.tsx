@@ -1,4 +1,6 @@
 // app/page.tsx
+'use client';
+
 import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { Card, CardContent } from "@/components/ui/card"
@@ -56,9 +58,8 @@ export default function Home() {
     setError('');
 
     try {
-      const period = timeRange;
       const response = await fetch(
-        `${LASTFM_BASE_URL}?method=user.gettopalbums&user=${username}&period=${period}&api_key=${LASTFM_API_KEY}&format=json&limit=9`
+        `/api/albums?username=${encodeURIComponent(username)}&period=${timeRange}`
       );
 
       if (!response.ok) {
