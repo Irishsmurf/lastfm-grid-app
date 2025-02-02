@@ -2,7 +2,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '../../../lib/redis';
-import { cache } from 'react';
 
 
 export async function GET(req: NextRequest) {
