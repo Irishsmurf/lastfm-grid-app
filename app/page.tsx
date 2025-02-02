@@ -9,9 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Download } from 'lucide-react';
 
-const LASTFM_API_KEY = process.env.NEXT_PUBLIC_LASTFM_API_KEY;
-const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
-
 const timeRanges = {
   '7day': "Last Week",
   '1month': 'Last Month',
