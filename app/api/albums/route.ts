@@ -6,7 +6,6 @@ import { redis } from '../../../lib/redis';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
-    console.log(searchParams)
     const username = searchParams.get('username');
     const period = searchParams.get('period');
 
@@ -35,6 +34,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json(data, { status: 200 });
     } catch (error) {
+        console.error(error)
         return NextResponse.json({ message: 'Error fetching albums', error: error }, { status: 500 });
     }
 }
