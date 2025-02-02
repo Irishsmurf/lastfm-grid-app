@@ -4,5 +4,6 @@ import { NextResponse } from 'next/server';
 
 export async function GET(req) {
     //const { username, period } = req.query;
-    return NextResponse.json(req.query, { status: 200 });
+    console.log(req.query)
+    return NextResponse.json({message: "Hello World!"}, { status: 200 });
 }
