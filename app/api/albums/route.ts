@@ -20,12 +20,13 @@ export async function GET(req: NextRequest) {
         }
 
         // If not in cache, fetch from LastFM
+        console.log(`Fetching data for ${username} - ${period} from LastFM`)
         const response = await fetch(
             `${process.env.LASTFM_BASE_URL}?method=user.gettopalbums&user=${username}&period=${period}&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=9`
         );
 
         if (!response.ok) {
-            console.error(response)
+            console.error(`Error response from LastFM: ${response.status}:${response.statusText}`)
             throw new Error('Failed to fetch from LastFM');
         }
 
@@ -35,8 +36,8 @@ export async function GET(req: NextRequest) {
         await redis.setex(cacheKey, 3600, JSON.stringify(data));
 
         return NextResponse.json(data, { status: 200 });
-    } catch (error) {
-        console.error(error)
+    } catch (error: any) {
+        console.log(`Error fetching albums: ${error.message}`)
         return NextResponse.json({ message: 'Error fetching albums', error: error }, { status: 500 });
     }
 }
