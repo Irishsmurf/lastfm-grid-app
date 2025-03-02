@@ -1,7 +1,7 @@
 // /app/api/albums/route.test.ts
 
 import { GET } from './route';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { redis } from '../../../lib/redis';
 
 // Mock external dependencies
