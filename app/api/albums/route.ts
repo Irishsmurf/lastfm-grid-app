@@ -38,7 +38,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(data, { status: 200 });
   } catch (error) {
-    console.log(`Error fetching albums: ${error.message}`);
+    if (error instanceof Error) {
+        console.log(`Error fetching albums: ${error.message}`);
+    } else {
+        console.log(`Error fetching albums: ${error}`);
+    }
+
     return NextResponse.json(
       { message: "Error fetching albums", error: error },
       { status: 500 }
