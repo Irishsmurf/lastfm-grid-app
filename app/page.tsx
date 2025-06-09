@@ -3,11 +3,12 @@
 
 import { useState, useRef } from 'react';
 import Image from 'next/image';
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from 'lucide-react';
+import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 const timeRanges = {
   '7day': "Last Week",
@@ -160,11 +161,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4">
+    <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <Card className="mb-8">
           <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
               <Input
                 type="text"
                 placeholder="LastFM Username"
@@ -173,7 +174,7 @@ export default function Home() {
                 className="flex-1"
               />
               <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full md:w-[180px]">
                   <SelectValue placeholder="Select time range" />
                 </SelectTrigger>
                 <SelectContent>
@@ -187,11 +188,13 @@ export default function Home() {
               <Button
                 onClick={fetchTopAlbums}
                 disabled={loading}
+                className="w-full md:w-auto"
               >
                 {loading ? 'Loading...' : 'Generate Grid'}
               </Button>
+              <ThemeToggleButton />
             </div>
-            {error && <p className="text-red-500 mt-2">{error}</p>}
+            {error && <p className="text-red-500 dark:text-red-400 mt-2">{error}</p>}
           </CardContent>
         </Card>
 
@@ -220,7 +223,7 @@ export default function Home() {
                       <p className="font-semibold truncate">
                           <a href={`https://musicbrainz.org/release/${album.mbid}`}>{album.name}</a>
                       </p>
-                      <p className="text-sm text-gray-600 truncate">
+                      <p className="text-sm text-muted-foreground truncate">
                           <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`}>{album.artist.name}</a>
                       </p>
                     </div>
