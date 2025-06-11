@@ -43,7 +43,7 @@ describe('lib/spotify.ts', () => {
       mockRedisInstance.get.mockResolvedValue(null);
       const api = await getUserAuthorizedSpotifyApi(sessionId);
       expect(api).toBeNull();
-      expect(mockRedisInstance.get).toHaveBeenCalledWith(\`spotify_token:\${sessionId}\`);
+      expect(mockRedisInstance.get).toHaveBeenCalledWith(`spotify_token:${sessionId}`);
     });
 
     it('should return an API client if valid tokens exist', async () => {
@@ -84,7 +84,7 @@ describe('lib/spotify.ts', () => {
       expect(api).not.toBeNull();
       expect(mockSpotifyApiInstance.refreshAccessToken).toHaveBeenCalled();
       expect(mockRedisInstance.set).toHaveBeenCalledWith(
-        \`spotify_token:\${sessionId}\`,
+        `spotify_token:${sessionId}`,
         expect.stringContaining('new-access-token'), // Check that new token is stored
         'EX',
         expect.any(Number)
@@ -104,7 +104,7 @@ describe('lib/spotify.ts', () => {
 
       const api = await getUserAuthorizedSpotifyApi(sessionId);
       expect(api).toBeNull();
-      expect(mockRedisInstance.del).toHaveBeenCalledWith(\`spotify_token:\${sessionId}\`); // Ensure tokens are cleared on failure
+      expect(mockRedisInstance.del).toHaveBeenCalledWith(`spotify_token:${sessionId}`); // Ensure tokens are cleared on failure
     });
   });
 
@@ -136,7 +136,7 @@ describe('lib/spotify.ts', () => {
       const result = await exchangeCodeForTokens(code, sessionId);
       expect(result).toBe(true);
       expect(mockRedisInstance.set).toHaveBeenCalledWith(
-        \`spotify_token:\${sessionId}\`,
+        `spotify_token:${sessionId}`,
         expect.stringContaining('exchanged-access-token'),
         'EX',
         expect.any(Number)

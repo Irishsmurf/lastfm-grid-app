@@ -53,23 +53,23 @@ export async function POST(req: NextRequest) {
     if (!spotifyApi) {
       // No valid token, or refresh failed. User needs to (re-)authorize.
       const authorizeURL = getAuthorizationUrl(sessionId); // Pass sessionId as state
-      console.log(\`No valid Spotify token for session \${sessionId}. Redirecting to Spotify auth: \${authorizeURL}\`);
+      console.log(`No valid Spotify token for session ${sessionId}. Redirecting to Spotify auth: ${authorizeURL}`);
       return NextResponse.json({ authorizeURL }, { status: 401 });
     }
 
-    console.log(\`Processing \${albums.length} albums for playlist creation using spotify.ts.\`);
+    console.log(`Processing ${albums.length} albums for playlist creation using spotify.ts.`);
 
     let allSelectedTrackUris: string[] = [];
     const processedAlbumsDetails: any[] = [];
 
     for (const albumInput of albums) {
       try {
-        console.log(\`Searching for album: \${albumInput.albumName} by \${albumInput.artistName}\`);
+        console.log(`Searching for album: ${albumInput.albumName} by ${albumInput.artistName}`);
         const searchResults = await searchAlbums(spotifyApi, albumInput.albumName, albumInput.artistName, 1);
 
         if (searchResults.body.albums && searchResults.body.albums.items.length > 0) {
           const spotifyAlbum = searchResults.body.albums.items[0];
-          console.log(\`Found album: \${spotifyAlbum.name}, ID: \${spotifyAlbum.id}\`);
+          console.log(`Found album: ${spotifyAlbum.name}, ID: ${spotifyAlbum.id}`);
 
           const tracksResponse = await getAlbumTracks(spotifyApi, spotifyAlbum.id, 50); // Get up to 50 tracks
           let albumTracks = tracksResponse.body.items;
@@ -96,15 +96,15 @@ export async function POST(req: NextRequest) {
               // Add popularity of selected tracks for more info if needed
               selectedTracksDetails: albumTracks.slice(0, 3).map(t => ({ name: t.name, popularity: t.popularity})),
             });
-            console.log(\`Selected \${selectedTracks.length} tracks from \${spotifyAlbum.name} based on popularity.\`);
+            console.log(`Selected ${selectedTracks.length} tracks from ${spotifyAlbum.name} based on popularity.`);
           } else {
-            console.log(\`No tracks selected from \${spotifyAlbum.name} after filtering.\`);
+            console.log(`No tracks selected from ${spotifyAlbum.name} after filtering.`);
           }
         } else {
-          console.log(\`Album \${albumInput.albumName} by \${albumInput.artistName} not found on Spotify.\`);
+          console.log(`Album ${albumInput.albumName} by ${albumInput.artistName} not found on Spotify.`);
         }
       } catch (albumError: any) {
-        console.error(\`Error processing album \${albumInput.albumName}:\`, albumError.body ? albumError.body.error : albumError.message);
+        console.error(`Error processing album ${albumInput.albumName}:`, albumError.body ? albumError.body.error : albumError.message);
         // Optionally skip this album and continue, or bail out
       }
     }
@@ -117,19 +117,19 @@ export async function POST(req: NextRequest) {
     // Create a new private playlist
     const userProfile = await getCurrentUserProfile(spotifyApi);
     const userId = userProfile.body.id;
-    const playlistName = \`My Awesome Mix - \${new Date().toLocaleDateString()}\`;
+    const playlistName = `My Awesome Mix - ${new Date().toLocaleDateString()}`;
     const playlistDescription = 'Generated from your top albums, weighted by popularity.';
 
     const createPlaylistResponse = await createPlaylist(spotifyApi, userId, playlistName, playlistDescription, false);
     const playlistId = createPlaylistResponse.body.id;
     const playlistUrl = createPlaylistResponse.body.external_urls.spotify;
 
-    console.log(\`Created playlist: \${playlistName}, ID: \${playlistId}\`);
+    console.log(`Created playlist: ${playlistName}, ID: ${playlistId}`);
 
     // Add tracks to the playlist (max 100 per call, handled by addTracksToPlaylist)
     if (allSelectedTrackUris.length > 0) {
       await addTracksToPlaylist(spotifyApi, playlistId, allSelectedTrackUris);
-      console.log(\`Added \${allSelectedTrackUris.length} unique tracks to the playlist.\`);
+      console.log(`Added ${allSelectedTrackUris.length} unique tracks to the playlist.`);
     }
 
     return NextResponse.json({
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
             }, { status: error.statusCode });
         }
         return NextResponse.json({
-            message: \`Spotify API Error: \${error.body.error.message}\`,
+            message: `Spotify API Error: ${error.body.error.message}`,
             details: error.body.error
         }, { status: error.statusCode });
     }

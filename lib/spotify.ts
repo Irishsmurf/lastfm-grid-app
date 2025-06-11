@@ -33,12 +33,12 @@ async function storeUserTokens(sessionId: string, accessToken: string, refreshTo
   // Store in Redis. expiresIn is in seconds.
   // We'll use a longer Redis expiry for the record itself, as the refresh token doesn't expire.
   // The accessToken's actual expiry is tracked by 'expiresAt'.
-  await redis.set(\`spotify_token:\${sessionId}\`, JSON.stringify(tokenData), 'EX', 30 * 24 * 60 * 60); // Store for 30 days
-  console.log(\`[Spotify Service] Tokens stored for session: \${sessionId}\`);
+  await redis.set(`spotify_token:${sessionId}`, JSON.stringify(tokenData), 'EX', 30 * 24 * 60 * 60); // Store for 30 days
+  console.log(`[Spotify Service] Tokens stored for session: ${sessionId}`);
 }
 
 async function getUserTokens(sessionId: string): Promise<UserSpotifyTokens | null> {
-  const tokenDataString = await redis.get(\`spotify_token:\${sessionId}\`);
+  const tokenDataString = await redis.get(`spotify_token:${sessionId}`);
   if (tokenDataString) {
     return JSON.parse(tokenDataString) as UserSpotifyTokens;
   }
@@ -46,8 +46,8 @@ async function getUserTokens(sessionId: string): Promise<UserSpotifyTokens | nul
 }
 
 async function clearUserTokens(sessionId: string): Promise<void> {
-  await redis.del(\`spotify_token:\${sessionId}\`);
-  console.log(\`[Spotify Service] Tokens cleared for session: \${sessionId}\`);
+  await redis.del(`spotify_token:${sessionId}`);
+  console.log(`[Spotify Service] Tokens cleared for session: ${sessionId}`);
 }
 
 // --- Spotify API Client Initialization ---
@@ -62,13 +62,13 @@ export async function getUserAuthorizedSpotifyApi(sessionId: string): Promise<Sp
   let tokens = await getUserTokens(sessionId);
 
   if (!tokens) {
-    console.log(\`[Spotify Service] No tokens found for session: \${sessionId}\`);
+    console.log(`[Spotify Service] No tokens found for session: ${sessionId}`);
     return null; // No tokens, user needs to authorize
   }
 
   const now = Date.now();
   if (now >= tokens.expiresAt) {
-    console.log(\`[Spotify Service] Access token for session \${sessionId} expired. Refreshing...\`);
+    console.log(`[Spotify Service] Access token for session ${sessionId} expired. Refreshing...`);
     spotifyApi.setAccessToken(tokens.accessToken); // Set old access token
     spotifyApi.setRefreshToken(tokens.refreshToken);
     try {
@@ -90,9 +90,9 @@ export async function getUserAuthorizedSpotifyApi(sessionId: string): Promise<Sp
           console.error("[Spotify Service] Failed to reload tokens after refresh.");
           return null;
       }
-      console.log(\`[Spotify Service] Access token for session \${sessionId} refreshed successfully.\`);
+      console.log(`[Spotify Service] Access token for session ${sessionId} refreshed successfully.`);
     } catch (error) {
-      console.error(\`[Spotify Service] Error refreshing access token for session \${sessionId}:\`, error);
+      console.error(`[Spotify Service] Error refreshing access token for session ${sessionId}:`, error);
       // If refresh fails (e.g., refresh token revoked), clear tokens and require re-authorization
       await clearUserTokens(sessionId);
       return null;
@@ -132,10 +132,10 @@ export async function exchangeCodeForTokens(code: string, sessionId: string): Pr
     const data = await exchangeInstance.authorizationCodeGrant(code);
     const { access_token, refresh_token, expires_in } = data.body;
     await storeUserTokens(sessionId, access_token, refresh_token, expires_in);
-    console.log(\`[Spotify Service] Code exchanged for tokens for session: \${sessionId}\`);
+    console.log(`[Spotify Service] Code exchanged for tokens for session: ${sessionId}`);
     return true;
   } catch (error) {
-    console.error(\`[Spotify Service] Error exchanging code for tokens for session \${sessionId}:\`, error);
+    console.error(`[Spotify Service] Error exchanging code for tokens for session ${sessionId}:`, error);
     return false;
   }
 }
@@ -151,7 +151,7 @@ export async function exchangeCodeForTokens(code: string, sessionId: string): Pr
  */
 export async function searchAlbums(apiInstance: SpotifyWebApi, albumName: string, artistName: string, limit: number = 1) {
     // This uses the passed apiInstance, which should be authorized
-    const query = \`album:\${albumName} artist:\${artistName}\`;
+    const query = `album:${albumName} artist:${artistName}`;
     return apiInstance.searchAlbums(query, { limit });
 }
 
@@ -237,6 +237,6 @@ export async function getAppAuthorizedSpotifyApi(): Promise<SpotifyWebApi> {
  */
 export async function searchPublicAlbums(albumName: string, artistName: string, limit: number = 1) {
     const publicApi = await getAppAuthorizedSpotifyApi();
-    const query = \`album:\${albumName} artist:\${artistName}\`;
+    const query = `album:${albumName} artist:${artistName}`;
     return publicApi.searchAlbums(query, { limit });
 }

@@ -70,7 +70,7 @@ export default function Home() {
       setPlaylistMessage('Successfully connected to Spotify! Checking for pending playlist task...');
       window.history.replaceState({}, document.title, window.location.pathname); // Clear query params
     } else if (spotifyAuthError) {
-      setPlaylistMessage(\`Spotify connection failed: \${spotifyAuthErrorReason || spotifyAuthError}. Please try again.\`);
+      setPlaylistMessage(`Spotify connection failed: ${spotifyAuthErrorReason || spotifyAuthError}. Please try again.`);
       window.history.replaceState({}, document.title, window.location.pathname); // Clear query params
     }
   }, []); // Runs once on mount
@@ -90,7 +90,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        \`/api/albums?username=\${encodeURIComponent(username)}&period=\${timeRange}\`
+        `/api/albums?username=${encodeURIComponent(username)}&period=${timeRange}`
       );
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -157,7 +157,7 @@ export default function Home() {
       const fetchSpotifyLink = async () => {
         try {
           const response = await fetch(
-            \`/api/spotify-link?albumName=\${encodeURIComponent(album.name)}&artistName=\${encodeURIComponent(album.artist.name)}\`
+            `/api/spotify-link?albumName=${encodeURIComponent(album.name)}&artistName=${encodeURIComponent(album.artist.name)}`
           );
           if (response.ok) {
             const data = await response.json();
@@ -166,11 +166,11 @@ export default function Home() {
               [albumKey]: data.spotifyUrl || null,
             }));
           } else {
-            console.error(\`Failed to fetch Spotify link for \${album.name}: \${response.status}\`);
+            console.error(`Failed to fetch Spotify link for ${album.name}: ${response.status}`);
             setSpotifyLinks(prevLinks => ({ ...prevLinks, [albumKey]: null }));
           }
         } catch (err) {
-          console.error(\`Error fetching Spotify link for \${album.name}:\`, err);
+          console.error(`Error fetching Spotify link for ${album.name}:`, err);
           setSpotifyLinks(prevLinks => ({ ...prevLinks, [albumKey]: null }));
         }
       };
@@ -207,11 +207,11 @@ export default function Home() {
         img.crossOrigin = "anonymous";
         img.onload = () => resolve(img);
         img.onerror = () => {
-          console.warn(\`Failed to load image: \${url}. Using placeholder.\`);
+          console.warn(`Failed to load image: ${url}. Using placeholder.`);
           const fallbackImg = document.createElement('img');
           fallbackImg.src = '/placeholder_album.png';
           fallbackImg.onload = () => resolve(fallbackImg);
-          fallbackImg.onerror = () => reject(new Error(\`Failed to load primary image and placeholder for \${url}\`));
+          fallbackImg.onerror = () => reject(new Error(`Failed to load primary image and placeholder for ${url}`));
         };
         img.src = url;
       });
@@ -243,10 +243,10 @@ export default function Home() {
       ctx.fillStyle = isDarkTheme ? '#FFFFFF' : '#000000';
       ctx.font = '16px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(\`\${username}'s Top Albums - \${timeRanges[timeRange as keyof typeof timeRanges]}\`, canvas.width / 2, canvas.height - 10);
+      ctx.fillText(`${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`, canvas.width / 2, canvas.height - 10);
 
       const link = document.createElement('a');
-      link.download = \`\${username}-\${timeRange}-albums.jpg\`;
+      link.download = `${username}-${timeRange}-albums.jpg`;
       link.href = canvas.toDataURL('image/jpeg', 0.9);
       link.click();
       setError('');
@@ -285,7 +285,7 @@ export default function Home() {
       } else if (response.ok) {
         setPlaylistUrl(data.playlistUrl);
         const trackCount = data.details?.reduce((sum: number, ad: any) => sum + (ad.selectedTrackUris?.length || 0), 0) || 0;
-        setPlaylistMessage(\`Playlist created! \${trackCount} unique tracks added.\`);
+        setPlaylistMessage(`Playlist created! ${trackCount} unique tracks added.`);
         sessionStorage.removeItem('pendingAlbumsForPlaylist');
       } else {
         setPlaylistMessage(data.message || 'Failed to create playlist. Spotify API might be busy or an unknown error occurred.');
@@ -368,7 +368,7 @@ export default function Home() {
         {playlistMessage && (
           <Card className="mb-6 shadow-md">
             <CardContent className="pt-6">
-              <div className={\`text-sm p-3 rounded-md flex items-start gap-3 \${playlistUrl ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300' : (playlistMessage.toLowerCase().includes('failed') || playlistMessage.toLowerCase().includes('error')) ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}\`}>
+              <div className={`text-sm p-3 rounded-md flex items-start gap-3 ${playlistUrl ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300' : (playlistMessage.toLowerCase().includes('failed') || playlistMessage.toLowerCase().includes('error')) ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}`}>
                 {playlistUrl ? <CheckCircle size={20} className="flex-shrink-0"/> : (playlistMessage.toLowerCase().includes('failed') || playlistMessage.toLowerCase().includes('error')) ? <AlertTriangle size={20} className="flex-shrink-0"/> : <Music size={20} className="flex-shrink-0"/>}
                 <div>
                   {playlistMessage}
@@ -387,7 +387,7 @@ export default function Home() {
         {!loading && albums.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {albums.map((album, index) => {
-                const albumKey = album.mbid || \`\${album.artist.name}-\${album.name}-\${index}\`;
+                const albumKey = album.mbid || `${album.artist.name}-${album.name}-${index}`;
                 const currentSpotifyUrl = spotifyLinks[album.mbid || album.name];
                 const mainImage = album.image.find(img => img.size === 'extralarge')?.['#text'] ||
                                   album.image.find(img => img.size === 'large')?.['#text'] ||
@@ -396,14 +396,14 @@ export default function Home() {
                                   '/placeholder_album.png';
 
                 return (
-                  <Card key={albumKey} className={\`shadow-lg transition-all duration-300 ease-in-out \${fadeInStates[index] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'} hover:shadow-xl\`}>
+                  <Card key={albumKey} className={`shadow-lg transition-all duration-300 ease-in-out ${fadeInStates[index] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'} hover:shadow-xl`}>
                     <CardContent className="p-0">
                       <div className="aspect-square relative group album-hover-container overflow-hidden rounded-t-md">
                         <Image
                           src={mainImage}
-                          alt={\`Album art for \${album.name} by \${album.artist.name}\`}
+                          alt={`Album art for ${album.name} by ${album.artist.name}`}
                           fill
-                          className={\`object-cover transition-transform duration-300 ease-in-out group-hover:scale-105 \${currentSpotifyUrl ? 'group-hover:opacity-75' : ''}\`}
+                          className={`object-cover transition-transform duration-300 ease-in-out group-hover:scale-105 ${currentSpotifyUrl ? 'group-hover:opacity-75' : ''}`}
                           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
                           onLoad={() => handleImageLoad(index)}
                           onError={(e) => { e.currentTarget.src = '/placeholder_album.png'; }}
@@ -414,7 +414,7 @@ export default function Home() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-50"
-                            aria-label={\`Play \${album.name} on Spotify\`}
+                            aria-label={`Play ${album.name} on Spotify`}
                           >
                             <Image
                               src="/spotify_icon.svg"
@@ -428,10 +428,10 @@ export default function Home() {
                       </div>
                       <div className="p-4">
                         <p className="font-semibold truncate text-lg" title={album.name}>
-                          <a href={album.mbid ? \`https://musicbrainz.org/release/\${album.mbid}\` : undefined} target="_blank" rel="noopener noreferrer" className="hover:underline">{album.name}</a>
+                          <a href={album.mbid ? `https://musicbrainz.org/release/${album.mbid}` : undefined} target="_blank" rel="noopener noreferrer" className="hover:underline">{album.name}</a>
                         </p>
                         <p className="text-sm text-muted-foreground truncate" title={album.artist.name}>
-                          <a href={album.artist.mbid ? \`https://musicbrainz.org/artist/\${album.artist.mbid}\` : undefined} target="_blank" rel="noopener noreferrer" className="hover:underline">{album.artist.name}</a>
+                          <a href={album.artist.mbid ? `https://musicbrainz.org/artist/${album.artist.mbid}` : undefined} target="_blank" rel="noopener noreferrer" className="hover:underline">{album.artist.name}</a>
                         </p>
                       </div>
                     </CardContent>
