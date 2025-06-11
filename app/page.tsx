@@ -30,6 +30,7 @@ interface Album {
   image: Array<AlbumImage>;
   mbid: string;
   playcount: number;
+  spotifyUrl?: string; // Added optional spotifyUrl
 }
 
 interface Artist {
@@ -79,7 +80,8 @@ export default function Home() {
         artist: album.artist,
         image: album.image, // Get largest image
         mbid: album.mbid,
-        playcount: album.playcount
+        playcount: album.playcount,
+        spotifyUrl: album.spotifyUrl // Make sure to pass spotifyUrl
       }));
 
       setAlbums(albumData);
@@ -229,22 +231,38 @@ export default function Home() {
               {albums.map((album, index) => (
                 <Card key={index}>
                   <CardContent className="p-4">
-                    <div className="aspect-square relative">
+                    <div className="aspect-square relative group album-hover-container">
                       <Image
                         src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
                         alt={`${album.name} by ${album.artist.name}`}
                         fill
-                        className={`object-cover ${!imageLoadingStates[index] ? 'image-fade-enter' : 'image-fade-enter-active'}`}
+                        className={`object-cover transition-opacity duration-300 ${!imageLoadingStates[index] ? 'image-fade-enter' : 'image-fade-enter-active'} ${album.spotifyUrl ? 'group-hover:opacity-70' : ''}`}
                         sizes="(max-width: 768px) 100vw, 300px"
                         onLoad={() => handleImageLoad(index)}
                       />
+                      {album.spotifyUrl && (
+                        <a
+                          href={album.spotifyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay"
+                        >
+                          <Image
+                            src="/spotify_icon.svg"
+                            alt="Play on Spotify"
+                            width={64} // Adjust size as needed
+                            height={64} // Adjust size as needed
+                            className="w-16 h-16" // Tailwind class for size
+                          />
+                        </a>
+                      )}
                     </div>
                     <div className="mt-2">
                       <p className="font-semibold truncate">
-                          <a href={`https://musicbrainz.org/release/${album.mbid}`}>{album.name}</a>
+                          <a href={`https://musicbrainz.org/release/${album.mbid}`} target="_blank" rel="noopener noreferrer">{album.name}</a>
                       </p>
                       <p className="text-sm text-muted-foreground truncate">
-                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`}>{album.artist.name}</a>
+                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`} target="_blank" rel="noopener noreferrer">{album.artist.name}</a>
                       </p>
                     </div>
                   </CardContent>
