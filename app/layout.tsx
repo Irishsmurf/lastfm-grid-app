@@ -55,7 +55,8 @@ export default function RootLayout({
           <SpeedInsights />
           <Analytics />
           <footer>
-            <a href="/privacy.html">Privacy Policy</a>
+            <a href="/about" style={{ marginRight: '10px' }}>About</a>
+            <a href="/privacy.html" style={{ marginRight: '10px' }}>Privacy Policy</a>
             <a href="https://ko-fi.com/paddez" target="_blank" rel="noopener noreferrer" style={{ marginRight: '10px' }}>Support me on Ko-fi</a>
             <div className="copyright">
               © {new Date().getFullYear()} LastFM Album Collage Generator. All Rights Reserved.
