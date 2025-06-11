@@ -17,28 +17,51 @@ jest.mock('../../../lib/redis', () => ({
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
+// Define types for Spotify API responses for better type safety in mocks
+interface SpotifyAlbumItem { // A simplified representation of a Spotify Album item
+  external_urls: { spotify: string };
+  name: string; // Plus any other fields your code might touch if results are processed
+  // Add other relevant fields if necessary
+}
+type SpotifySearchResponse = { body: { albums?: { items: SpotifyAlbumItem[] } } };
+type SpotifyClientCredentialsGrantResponse = { body: { 'access_token': string; expires_in?: number } };
+
+
 // Define a global namespace for test-specific mock controls
 declare global {
+  // eslint-disable-next-line no-var
   var __spotifyMockControls: {
-    searchAlbumsResult: any;
-    clientCredentialsGrantResult: any;
+    searchAlbumsResult: SpotifySearchResponse | Error;
+    clientCredentialsGrantResult: SpotifyClientCredentialsGrantResponse | Error;
     getAccessTokenValue: string | null;
-    // Add any other controls needed
   };
 }
 
-global.__spotifyMockControls = {
+globalThis.__spotifyMockControls = {
   searchAlbumsResult: { body: { albums: { items: [] } } }, // Default: not found
   clientCredentialsGrantResult: { body: { 'access_token': 'mock-access-token' } },
   getAccessTokenValue: 'mock-access-token',
 };
 
+// Define a type for Spotify search options if needed, or use Record<string, unknown>
+type SpotifySearchOptions = Record<string, unknown>;
+
 jest.mock('spotify-web-api-node', () => {
   return jest.fn().mockImplementation(() => ({
-    searchAlbums: jest.fn((query, options) => Promise.resolve(global.__spotifyMockControls.searchAlbumsResult)),
-    clientCredentialsGrant: jest.fn(() => Promise.resolve(global.__spotifyMockControls.clientCredentialsGrantResult)),
-    setAccessToken: jest.fn((token: string) => {}), // Typically doesn't return anything significant
-    getAccessToken: jest.fn(() => global.__spotifyMockControls.getAccessTokenValue),
+    searchAlbums: jest.fn((_query: string, _options?: SpotifySearchOptions) => { // Prefixed unused params, typed options
+      if (globalThis.__spotifyMockControls.searchAlbumsResult instanceof Error) {
+        return Promise.reject(globalThis.__spotifyMockControls.searchAlbumsResult);
+      }
+      return Promise.resolve(globalThis.__spotifyMockControls.searchAlbumsResult);
+    }),
+    clientCredentialsGrant: jest.fn(() => {
+      if (globalThis.__spotifyMockControls.clientCredentialsGrantResult instanceof Error) {
+        return Promise.reject(globalThis.__spotifyMockControls.clientCredentialsGrantResult);
+      }
+      return Promise.resolve(globalThis.__spotifyMockControls.clientCredentialsGrantResult);
+    }),
+    setAccessToken: jest.fn((_token: string) => {}), // Prefixed unused param
+    getAccessToken: jest.fn(() => globalThis.__spotifyMockControls.getAccessTokenValue),
   }));
 });
 
@@ -54,7 +77,7 @@ describe('GET /api/albums', () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
     // Reset mock controls to defaults before each test
-    global.__spotifyMockControls = {
+    globalThis.__spotifyMockControls = {
       searchAlbumsResult: { body: { albums: { items: [] } } },
       clientCredentialsGrantResult: { body: { 'access_token': 'mock-access-token' } },
       getAccessTokenValue: 'mock-access-token',

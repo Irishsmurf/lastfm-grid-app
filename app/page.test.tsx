@@ -4,14 +4,26 @@ import { render, screen, fireEvent, waitFor, act, within } from '@testing-librar
 import '@testing-library/jest-dom';
 import Home from './page';
 
+import { ImageProps } from 'next/image'; // Import for typing if possible, or define manually
+
 // Mock Next.js Image component
+interface MockImageProps extends Omit<ImageProps, 'src'> { // Omit src if it's always a string from import, or handle StaticImageData
+  src: string;
+  // Add other props if ImageProps is not directly usable or too complex for mock
+  alt: string;
+  width?: number | `${number}` | undefined;
+  height?: number | `${number}` | undefined;
+  className?: string;
+  // Unused props from original code: fill, sizes, onLoad, priority
+}
+
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: (props: any) => {
-    // eslint-disable-next-line @next/next/no-img-element
-    const { src, alt, width, height, fill, className, sizes, onLoad, priority, ...rest } = props;
-    // Simplified mock: just render an img tag with src and alt
-    // Include other common props to avoid warnings if they are passed
+  default: (props: MockImageProps) => {
+    const { src, alt, width, height, className, ...rest } = props;
+    // Removed unused: fill, sizes, onLoad, priority
+    // The eslint-disable-next-line @next/next/no-img-element was here, but the warning is for the usage below.
+    // The warning "Using `<img>` could result in slower LCP..." is fine for a mock.
     return <img src={src} alt={alt} className={className} width={width} height={height} {...rest} />;
   },
 }));
@@ -21,13 +33,15 @@ jest.mock('@/components/theme-toggle-button', () => ({
   ThemeToggleButton: () => <button aria-label="Toggle theme">Theme</button>,
 }));
 
+// Define a type for SVG icon props
+type IconProps = React.SVGProps<SVGSVGElement>;
+
 // Mock lucide-react icons (simplified to avoid requireActual for now)
 jest.mock('lucide-react', () => ({
-  Download: (props: any) => <svg data-testid="download-icon" {...props} />,
-  ChevronDown: (props: any) => <svg data-testid="chevron-down-icon" {...props} />,
-  ChevronUp: (props: any) => <svg data-testid="chevron-up-icon" {...props} />,
-  Check: (props: any) => <svg data-testid="check-icon" {...props} />,
-  // Add any other icons imported by the component under test as needed
+  Download: (props: IconProps) => <svg data-testid="download-icon" {...props} />,
+  ChevronDown: (props: IconProps) => <svg data-testid="chevron-down-icon" {...props} />,
+  ChevronUp: (props: IconProps) => <svg data-testid="chevron-up-icon" {...props} />,
+  Check: (props: IconProps) => <svg data-testid="check-icon" {...props} />,
 }));
 
 
@@ -54,15 +68,42 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 // Mock canvas methods (if generateImage function is called by any interaction)
-HTMLCanvasElement.prototype.getContext = jest.fn(() => null) as any;
+// Define a more specific type for the mock if possible
+type CanvasContextOptions = Record<string, unknown>;
+HTMLCanvasElement.prototype.getContext = jest.fn(
+    (_contextId: string, _options?: CanvasContextOptions): CanvasRenderingContext2D | null => null
+  );
 HTMLCanvasElement.prototype.toDataURL = jest.fn(() => 'data:image/jpeg;base64,mocked_image_data');
 
+// Define a more specific type for Album and Artist for the payload
+interface MockLastFmImage {
+  '#text': string;
+  size: string;
+}
+interface MockArtist {
+  name: string;
+  mbid: string;
+  url: string;
+}
+interface MockAlbum {
+  name: string;
+  artist: MockArtist;
+  image: MockLastFmImage[];
+  mbid: string;
+  playcount: number;
+  spotifyUrl: string | null;
+}
 
-const mockAlbumsPayload = [
+const mockAlbumsPayload: MockAlbum[] = [
   {
     name: 'Album with Spotify',
     artist: { name: 'Artist A', mbid: 'artist-a-mbid', url: 'http://artist.a' },
-    image: [{}, {}, {}, { '#text': 'http://example.com/image1.jpg' }],
+    image: [
+      { '#text': '', size: 'small' },
+      { '#text': '', size: 'medium' },
+      { '#text': '', size: 'large' },
+      { '#text': 'http://example.com/image1.jpg', size: 'extralarge' }
+    ],
     mbid: 'album-1-mbid',
     playcount: 100,
     spotifyUrl: 'http://spotify.com/album/1',
@@ -70,7 +111,12 @@ const mockAlbumsPayload = [
   {
     name: 'Album without Spotify',
     artist: { name: 'Artist B', mbid: 'artist-b-mbid', url: 'http://artist.b' },
-    image: [{}, {}, {}, { '#text': 'http://example.com/image2.jpg' }],
+    image: [
+      { '#text': '', size: 'small' },
+      { '#text': '', size: 'medium' },
+      { '#text': '', size: 'large' },
+      { '#text': 'http://example.com/image2.jpg', size: 'extralarge' }
+    ],
     mbid: 'album-2-mbid',
     playcount: 90,
     spotifyUrl: null,
@@ -91,7 +137,7 @@ describe('Home Page - Spotify Integration', () => {
     mockLocalStorage.setItem('username', 'testuser');
   });
 
-  const setupFetchMockSuccess = (albumsData: any[]) => {
+  const setupFetchMockSuccess = (albumsData: MockAlbum[]) => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ topalbums: { album: albumsData } }),
