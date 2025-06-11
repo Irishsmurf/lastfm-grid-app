@@ -176,14 +176,28 @@ export default function Home() {
 
   const handleImageLoad = (index: number) => {
     setImageLoadingStates(prev => ({ ...prev, [index]: true }));
-    setTimeout(() => {
-      setFadeInStates(prev => ({ ...prev, [index]: true }));
-    }, 50);
+    setFadeInStates(prev => ({ ...prev, [index]: true }));
   };
 
   useEffect(() => {
     setImageLoadingStates({});
-    setFadeInStates({});
+    if (albums.length > 0) {
+      const initialFadeInStates = albums.reduce((acc, _, index) => {
+        acc[index] = false;
+        return acc;
+      }, {} as { [key: number]: boolean });
+      setFadeInStates(initialFadeInStates);
+
+      setTimeout(() => {
+        const activeFadeInStates = albums.reduce((acc, _, index) => {
+          acc[index] = true;
+          return acc;
+        }, {} as { [key: number]: boolean });
+        setFadeInStates(activeFadeInStates);
+      }, 20);
+    } else {
+      setFadeInStates({});
+    }
   }, [albums]);
 
   // useEffect to fetch Spotify links when albums change
