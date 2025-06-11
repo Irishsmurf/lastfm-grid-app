@@ -52,6 +52,7 @@ export default function Home() {
   const [logoColorStates, setLogoColorStates] = useState<Record<string, 'light' | 'dark'>>({});
   const [isGridUpdating, setIsGridUpdating] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false); // New state for spinner
+  const [spotifyCueVisible, setSpotifyCueVisible] = useState<Record<string, boolean>>({});
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -249,6 +250,7 @@ export default function Home() {
   // useEffect to fetch Spotify links and determine logo color when albums change
   useEffect(() => {
     setLogoColorStates({}); // Clear logo color states on new album fetch or when albums are cleared
+    setSpotifyCueVisible({}); // Clear cue visibility states
     if (albums.length === 0) {
       setSpotifyLinks({}); // Clear links if no albums
       return;
@@ -259,6 +261,8 @@ export default function Home() {
     albums.forEach(album => {
       if (!album.mbid) { // Ensure we have a key for spotify link and logo color
         console.warn('Album missing mbid, cannot fetch Spotify link or analyze logo color:', album.name);
+        // Set cue visibility to false if mbid is missing
+        setSpotifyCueVisible(prev => ({ ...prev, [album.name]: false })); // Use album.name as a fallback key if mbid is missing
         return;
       }
 
@@ -274,11 +278,19 @@ export default function Home() {
               ...prevLinks,
               [album.mbid]: data.spotifyUrl || null,
             }));
+            setSpotifyCueVisible(prevCues => ({
+              ...prevCues,
+              [album.mbid]: !!data.spotifyUrl, // True if link exists, false otherwise
+            }));
           } else {
             console.error(`Failed to fetch Spotify link for ${album.name}: ${response.status}`);
             setSpotifyLinks(prevLinks => ({
               ...prevLinks,
               [album.mbid]: null,
+            }));
+            setSpotifyCueVisible(prevCues => ({
+              ...prevCues,
+              [album.mbid]: false,
             }));
           }
         } catch (err) {
@@ -286,6 +298,10 @@ export default function Home() {
           setSpotifyLinks(prevLinks => ({
             ...prevLinks,
             [album.mbid]: null,
+          }));
+          setSpotifyCueVisible(prevCues => ({
+            ...prevCues,
+            [album.mbid]: false,
           }));
         }
       };
@@ -298,6 +314,11 @@ export default function Home() {
       } else {
         // If no image, default to dark background for logo
         setLogoColorStates(prev => ({ ...prev, [album.mbid]: 'dark' }));
+        // Also ensure cue visibility is false if there's no image for logo analysis (though this is more tied to Spotify link)
+        // This part might be redundant if already handled by Spotify link logic, but ensures consistency if mbid exists but image doesn't
+        if (!spotifyCueVisible[album.mbid]) { // Check if not already set by link fetching
+            setSpotifyCueVisible(prevCues => ({ ...prevCues, [album.mbid]: false }));
+        }
       }
     });
   }, [albums]); // Dependency: albums array itself
@@ -385,6 +406,7 @@ export default function Home() {
               {albums.map((album, index) => {
                 const currentSpotifyUrl = album.mbid ? spotifyLinks[album.mbid] : null;
                 const logoBgType = album.mbid ? logoColorStates[album.mbid] : 'dark'; // Default if not found
+                const showCue = album.mbid ? spotifyCueVisible[album.mbid] : false;
                 return (
                   <Card key={album.mbid || index}> {/* Use mbid as key if available */}
                     <CardContent className="p-4">
@@ -397,6 +419,15 @@ export default function Home() {
                           sizes="(max-width: 768px) 100vw, 300px"
                           onLoad={() => handleImageLoad(index)}
                         />
+                        {showCue && (
+                          <Image
+                            src="/spotify_icon.svg"
+                            alt="Spotify Playable Cue"
+                            width={24}
+                            height={24}
+                            className="absolute top-2 right-2 w-6 h-6 opacity-75 z-10"
+                          />
+                        )}
                         {currentSpotifyUrl && (
                           <a
                             href={currentSpotifyUrl}
