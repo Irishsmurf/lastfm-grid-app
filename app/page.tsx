@@ -50,6 +50,8 @@ export default function Home() {
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>({});
   const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
   const [logoColorStates, setLogoColorStates] = useState<Record<string, 'light' | 'dark'>>({});
+  const [isGridUpdating, setIsGridUpdating] = useState(false);
+  const [showSpinner, setShowSpinner] = useState(false); // New state for spinner
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function Home() {
     }
 
     setLoading(true);
+    setIsGridUpdating(true); // Set isGridUpdating to true
     setError('');
 
     try {
@@ -89,11 +92,13 @@ export default function Home() {
       setAlbums(albumData);
       // Save username to localStorage after successful fetch
       localStorage.setItem('username', username);
+      setIsGridUpdating(false); // Set isGridUpdating to false
     } catch (err) {
       console.error('An error occurred: ', err);
       setError('Error fetching albums. Please check the username and try again.');
     } finally {
       setLoading(false);
+  setIsGridUpdating(false); // Ensure isGridUpdating is reset
     }
   };
 
@@ -297,6 +302,20 @@ export default function Home() {
     });
   }, [albums]); // Dependency: albums array itself
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isGridUpdating) {
+      // When grid starts updating, set a timer to show spinner after fade-out
+      timer = setTimeout(() => {
+        setShowSpinner(true);
+      }, 500); // Corresponds to fade-out duration
+    } else {
+      // When grid is not updating (or update finished), hide spinner immediately
+      setShowSpinner(false);
+    }
+    return () => clearTimeout(timer); // Cleanup timer
+  }, [isGridUpdating]);
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
@@ -335,7 +354,26 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {albums.length > 0 && (
+        {showSpinner && (
+          <div data-testid="loading-spinner" style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 10, // Ensure it's above other content
+          }}>
+            <div style={{
+              border: '4px solid rgba(0, 0, 0, 0.1)',
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              borderLeftColor: 'var(--foreground)', // Use theme color
+              animation: 'spin 1s ease infinite',
+            }}></div>
+          </div>
+        )}
+
+        {albums.length > 0 && !showSpinner && ( // Also hide grid if spinner is shown
           <>
             <div className="flex justify-end mb-4">
               <Button onClick={generateImage} className="gap-2">
@@ -343,7 +381,7 @@ export default function Home() {
                 Download Grid
               </Button>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div data-testid="album-grid-container" className={`grid grid-cols-3 gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}>
               {albums.map((album, index) => {
                 const currentSpotifyUrl = album.mbid ? spotifyLinks[album.mbid] : null;
                 const logoBgType = album.mbid ? logoColorStates[album.mbid] : 'dark'; // Default if not found
