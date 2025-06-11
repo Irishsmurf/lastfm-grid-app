@@ -72,34 +72,18 @@ body {
 }
 
 footer {
-  text-align: center;
-  padding: 20px;
-  background-color: #f0f0f0; /* Light grey background */
-  margin-top: 30px;
-  border-top: 1px solid #e0e0e0; /* Subtle top border */
+  @apply text-center p-5 mt-[30px] border-t; /* p-5 is equivalent to 20px padding if 1 unit = 4px */
+  @apply bg-gray-100 text-gray-700 border-gray-300; /* Light mode styles */
+  @apply dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700; /* Dark mode styles */
 }
 
 footer a {
-  font-family: 'Arial', sans-serif; /* Using Arial as a common, clean font */
-  font-size: 0.9rem;
-  color: #337ab7; /* A standard link blue */
-  text-decoration: none;
+  @apply font-['Arial',_sans-serif] text-sm text-blue-600 no-underline; /* text-sm is approx 0.9rem, standard link blue */
+  @apply dark:text-blue-400; /* Lighter blue for dark mode */
 }
 
 footer a:hover {
-  text-decoration: underline;
-}
-
-/* Basic dark mode considerations for the footer */
-@media (prefers-color-scheme: dark) {
-  footer {
-    background-color: #222; /* Darker background for dark mode */
-    border-top: 1px solid #444;
-  }
-
-  footer a {
-    color: #77b5fe; /* Lighter blue for dark mode */
-  }
+  @apply underline;
 }
 
 .image-fade-enter {
