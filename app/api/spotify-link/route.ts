@@ -22,8 +22,8 @@ async function refreshSpotifyToken() {
     tokenExpiryTime = Date.now() + data.body['expires_in'] * 1000 - 5 * 60 * 1000;
     spotifyApi.setAccessToken(accessToken);
     // console.log('Spotify access token refreshed successfully.'); // Debug
-  } catch (error) {
-    // console.error('Error refreshing Spotify access token:', error); // Debug
+  } catch (_error) { // Prefixed unused error variable
+    // console.error('Error refreshing Spotify access token:', _error); // Debug
     accessToken = null; // Clear token on error
     tokenExpiryTime = 0;
     // Use a very specific error message for this re-throw
@@ -67,26 +67,41 @@ export async function GET(req: NextRequest) {
         { status: 200 } // Changed to 200 as per instruction for client simplicity
       );
     }
-  } catch (error: any) {
+  } catch (error) { // Changed from error: any
     // console.error('Error fetching Spotify link:', error); // Debug
 
     let statusCode = 500;
     let message = 'Internal Server Error while fetching Spotify link.';
+    let errorMessage = 'An unexpected error occurred.';
 
-    // Check for the specific error thrown by our token refresh logic
-    if (error instanceof Error && error.message === 'AUTH_TOKEN_REFRESH_FAILED_SPOTIFY') {
-        accessToken = null;
-        tokenExpiryTime = 0;
-        statusCode = 503;
-        message = 'Error with Spotify authentication. Please try again.';
-    } else if (error.statusCode && typeof error.statusCode === 'number') {
-        // Handle errors that might come directly from spotifyApi.searchAlbums() if they have a statusCode
-        statusCode = error.statusCode;
-        message = error.body?.error?.message || error.message || 'Spotify API error.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      // Check for the specific error thrown by our token refresh logic
+      if (error.message === 'AUTH_TOKEN_REFRESH_FAILED_SPOTIFY') {
+          accessToken = null;
+          tokenExpiryTime = 0;
+          statusCode = 503;
+          message = 'Error with Spotify authentication. Please try again.';
+      } else {
+        // Check if it's a Spotify-like error object (duck typing)
+        interface SpotifyApiError extends Error {
+          statusCode?: number;
+          body?: { error?: { message?: string } };
+        }
+        const spotifyApiError = error as SpotifyApiError;
+        if (spotifyApiError.statusCode && typeof spotifyApiError.statusCode === 'number') {
+          statusCode = spotifyApiError.statusCode;
+          message = spotifyApiError.body?.error?.message || error.message || 'Spotify API error.';
+        }
+        // If not the specific auth error and not a SpotifyApiError with statusCode, it remains a generic 500 with original error message.
+      }
+    } else {
+      // Handle non-Error type errors
+      errorMessage = String(error);
     }
 
     return NextResponse.json(
-      { message, error: error.message || String(error) },
+      { message, error: errorMessage },
       { status: statusCode }
     );
   }

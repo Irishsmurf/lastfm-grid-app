@@ -3,20 +3,19 @@
 import { GET } from './route';
 import { NextRequest } from 'next/server';
 
-// Define types for Spotify API responses for better type safety in mocks
-interface SpotifyAlbumItem {
-  external_urls: { spotify: string };
-  name: string;
-}
-type SpotifySearchResponse = { body: { albums?: { items: SpotifyAlbumItem[] } } };
-type SpotifyClientCredentialsGrantResponse = { body: { 'access_token': string; expires_in?: number } };
-type SpotifySearchOptions = Record<string, unknown>;
+// Types for Spotify API responses are defined in jest.setup.ts via declare global for __spotifyMockControls
+// Or they can be defined here if needed for local variable typing.
+// For now, remove unused local types if global ones are sufficient.
 
 // jest.setup.ts initializes global.__spotifyMockControls
 // We need to mock spotify-web-api-node here to use those controls.
+
+// Define a type for Spotify search options if needed, or use Record<string, unknown>
+type SpotifySearchOptions = Record<string, unknown>; // This might still be used by the mock function signature
+
 jest.mock('spotify-web-api-node', () => {
   return jest.fn().mockImplementation(() => ({
-    searchAlbums: jest.fn((_query: string, _options?: SpotifySearchOptions) => {
+    searchAlbums: jest.fn((_query: string, _options?: SpotifySearchOptions) => { // SpotifySearchOptions is used here
       if (globalThis.__spotifyMockControls.searchAlbumsResult instanceof Error) {
         return Promise.reject(globalThis.__spotifyMockControls.searchAlbumsResult);
       }

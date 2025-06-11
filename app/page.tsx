@@ -225,7 +225,6 @@ export default function Home() {
 
       fetchSpotifyLink();
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [albums]); // Dependency: albums array itself, not its content for this trigger
 
   return (

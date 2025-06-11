@@ -26,6 +26,13 @@ const eslintConfig = [
       // You can add other rule overrides here if needed
     },
   },
+  // Configuration specifically for test files to allow `any`
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

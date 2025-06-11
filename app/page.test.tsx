@@ -1,6 +1,6 @@
 // app/page.test.tsx
 import React from 'react'; // Still good practice to have it for tests, though react-jsx might not strictly need it.
-import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'; // Added within
+import { render, screen, fireEvent, act, within } from '@testing-library/react'; // Removed waitFor, Added within
 import '@testing-library/jest-dom';
 import Home from './page';
 
@@ -89,10 +89,13 @@ interface MockArtist {
   mbid: string;
   url: string;
 }
+// Define a type alias for the image list
+type MockLastFmImageList = MockLastFmImage[];
+
 interface MockAlbum { // Updated: spotifyUrl removed
   name: string;
   artist: MockArtist;
-  image: MockLastFmImage[];
+  image: MockLastFmImageList;
   mbid: string;
   playcount: number;
   // spotifyUrl: string | null; // Removed
@@ -101,23 +104,38 @@ interface MockAlbum { // Updated: spotifyUrl removed
 // This payload is now only for /api/albums
 const mockApiAlbumsPayload: MockAlbum[] = [
   {
-    name: 'Album 1', // Generic name for easy matching
+    name: 'Album 1',
     artist: { name: 'Artist A', mbid: 'artist-a-mbid', url: 'http://artist.a' },
-    image: [{}, {}, {}, { '#text': 'http://example.com/image1.jpg', size: 'extralarge' }] as MockLastFmImage[],
-    mbid: 'album-1-mbid', // Unique mbid for keying spotifyLinks
+    image: [
+      { '#text': '', size: 'small' },
+      { '#text': '', size: 'medium' },
+      { '#text': '', size: 'large' },
+      { '#text': 'http://example.com/image1.jpg', size: 'extralarge' },
+    ],
+    mbid: 'album-1-mbid',
     playcount: 100,
   },
   {
     name: 'Album 2',
     artist: { name: 'Artist B', mbid: 'artist-b-mbid', url: 'http://artist.b' },
-    image: [{}, {}, {}, { '#text': 'http://example.com/image2.jpg', size: 'extralarge' }] as MockLastFmImage[],
+    image: [
+      { '#text': '', size: 'small' },
+      { '#text': '', size: 'medium' },
+      { '#text': '', size: 'large' },
+      { '#text': 'http://example.com/image2.jpg', size: 'extralarge' },
+    ],
     mbid: 'album-2-mbid',
     playcount: 90,
   },
-    {
-    name: 'Album 3 Error', // For testing error case
+  {
+    name: 'Album 3 Error',
     artist: { name: 'Artist C', mbid: 'artist-c-mbid', url: 'http://artist.c' },
-    image: [{}, {}, {}, { '#text': 'http://example.com/image3.jpg', size: 'extralarge' }] as MockLastFmImage[],
+    image: [
+      { '#text': '', size: 'small' },
+      { '#text': '', size: 'medium' },
+      { '#text': '', size: 'large' },
+      { '#text': 'http://example.com/image3.jpg', size: 'extralarge' },
+    ],
     mbid: 'album-3-mbid',
     playcount: 80,
   },
@@ -133,12 +151,12 @@ describe('Home Page - Asynchronous Spotify Integration', () => {
     mockLocalStorage.setItem('username', 'testuser');
 
     // Default fetch mock implementation
-    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL): Promise<Partial<Response>> => {
       const urlString = url.toString();
       if (urlString.startsWith('/api/albums')) {
         return {
           ok: true,
-          json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }),
+          json: async () => ({ topalbums: { album: mockApiAlbumsPayload as MockAlbum[] } }), // Ensure type here
         };
       }
       if (urlString.startsWith('/api/spotify-link')) {
@@ -170,14 +188,14 @@ describe('Home Page - Asynchronous Spotify Integration', () => {
 
   it('fetches and displays Spotify link for an album, and handles not found', async () => {
     // Override fetch mock for specific spotify-link calls
-    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL): Promise<Partial<Response>> => {
       const urlString = url.toString();
       const urlParams = new URL(urlString, 'http://localhost').searchParams; // Base URL for parsing
 
       if (urlString.startsWith('/api/albums')) {
         return {
           ok: true,
-          json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }),
+          json: async () => ({ topalbums: { album: mockApiAlbumsPayload as MockAlbum[] } }), // Ensure type here
         };
       }
       if (urlString.startsWith('/api/spotify-link')) {
@@ -228,14 +246,14 @@ describe('Home Page - Asynchronous Spotify Integration', () => {
   });
 
   it('handles error when fetching a Spotify link for an album', async () => {
-    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL): Promise<Partial<Response>> => {
       const urlString = url.toString();
       const urlParams = new URL(urlString, 'http://localhost').searchParams;
 
       if (urlString.startsWith('/api/albums')) {
         return {
           ok: true,
-          json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }),
+          json: async () => ({ topalbums: { album: mockApiAlbumsPayload as MockAlbum[] } }), // Ensure type here
         };
       }
       if (urlString.startsWith('/api/spotify-link')) {
