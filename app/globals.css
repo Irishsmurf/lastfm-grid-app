@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-montserrat), sans-serif;
 }
 
 @layer base {
@@ -78,12 +82,24 @@ footer {
 }
 
 footer a {
-  @apply font-['Arial',_sans-serif] text-sm text-blue-600 no-underline; /* text-sm is approx 0.9rem, standard link blue */
+  @apply text-sm text-blue-600 no-underline; /* text-sm is approx 0.9rem, standard link blue */
   @apply dark:text-blue-400; /* Lighter blue for dark mode */
+  display: inline-block; /* Ensure padding and border apply correctly */
+  padding: 8px 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  transition: background-color 0.2s ease-in-out; /* Smooth transition for hover */
 }
 
 footer a:hover {
-  @apply underline;
+  @apply dark:text-blue-300; /* Slightly lighten text on hover for dark mode if needed */
+  background-color: hsl(var(--accent));
+  text-decoration: none; /* Ensure no underline on hover */
+}
+
+footer .copyright {
+  @apply text-xs mt-2; /* text-xs is 0.75rem, mt-2 is margin-top: 0.5rem */
+  /* Color will be inherited from footer's text-gray-700 dark:text-gray-200 */
 }
 
 .image-fade-enter {
