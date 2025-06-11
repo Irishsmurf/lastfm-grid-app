@@ -6,9 +6,20 @@ import Image from 'next/image';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea"; // Assuming Textarea is available like Input
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download } from 'lucide-react';
+import { Download, Share2, Copy } from 'lucide-react'; // Added Share2 icon, Copy icon
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+// Attempt to import Dialog components from shadcn/ui
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose, // For a dedicated close button
+} from "@/components/ui/dialog";
 
 const timeRanges = {
   '7day': "Last Week",
@@ -50,6 +61,15 @@ export default function Home() {
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>({});
   const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
 
+  // State for Share Modal
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareTitle, setShareTitle] = useState('');
+  const [shareDescription, setShareDescription] = useState('');
+  const [shareError, setShareError] = useState(''); // For errors during sharing process
+  const [shareSuccessMessage, setShareSuccessMessage] = useState(''); // To show share link
+  const [isSharing, setIsSharing] = useState(false); // New state for sharing loading
+  const [generatedShareLink, setGeneratedShareLink] = useState(''); // New state for the generated link
+
   // Load username from localStorage on component mount
   useEffect(() => {
     const storedUsername = localStorage.getItem('username');
@@ -66,6 +86,10 @@ export default function Home() {
 
     setLoading(true);
     setError('');
+    // Clear previous albums and Spotify links handled by their respective useEffects or setters if needed
+    // For share specific messages:
+    setShareSuccessMessage(''); // Clear previous success message
+    setShareError(''); // Clear previous share error
 
     try {
       const response = await fetch(
@@ -246,6 +270,69 @@ export default function Home() {
     });
   }, [albums]); // Dependency: albums array itself, not its content for this trigger
 
+  // Handler for initiating the share process
+  const handleConfirmShare = async () => {
+    if (!shareTitle.trim()) {
+      setShareError("Title is required.");
+      return;
+    }
+
+    setIsSharing(true);
+    setShareError('');
+    setShareSuccessMessage('');
+    setGeneratedShareLink('');
+
+    try {
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          timeRange,
+          title: shareTitle,
+          description: shareDescription,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to share collection.');
+      }
+
+      const collectionId = result.sharedCollectionId;
+      const shareLink = `${window.location.origin}/share/${collectionId}`;
+
+      setShareSuccessMessage("Collection shared successfully!");
+      setGeneratedShareLink(shareLink);
+
+      // Don't clear title/desc here, let user see them with the success message
+      // They will be cleared if the modal is closed and reopened, or on new data fetch.
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      setShareError(errorMessage);
+      console.error('Sharing error:', err);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  // Function to copy text to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      // Optionally, provide feedback that copy was successful
+      // For example, change "Copy Link" button text to "Copied!" for a short duration
+      alert("Link copied to clipboard!");
+    }).catch(err => {
+      console.error('Failed to copy link: ', err);
+      setShareError("Failed to copy link to clipboard. You may need to allow clipboard access in your browser settings.");
+    });
+  };
+
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
@@ -286,8 +373,19 @@ export default function Home() {
 
         {albums.length > 0 && (
           <>
-            <div className="flex justify-end mb-4">
-              <Button onClick={generateImage} className="gap-2">
+            <div className="flex justify-end mb-4 gap-2"> {/* Added gap-2 for button spacing */}
+              <Button onClick={() => {
+                // Reset messages when opening modal, in case it was closed with success/error showing
+                setShareError('');
+                setShareSuccessMessage('');
+                setGeneratedShareLink('');
+                // Keep title and description as they might be what user wants to share
+                setShowShareModal(true);
+              }} className="gap-2" variant="outline" disabled={isSharing}>
+                <Share2 size={16} />
+                Share Collection
+              </Button>
+              <Button onClick={generateImage} className="gap-2" disabled={isSharing}>
                 <Download size={16} />
                 Download Grid
               </Button>
@@ -341,6 +439,112 @@ export default function Home() {
         )}
       </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* Share Modal using Dialog components */}
+      <Dialog open={showShareModal} onOpenChange={(isOpen) => {
+        if (isSharing) return; // Prevent closing if sharing is in progress
+        setShowShareModal(isOpen);
+        if (!isOpen) { // When modal is closed by user (X, ESC, or Cancel/Close button)
+          setShareError('');
+          setShareSuccessMessage('');
+          setGeneratedShareLink('');
+          // Optionally reset title and description, or keep them for next time
+          // setShareTitle('');
+          // setShareDescription('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Share Your Collection</DialogTitle>
+            {!shareSuccessMessage && ( // Only show description if not in success state
+              <DialogDescription>
+                Enter a title and an optional description for your shared collection.
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {!shareSuccessMessage ? (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="share-title" className="text-right">Title</label>
+                  <Input
+                    id="share-title"
+                    value={shareTitle}
+                    onChange={(e) => setShareTitle(e.target.value)}
+                    className="col-span-3"
+                    placeholder="My Awesome Mix"
+                    disabled={isSharing}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="share-description" className="text-right">Description</label>
+                  <Textarea
+                    id="share-description"
+                    value={shareDescription}
+                    onChange={(e) => setShareDescription(e.target.value)}
+                    className="col-span-3"
+                    placeholder="A few words about this collection..."
+                    disabled={isSharing}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="col-span-4 text-center space-y-3">
+                <p className="text-green-500 dark:text-green-400 font-medium">{shareSuccessMessage}</p>
+                <div className="p-2 bg-muted rounded">
+                  <a
+                    href={generatedShareLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono block break-all text-sm text-primary hover:underline"
+                  >
+                    {generatedShareLink}
+                  </a>
+                </div>
+                <Button
+                  onClick={() => copyToClipboard(generatedShareLink)}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 mx-auto" // Centered button
+                  disabled={!generatedShareLink || isSharing} // isSharing should be false here if success
+                >
+                  <Copy size={14} /> Copy Link
+                </Button>
+              </div>
+            )}
+            {shareError && <p className="text-red-500 dark:text-red-400 col-span-4 text-center pt-2">{shareError}</p>}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSharing}
+                onClick={() => { // Ensure states are reset if user clicks Cancel/Close
+                  if (showShareModal) {
+                     setShareTitle(''); // Resetting title/desc on explicit close/cancel
+                     setShareDescription('');
+                     setShareError('');
+                     setShareSuccessMessage('');
+                     setGeneratedShareLink('');
+                  }
+                }}
+              >
+                {shareSuccessMessage ? "Close" : "Cancel"}
+              </Button>
+            </DialogClose>
+            {!shareSuccessMessage && ( // Only show "Confirm Share" if no success message
+              <Button
+                type="button"
+                onClick={handleConfirmShare}
+                disabled={isSharing || !shareTitle.trim()}
+              >
+                {isSharing ? 'Sharing...' : 'Confirm Share'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
