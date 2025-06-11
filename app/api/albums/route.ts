@@ -2,6 +2,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { redis } from "../../../lib/redis";
+import { db } from "../../../lib/firebase"; // Adjust path if necessary
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -35,6 +39,28 @@ export async function GET(req: NextRequest) {
 
     // Cache the response for 1 hour
     await redis.setex(cacheKey, 3600, JSON.stringify(data));
+
+    // Log to Firestore
+    if (data.topalbums && data.topalbums.album) {
+      const albums = data.topalbums.album;
+      const usernameToLog = username || "unknown"; // Handle case where username might be null
+
+      for (const album of albums) {
+        try {
+          await addDoc(collection(db, "activityLogs"), {
+            username: usernameToLog,
+            albumName: album.name,
+            artistName: album.artist.name,
+            timestamp: serverTimestamp(),
+          });
+          console.log(`Logged to Firestore: ${usernameToLog}, ${album.name}, ${album.artist.name}`);
+        } catch (logError) {
+          console.error("Error logging to Firestore:", logError);
+          // Optionally, decide if this should prevent the main response
+          // For now, we'll just log the error and continue
+        }
+      }
+    }
 
     return NextResponse.json(data, { status: 200 });
   } catch (error) {
