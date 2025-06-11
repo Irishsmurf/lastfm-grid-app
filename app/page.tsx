@@ -65,6 +65,7 @@ export default function Home() {
   }, []); // Empty dependency array ensures this runs only once on mount
 
   const fetchTopAlbums = async () => {
+    setIsJpgView(false); // Add this line
     if (!username) {
       setError('Please enter a username');
       return;
@@ -401,6 +402,7 @@ export default function Home() {
                 onClick={() => {
                   if (isJpgView) {
                     setIsJpgView(false);
+                    setJpgImageData(''); // Add this line
                   } else {
                     generateImage();
                   }
