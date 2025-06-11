@@ -56,6 +56,7 @@ export default function RootLayout({
           <Analytics />
           <footer>
             <a href="/privacy.html">Privacy Policy</a>
+            <a href="https://ko-fi.com/YOUR_KOFI_USERNAME" target="_blank" rel="noopener noreferrer" style={{ marginRight: '10px' }}>Support me on Ko-fi</a>
             <div className="copyright">
               © {new Date().getFullYear()} LastFM Album Collage Generator. All Rights Reserved.
             </div>
