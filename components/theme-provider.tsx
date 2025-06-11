@@ -23,30 +23,33 @@ export function ThemeProvider({
   storageKey?: string;
 }) {
   const [theme, setTheme] = useState<Theme>(() => {
+    let initialValue: Theme;
     if (typeof window !== 'undefined') {
-      const storedTheme = localStorage.getItem(storageKey) as Theme | null;
-      if (storedTheme) {
-        return storedTheme;
+      const storedTheme = localStorage.getItem(storageKey) as Theme | 'system' | null;
+      if (storedTheme === 'light' || storedTheme === 'dark') {
+        initialValue = storedTheme;
+      } else if (storedTheme === 'system') {
+        initialValue = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } else if (defaultTheme === 'system') {
+        initialValue = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } else {
+        initialValue = defaultTheme as Theme; // defaultTheme is 'light' or 'dark' at this point
+      }
+    } else {
+      // SSR default
+      if (defaultTheme === 'system') {
+          initialValue = 'light'; // Default for SSR if system is chosen, can be 'dark' too
+      } else {
+          initialValue = defaultTheme as Theme;
       }
     }
-    if (defaultTheme === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return defaultTheme as Theme;
+    return initialValue;
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light';
-      root.classList.add(systemTheme);
-      return;
-    }
-    root.classList.add(theme);
+    root.classList.add(theme); // 'theme' is already resolved to 'light' or 'dark'
   }, [theme]);
 
   useEffect(() => {
