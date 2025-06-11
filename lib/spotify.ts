@@ -45,7 +45,7 @@ async function getUserTokens(sessionId: string): Promise<UserSpotifyTokens | nul
   return null;
 }
 
-async function clearUserTokens(sessionId: string): Promise<void> {
+export async function clearUserTokens(sessionId: string): Promise<void> {
   await redis.del(`spotify_token:${sessionId}`);
   console.log(`[Spotify Service] Tokens cleared for session: ${sessionId}`);
 }
@@ -181,7 +181,17 @@ export async function getCurrentUserProfile(apiInstance: SpotifyWebApi) {
 }
 
 export async function createPlaylist(apiInstance: SpotifyWebApi, userId: string, name: string, description: string, isPublic: boolean = false) {
-    return apiInstance.createPlaylist(userId, name, { description, public: isPublic });
+    const optionsObject: {
+        public?: boolean | undefined;
+        collaborative?: boolean | undefined;
+        description?: string | undefined;
+    } = {};
+    if (description) optionsObject.description = description;
+    // Explicitly set public, as default for API is true, but our function default is false.
+    // We want to pass the value of isPublic.
+    optionsObject.public = isPublic;
+
+    return apiInstance.createPlaylist(userId, name, optionsObject);
 }
 
 export async function addTracksToPlaylist(apiInstance: SpotifyWebApi, playlistId: string, trackUris: string[]) {
@@ -225,6 +235,13 @@ async function refreshAppAccessToken() {
 export async function getAppAuthorizedSpotifyApi(): Promise<SpotifyWebApi> {
   if (!appAccessToken || Date.now() >= appTokenExpiryTime) {
     await refreshAppAccessToken();
+  }
+  // Ensure appAccessToken is not null before using it
+  if (!appAccessToken) {
+    // This case should ideally not be reached if refreshAppAccessToken throws on failure
+    // or ensures appAccessToken is set. Adding a safeguard.
+    console.error('[Spotify Service] App access token is null even after refresh attempt.');
+    throw new Error('Failed to obtain Spotify application access token.');
   }
   const appApiInstance = new SpotifyWebApi({ clientId: SPOTIFY_CLIENT_ID }); // Can't set client secret after instantiation
   appApiInstance.setAccessToken(appAccessToken);

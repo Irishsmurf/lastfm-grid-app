@@ -1,7 +1,7 @@
 // app/api/playlist/route.test.ts
 import { POST } from './route'; // Adjust path as necessary
 import { NextRequest } from 'next/server';
-import { Readable } from 'stream';
+// import { Readable } from 'stream'; // Removed as unused due to simplified createMockNextRequest
 
 // Mock the lib/spotify module
 jest.mock('@/lib/spotify');
@@ -21,25 +21,19 @@ import {
 
 // Helper to create a mock NextRequest
 function createMockNextRequest(body: any, method: string = 'POST'): NextRequest {
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const stream = new Readable({
-    read() {
-      this.push(JSON.stringify(body));
-      this.push(null);
-    }
-  });
-  // TODO: req.json() is not available on NextRequest in this manner for older Next versions.
-  // Modern Next.js Edge runtime request might be different.
-  // For now, assuming this simplified mock works with how req.json() is typically polyfilled or handled in tests.
-  // A more robust mock might involve using something like `node-mocks-http`.
-  // Or, if using a version of Next.js where NextRequest has a native `json` method that can be mocked:
-   const mockReq = new NextRequest(new Request('http://localhost/api/playlist', { method, headers, body: stream as any }));
+  const mockUrl = 'http://localhost/api/playlist';
+  // Create a base object that looks like a NextRequest
+  const req = {
+    url: mockUrl,
+    method: method,
+    headers: new Headers({ 'Content-Type': 'application/json' }),
+    json: jest.fn().mockResolvedValue(body),
+    // Add other properties/methods if the route uses them (e.g., searchParams, cookies)
+    cookies: { get: jest.fn() }, // Example if cookies are used
+    nextUrl: new URL(mockUrl), // Example if nextUrl is used
+  } as unknown as NextRequest; // Cast to NextRequest to satisfy typing in POST function
 
-   // If direct body mocking is problematic, mock the .json() method itself:
-   // mockReq.json = jest.fn().mockResolvedValue(body); // This is often the most reliable for unit tests.
-   // For this setup, we'll try mocking .json() directly on the instance if the stream method is problematic.
-
-  return mockReq;
+  return req;
 }
 
 
@@ -189,13 +183,25 @@ describe('POST /api/playlist', () => {
   });
 
   it('should return 500 if Spotify API call fails during playlist creation', async () => {
+    // Ensure previous API calls in the route succeed to reach getCurrentUserProfile
+    (searchAlbums as jest.Mock).mockResolvedValue({
+      body: { albums: { items: [{ id: 'album-error-case', name: 'Error Case Album' }] } }
+    });
+    (getAlbumTracks as jest.Mock).mockResolvedValue({
+      body: { items: [{ id: 'trackError1', uri: 'spotify:track:trackError1', name: 'Track Error 1' }] }
+    });
+    (getTracksDetails as jest.Mock).mockResolvedValue([
+      { id: 'trackError1', uri: 'spotify:track:trackError1', name: 'Track Error 1', popularity: 50 },
+    ]);
+
     (getCurrentUserProfile as jest.Mock).mockRejectedValue({
         body: { error: { message: 'User profile fetch failed', status: 500 } },
         statusCode: 500
     }); // Simulate a failure
 
     const req = createMockNextRequest({ albums: [{ albumName: 'Test Album', artistName: 'Test Artist' }] });
-    (req.json as jest.Mock) = jest.fn().mockResolvedValue({ albums: [{ albumName: 'Test Album', artistName: 'Test Artist' }] });
+    // req.json is mocked by createMockNextRequest's default behavior now if body is passed.
+    // (req.json as jest.Mock) = jest.fn().mockResolvedValue({ albums: [{ albumName: 'Test Album', artistName: 'Test Artist' }] });
 
 
     const response = await POST(req);

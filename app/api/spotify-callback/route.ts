@@ -33,8 +33,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(new URL('/?error=spotify_auth_failed&reason=token_exchange_error', req.nextUrl.origin));
     }
 
-  } catch (error: any) { // Should be caught by exchangeCodeForTokens, but as a fallback
+  } catch (error: unknown) { // Should be caught by exchangeCodeForTokens, but as a fallback
     console.error('Critical error during Spotify token exchange process (v2):', error);
-    return NextResponse.redirect(new URL(`/?error=spotify_auth_failed&reason=internal_error`, req.nextUrl.origin));
+    // Consider more specific error message if possible by inspecting 'error'
+    let reason = 'internal_error';
+    if (error instanceof Error && error.message) {
+      // Avoid overly long or complex messages in URL params
+      reason = encodeURIComponent(error.message.substring(0, 50)); // Example: truncate and encode
+    }
+    return NextResponse.redirect(new URL(`/?error=spotify_auth_failed&reason=${reason}`, req.nextUrl.origin));
   }
 }

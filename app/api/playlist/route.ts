@@ -11,6 +11,38 @@ import {
   addTracksToPlaylist,
   clearUserTokens // For explicit sign-out or token error handling
 } from '@/lib/spotify'; // Assuming lib is aliased to @/lib
+// Default import for the class, types are typically global via @types
+import SpotifyWebApi from 'spotify-web-api-node';
+
+// Define a type for Spotify API-like errors
+interface SpotifyApiError { // Keep this for error handling
+  body?: {
+    error?: {
+      message: string;
+      status?: number; // Sometimes status is here
+    };
+  };
+  statusCode?: number;
+  message?: string; // Fallback for general errors
+}
+
+// Helper to check if an error is a SpotifyApiError
+function isSpotifyApiError(error: unknown): error is SpotifyApiError {
+  if (typeof error !== 'object' || error === null) return false;
+  const err = error as SpotifyApiError;
+  return (
+    (typeof err.statusCode === 'number') &&
+    (typeof err.body?.error?.message === 'string')
+  );
+}
+
+// Define a general structure for successful Spotify API responses
+// This helps in type-casting results from mocked functions if full types are problematic
+interface SpotifySuccessResponse<T> {
+  body: T;
+  headers: Record<string, string>;
+  statusCode: number;
+}
 
 interface AlbumInput {
   albumName: string;
@@ -19,7 +51,7 @@ interface AlbumInput {
 
 // A simple session management placeholder - replace with your actual session logic
 // For example, using cookies or a session library
-function getSessionId(req: NextRequest): string | null {
+function getSessionId(_req: NextRequest): string | null {
   // Example: Read a session ID from a custom header or a secure cookie
   // For demonstration, let's assume it's passed as a query parameter or a known value
   // IMPORTANT: In production, use a secure method like httpOnly, secure cookies.
@@ -42,11 +74,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const albums: AlbumInput[] = body.albums;
 
-    if (!albums || !Array.isArray(albums) || albums.length === 0) {
-      return NextResponse.json({ message: 'Missing or invalid albums data. Expected an array of { albumName, artistName }.' }, { status: 400 });
+    if (!body || !body.albums || !Array.isArray(body.albums) || body.albums.length === 0) {
+      return NextResponse.json({ message: 'Missing or invalid albums data in request body. Expected an array of { albumName, artistName }.' }, { status: 400 });
     }
+    const albums: AlbumInput[] = body.albums;
 
     const spotifyApi = await getUserAuthorizedSpotifyApi(sessionId);
 
@@ -77,9 +109,12 @@ export async function POST(req: NextRequest) {
           // Fetch full track details to get popularity
           const trackIds = albumTracks.map(t => t.id).filter(id => id); // Filter out null/undefined IDs
           if (trackIds.length > 0) {
-            const detailedTracks = await getTracksDetails(spotifyApi, trackIds);
+            // Types from spotify-web-api-node are typically in the global SpotifyApi namespace
+            const detailedTracks: SpotifyApi.TrackObjectFull[] = await getTracksDetails(spotifyApi, trackIds);
             // Sort tracks by popularity (descending). Tracks without popularity are ranked lower.
-            detailedTracks.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+            detailedTracks.sort((a: SpotifyApi.TrackObjectFull, b: SpotifyApi.TrackObjectFull) =>
+              Number(b.popularity || 0) - Number(a.popularity || 0)
+            );
             albumTracks = detailedTracks; // Now using sorted, detailed tracks
           }
 
@@ -94,7 +129,10 @@ export async function POST(req: NextRequest) {
               id: spotifyAlbum.id,
               selectedTrackUris: selectedTracks,
               // Add popularity of selected tracks for more info if needed
-              selectedTracksDetails: albumTracks.slice(0, 3).map(t => ({ name: t.name, popularity: t.popularity})),
+              selectedTracksDetails: albumTracks.slice(0, 3).map(t => ({
+                name: t.name,
+                popularity: ('popularity' in t && typeof t.popularity === 'number') ? t.popularity : 0
+              })),
             });
             console.log(`Selected ${selectedTracks.length} tracks from ${spotifyAlbum.name} based on popularity.`);
           } else {
@@ -103,8 +141,14 @@ export async function POST(req: NextRequest) {
         } else {
           console.log(`Album ${albumInput.albumName} by ${albumInput.artistName} not found on Spotify.`);
         }
-      } catch (albumError: any) {
-        console.error(`Error processing album ${albumInput.albumName}:`, albumError.body ? albumError.body.error : albumError.message);
+      } catch (albumError: unknown) {
+        let errorMessage = 'Unknown error during album processing';
+        if (isSpotifyApiError(albumError) && albumError.body?.error?.message) {
+          errorMessage = albumError.body.error.message;
+        } else if (albumError instanceof Error) {
+          errorMessage = albumError.message;
+        }
+        console.error(`Error processing album ${albumInput.albumName}:`, errorMessage);
         // Optionally skip this album and continue, or bail out
       }
     }
@@ -120,7 +164,7 @@ export async function POST(req: NextRequest) {
     const playlistName = `My Awesome Mix - ${new Date().toLocaleDateString()}`;
     const playlistDescription = 'Generated from your top albums, weighted by popularity.';
 
-    const createPlaylistResponse = await createPlaylist(spotifyApi, userId, playlistName, playlistDescription, false);
+    const createPlaylistResponse = await createPlaylist(spotifyApi, userId, playlistName, playlistDescription, false) as SpotifySuccessResponse<SpotifyApi.CreatePlaylistResponse>;
     const playlistId = createPlaylistResponse.body.id;
     const playlistUrl = createPlaylistResponse.body.external_urls.spotify;
 
@@ -139,30 +183,30 @@ export async function POST(req: NextRequest) {
         details: processedAlbumsDetails
     }, { status: 201 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error during playlist creation (v2):', error);
-    // Check if it's a Spotify API error with a status code
-    if (error.body && error.body.error && error.statusCode) {
-        // If token was invalid/expired and refresh failed, getUserAuthorizedSpotifyApi would return null
-        // and we'd redirect to auth. This error is more likely other API issues.
-        // If it's 401/403 here, it might be an issue with scopes or token permissions.
-        if (error.statusCode === 401 || error.statusCode === 403) {
-            // Token might have been revoked externally or scopes are insufficient
-            // Clearing the token prompts for re-authorization on next attempt.
-            await clearUserTokens(sessionId);
-             const authorizeURL = getAuthorizationUrl(sessionId);
-             return NextResponse.json({
-                message: 'Spotify authorization error. Please re-authorize.',
-                authorizeURL: authorizeURL,
-                error: error.body.error
-            }, { status: error.statusCode });
-        }
+
+    if (isSpotifyApiError(error)) {
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        await clearUserTokens(sessionId);
+        const authorizeURL = getAuthorizationUrl(sessionId);
         return NextResponse.json({
-            message: `Spotify API Error: ${error.body.error.message}`,
-            details: error.body.error
+          message: 'Spotify authorization error. Please re-authorize.',
+          authorizeURL: authorizeURL,
+          error: error.body?.error, // error.body and error.body.error are checked by isSpotifyApiError
         }, { status: error.statusCode });
+      }
+      return NextResponse.json({
+        message: `Spotify API Error: ${error.body?.error?.message || 'Unknown Spotify error'}`,
+        details: error.body?.error,
+      }, { status: error.statusCode });
     }
+
     // Generic error
-    return NextResponse.json({ message: 'Error creating playlist.', error: String(error) }, { status: 500 });
+    let errorMessage = 'An unknown error occurred.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return NextResponse.json({ message: 'Error creating playlist.', error: errorMessage }, { status: 500 });
   }
 }

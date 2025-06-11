@@ -4,15 +4,26 @@ import { GET } from './route';
 import { NextRequest } from 'next/server';
 import SpotifyWebApi from 'spotify-web-api-node'; // Import the actual module
 
-// Mock Redis client
+// Define mock functions for Redis BEFORE jest.mock call
 const mockRedisGet = jest.fn();
 const mockRedisSet = jest.fn();
-jest.mock('@/lib/redis', () => ({
-  redis: {
-    get: mockRedisGet,
-    set: mockRedisSet,
-  },
-}));
+
+// Mock Redis client
+jest.mock('@/lib/redis', () => {
+  // Note: The actual redis export from '@/lib/redis' is an ioredis instance, not an object like { redis: { get, set } }.
+  // The mock should match the actual module structure.
+  // If the actual module is `export const redis = new Redis(...)`, then the mock should be:
+  // return { __esModule: true, redis: { get: mockRedisGet, set: mockRedisSet } };
+  // However, the original code was `import { redis } from '@/lib/redis'`, implying redis is a named export.
+  // Let's assume the original mock structure was trying to mock the methods of the `redis` named export.
+  return {
+    __esModule: true,
+    redis: {
+      get: mockRedisGet,
+      set: mockRedisSet,
+    }
+  };
+});
 
 // Types for Spotify API responses are defined in jest.setup.ts via declare global for __spotifyMockControls
 // Or they can be defined here if needed for local variable typing.

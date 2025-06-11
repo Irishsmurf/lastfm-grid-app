@@ -45,7 +45,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false); // For Last.fm album fetching
   const [error, setError] = useState(''); // For Last.fm album fetching errors
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
+  // const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({}); // Removed as unused
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>({});
   const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
 
@@ -53,6 +53,59 @@ export default function Home() {
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [playlistMessage, setPlaylistMessage] = useState(''); // For success/error/info messages related to playlist flow
+
+  // Memoize handleCreatePlaylist to stabilize its reference for useEffect
+  const handleCreatePlaylist = useCallback(async () => {
+    if (albums.length === 0) {
+      setPlaylistMessage('No albums loaded to create a playlist from.');
+      return;
+    }
+    setPlaylistLoading(true);
+    setPlaylistUrl('');
+    setPlaylistMessage('Creating your Spotify playlist...');
+
+    const albumDataForPlaylist = albums.map(album => ({
+      albumName: album.name,
+      artistName: album.artist.name,
+    }));
+
+    try {
+      const response = await fetch('/api/playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ albums: albumDataForPlaylist }),
+      });
+      const data = await response.json();
+
+      if (response.status === 401 && data.authorizeURL) {
+        sessionStorage.setItem('pendingAlbumsForPlaylist', JSON.stringify(albums));
+        setPlaylistMessage('Please authorize with Spotify to continue.');
+        window.location.href = data.authorizeURL;
+      } else if (response.ok) {
+        setPlaylistUrl(data.playlistUrl);
+        // Define a type for the elements in data.details
+        type ProcessedAlbumDetail = {
+          name: string;
+          artist: string;
+          id: string;
+          selectedTrackUris?: string[];
+          selectedTracksDetails?: Array<{ name: string; popularity: number }>;
+        };
+        const trackCount = data.details?.reduce((sum: number, ad: ProcessedAlbumDetail) => sum + (ad.selectedTrackUris?.length || 0), 0) || 0;
+        setPlaylistMessage(`Playlist created! ${trackCount} unique tracks added.`);
+        sessionStorage.removeItem('pendingAlbumsForPlaylist');
+      } else {
+        setPlaylistMessage(data.message || 'Failed to create playlist. Spotify API might be busy or an unknown error occurred.');
+        console.error('Playlist creation API error:', data);
+      }
+    } catch (err: unknown) {
+      console.error('Network or unexpected error during playlist creation:', err);
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred while creating the playlist. Check your connection and try again.';
+      setPlaylistMessage(message);
+    } finally {
+      setPlaylistLoading(false);
+    }
+  }, [albums]); // Dependencies for useCallback: albums (used directly and in albumDataForPlaylist)
 
   // Effect to load username from localStorage and handle Spotify OAuth redirect parameters
   useEffect(() => {
@@ -109,20 +162,21 @@ export default function Home() {
       }));
       setAlbums(albumData);
       localStorage.setItem('username', username);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('An error occurred while fetching albums: ', err);
-      setError(err.message || 'Error fetching albums. Please check the username and try again.');
+      const message = err instanceof Error ? err.message : 'Error fetching albums. Please check the username and try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleImageLoad = (index: number) => {
-    setImageLoadingStates(prev => ({ ...prev, [index]: true }));
-  };
+  // const handleImageLoad = (index: number) => { // Removed as unused
+  //   setImageLoadingStates(prev => ({ ...prev, [index]: true }));
+  // };
 
   useEffect(() => {
-    setImageLoadingStates({});
+    // setImageLoadingStates({}); // Removed as unused
     if (albums.length > 0) {
       const initialFadeInStates = albums.reduce((acc, _, index) => {
         acc[index] = false;
@@ -256,49 +310,7 @@ export default function Home() {
     }
   };
 
-  const handleCreatePlaylist = async () => {
-    if (albums.length === 0) {
-      setPlaylistMessage('No albums loaded to create a playlist from.');
-      return;
-    }
-    setPlaylistLoading(true);
-    setPlaylistUrl('');
-    setPlaylistMessage('Creating your Spotify playlist...');
-
-    const albumDataForPlaylist = albums.map(album => ({
-      albumName: album.name,
-      artistName: album.artist.name,
-    }));
-
-    try {
-      const response = await fetch('/api/playlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ albums: albumDataForPlaylist }),
-      });
-      const data = await response.json();
-
-      if (response.status === 401 && data.authorizeURL) {
-        sessionStorage.setItem('pendingAlbumsForPlaylist', JSON.stringify(albums));
-        setPlaylistMessage('Please authorize with Spotify to continue.');
-        window.location.href = data.authorizeURL;
-      } else if (response.ok) {
-        setPlaylistUrl(data.playlistUrl);
-        const trackCount = data.details?.reduce((sum: number, ad: any) => sum + (ad.selectedTrackUris?.length || 0), 0) || 0;
-        setPlaylistMessage(`Playlist created! ${trackCount} unique tracks added.`);
-        sessionStorage.removeItem('pendingAlbumsForPlaylist');
-      } else {
-        setPlaylistMessage(data.message || 'Failed to create playlist. Spotify API might be busy or an unknown error occurred.');
-        console.error('Playlist creation API error:', data);
-      }
-    } catch (err: any) {
-      console.error('Network or unexpected error during playlist creation:', err);
-      setPlaylistMessage('An unexpected error occurred while creating the playlist. Check your connection and try again.');
-    } finally {
-      setPlaylistLoading(false);
-    }
-  };
-
+  // useEffect for handling automatic playlist creation after Spotify auth
   useEffect(() => {
     const pendingAlbumsJson = sessionStorage.getItem('pendingAlbumsForPlaylist');
     if (pendingAlbumsJson && albums.length > 0 && !loading) {
@@ -308,7 +320,7 @@ export default function Home() {
     } else if (pendingAlbumsJson && albums.length === 0 && !loading) {
         setPlaylistMessage("Spotify connected! Please generate your album grid again, then click 'Create Spotify Playlist'.");
     }
-  }, [albums, loading]);
+  }, [albums, loading, handleCreatePlaylist]);
 
   return (
     <div className="min-h-screen bg-background py-12 px-4">
@@ -405,7 +417,7 @@ export default function Home() {
                           fill
                           className={`object-cover transition-transform duration-300 ease-in-out group-hover:scale-105 ${currentSpotifyUrl ? 'group-hover:opacity-75' : ''}`}
                           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-                          onLoad={() => handleImageLoad(index)}
+                          // onLoad={() => handleImageLoad(index)} // Removed as unused
                           onError={(e) => { e.currentTarget.src = '/placeholder_album.png'; }}
                         />
                         {currentSpotifyUrl && (

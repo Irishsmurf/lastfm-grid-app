@@ -5,8 +5,10 @@ const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1', // Corrected: @/ refers to project root
-    '^@lib/(.*)$': '<rootDir>/lib/$1', // This specific one is fine if @lib/ is used
+    // '^@/lib/spotify$': '<rootDir>/__mocks__/lib_spotify_mock.ts', // Removed
+    '^@/(.*)$': '<rootDir>/$1',
+    '^@lib/(.*)$': '<rootDir>/lib/$1',
+    // '^lucide-react$': '<rootDir>/__mocks__/lucide-react.tsx', // Removed
   },
   transform: {
     '^.+\\.tsx?$': [
