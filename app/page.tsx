@@ -169,11 +169,9 @@ export default function Home() {
       ctx.textAlign = 'center';
       ctx.fillText(`${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`, canvas.width / 2, canvas.height - 10);
 
-      // Trigger download
-      const link = document.createElement('a');
-      link.download = `${username}-${timeRange}-albums.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.8);
-      link.click();
+      // Open image in a new tab
+      const imageURL = canvas.toDataURL('image/jpeg', 0.8);
+      window.open(imageURL, '_blank');
     } catch (error) {
       console.error('Error generating image:', error);
       setError('Error generating image. Please try again.');
