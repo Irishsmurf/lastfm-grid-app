@@ -3,14 +3,14 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase'; // Adjust path
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore'; // Added Timestamp
 
 interface LogEntry {
   id: string;
   username: string;
   albumName: string;
   artistName: string;
-  timestamp: any; // Firestore timestamp object
+  timestamp: Timestamp; // Firestore timestamp object
 }
 
 interface AggregatedData {
