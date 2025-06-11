@@ -3,6 +3,16 @@
 import { GET } from './route';
 import { NextRequest } from 'next/server';
 
+// Mock Redis client
+const mockRedisGet = jest.fn();
+const mockRedisSet = jest.fn();
+jest.mock('@/lib/redis', () => ({
+  redis: {
+    get: mockRedisGet,
+    set: mockRedisSet,
+  },
+}));
+
 // Types for Spotify API responses are defined in jest.setup.ts via declare global for __spotifyMockControls
 // Or they can be defined here if needed for local variable typing.
 // For now, remove unused local types if global ones are sufficient.
@@ -46,6 +56,8 @@ const createMockSpotifyRequest = (albumName?: string, artistName?: string) => {
 };
 
 describe('GET /api/spotify-link', () => {
+  let spotifySearchAlbumsMock: jest.Mock;
+
   beforeEach(() => {
     jest.useRealTimers(); // Use real timers by default for all tests
     // Reset mock controls to defaults
@@ -56,16 +68,31 @@ describe('GET /api/spotify-link', () => {
       getAccessTokenValue: 'mock-access-token',
     };
 
+    // Reset Redis mocks
+    mockRedisGet.mockReset();
+    mockRedisSet.mockReset();
+
     // Mock environment variables for Spotify
     process.env.SPOTIFY_CLIENT_ID = 'test-spotify-client-id';
     process.env.SPOTIFY_CLIENT_SECRET = 'test-spotify-client-secret';
+
+    // Get a reference to the mock function for spotifyApi.searchAlbums
+    // This requires spotify-web-api-node to be mocked as it is.
+    // We need to re-require or ensure the mock is fresh if using jest.resetModules elsewhere.
+    // For now, assuming standard mock lifecycle.
+    const SpotifyWebApi = require('spotify-web-api-node');
+    const spotifyApiInstance = new SpotifyWebApi();
+    spotifySearchAlbumsMock = spotifyApiInstance.searchAlbums as jest.Mock;
+    spotifySearchAlbumsMock.mockClear(); // Clear call history for spotifySearchAlbumsMock
   });
 
-  it('should return Spotify URL when album is found', async () => {
+  it('should return Spotify URL when album is found and cache it', async () => {
     const albumName = 'Test Album';
     const artistName = 'Test Artist';
     const expectedSpotifyUrl = 'http://spotify.com/album/test';
+    const cacheKey = `spotify-link:${artistName}:${albumName}`;
 
+    mockRedisGet.mockResolvedValue(null); // Cache miss
     globalThis.__spotifyMockControls.searchAlbumsResult = {
       body: {
         albums: {
@@ -80,13 +107,37 @@ describe('GET /api/spotify-link', () => {
 
     expect(response.status).toBe(200);
     expect(data.spotifyUrl).toBe(expectedSpotifyUrl);
+    expect(mockRedisGet).toHaveBeenCalledWith(cacheKey);
+    expect(spotifySearchAlbumsMock).toHaveBeenCalledTimes(1);
+    expect(mockRedisSet).toHaveBeenCalledWith(cacheKey, expectedSpotifyUrl, { ex: 86400 });
   });
 
-  it('should return null for spotifyUrl when album is not found', async () => {
+  it('should return cached Spotify URL when album is found in cache', async () => {
+    const albumName = 'Cached Album';
+    const artistName = 'Cached Artist';
+    const cachedSpotifyUrl = 'http://spotify.com/album/cached';
+    const cacheKey = `spotify-link:${artistName}:${albumName}`;
+
+    mockRedisGet.mockResolvedValue(cachedSpotifyUrl); // Cache hit
+
+    const req = createMockSpotifyRequest(albumName, artistName);
+    const response = await GET(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.spotifyUrl).toBe(cachedSpotifyUrl);
+    expect(mockRedisGet).toHaveBeenCalledWith(cacheKey);
+    expect(spotifySearchAlbumsMock).not.toHaveBeenCalled();
+    expect(mockRedisSet).not.toHaveBeenCalled();
+  });
+
+  it('should return null for spotifyUrl and cache "SPOTIFY_NOT_FOUND" when album is not found via API', async () => {
     const albumName = 'Unknown Album';
     const artistName = 'Unknown Artist';
+    const cacheKey = `spotify-link:${artistName}:${albumName}`;
 
-    globalThis.__spotifyMockControls.searchAlbumsResult = { body: { albums: { items: [] } } }; // Ensure it's empty
+    mockRedisGet.mockResolvedValue(null); // Cache miss
+    globalThis.__spotifyMockControls.searchAlbumsResult = { body: { albums: { items: [] } } };
 
     const req = createMockSpotifyRequest(albumName, artistName);
     const response = await GET(req);
@@ -95,7 +146,30 @@ describe('GET /api/spotify-link', () => {
     expect(response.status).toBe(200);
     expect(data.spotifyUrl).toBeNull();
     expect(data.message).toBe('Album not found on Spotify');
+    expect(mockRedisGet).toHaveBeenCalledWith(cacheKey);
+    expect(spotifySearchAlbumsMock).toHaveBeenCalledTimes(1);
+    expect(mockRedisSet).toHaveBeenCalledWith(cacheKey, "SPOTIFY_NOT_FOUND", { ex: 3600 });
   });
+
+  it('should return "Album not found on Spotify (cached)" when "SPOTIFY_NOT_FOUND" is cached', async () => {
+    const albumName = 'Cached Not Found Album';
+    const artistName = 'Cached Not Found Artist';
+    const cacheKey = `spotify-link:${artistName}:${albumName}`;
+
+    mockRedisGet.mockResolvedValue("SPOTIFY_NOT_FOUND"); // Cache hit for "not found"
+
+    const req = createMockSpotifyRequest(albumName, artistName);
+    const response = await GET(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.spotifyUrl).toBeNull();
+    expect(data.message).toBe('Album not found on Spotify (cached)');
+    expect(mockRedisGet).toHaveBeenCalledWith(cacheKey);
+    expect(spotifySearchAlbumsMock).not.toHaveBeenCalled();
+    expect(mockRedisSet).not.toHaveBeenCalled();
+  });
+
 
   it('should return 400 if albumName parameter is missing', async () => {
     const req = createMockSpotifyRequest(undefined, 'Test Artist');
@@ -104,6 +178,7 @@ describe('GET /api/spotify-link', () => {
 
     expect(response.status).toBe(400);
     expect(data.message).toBe('Missing required query parameters: albumName and artistName');
+    expect(mockRedisGet).not.toHaveBeenCalled(); // Should not attempt cache lookup
   });
 
   it('should return 400 if artistName parameter is missing', async () => {
@@ -113,56 +188,86 @@ describe('GET /api/spotify-link', () => {
 
     expect(response.status).toBe(400);
     expect(data.message).toBe('Missing required query parameters: albumName and artistName');
+    expect(mockRedisGet).not.toHaveBeenCalled(); // Should not attempt cache lookup
   });
 
-  it('should handle Spotify API authentication error (token grant failure)', async () => {
-    jest.resetModules(); // Reset module cache to ensure clean state for route's internal token
+  // For API error tests, we need to ensure a cache miss occurs first
+  it('should handle Spotify API authentication error (token grant failure) after cache miss', async () => {
+    const albumName = 'AuthFail Album';
+    const artistName = 'AuthFail Artist';
+    const cacheKey = `spotify-link:${artistName}:${albumName}`;
+    mockRedisGet.mockResolvedValue(null); // Cache miss
 
-    // Re-mock environment variables for this specific test context as resetModules clears them for the module
-    process.env.SPOTIFY_CLIENT_ID = 'test-spotify-client-id-for-auth-fail';
-    process.env.SPOTIFY_CLIENT_SECRET = 'test-spotify-client-secret-for-auth-fail';
+    // Temporarily store original env vars and reset them for this test
+    // This is because jest.resetModules() is tricky with module-level state like the token
+    // and the GET function itself. We want to test the *current* GET function.
+    const originalClientId = process.env.SPOTIFY_CLIENT_ID;
+    const originalClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+    process.env.SPOTIFY_CLIENT_ID = 'auth-fail-id';
+    process.env.SPOTIFY_CLIENT_SECRET = 'auth-fail-secret';
 
-    // Re-import the GET handler from the reset module
-    const { GET: GET_handler_for_test } = await import('./route');
+    // Reset the internal token state of the *already imported* GET function.
+    // This is a bit of a workaround. Ideally, the token logic would be more easily testable/resettable.
+    // For now, we make clientCredentialsGrant fail and ensure getAccessTokenValue is null.
+    // We also need to re-import route to reset its internal token variable state
+    // This is problematic because the top-level `GET` is already imported.
+    // A better approach might be to refactor token management out or make it resettable.
+    // Given the current structure, we'll assume a cache miss and then the token refresh fails.
 
-    // Set conditions for clientCredentialsGrant to fail
-    // global.__spotifyMockControls is initialized in jest.setup.ts,
-    // but we might need to ensure its state if other tests modified it and ran before this.
-    // However, beforeEach should handle resetting global.__spotifyMockControls.
     globalThis.__spotifyMockControls.clientCredentialsGrantResult = new Error('Spotify Auth Failed');
-    // Setting getAccessTokenValue to null ensures the first path of getValidAccessToken is taken
-    // if by any chance route's internal accessToken was not reset by resetModules (it should be).
-    globalThis.__spotifyMockControls.getAccessTokenValue = null;
+    globalThis.__spotifyMockControls.getAccessTokenValue = null; // Simulate expired or no token
 
-    const req = createMockSpotifyRequest('Test Album', 'Test Artist');
-    const response = await GET_handler_for_test(req); // Use the re-imported handler
+
+    // Need to use a fresh import of GET for this test if we want to test module internal state reset
+    // However, jest.resetModules() was causing issues with other mocks.
+    // Let's try to make the existing GET fail by controlling its dependencies.
+    // The key is that refreshSpotifyToken within route.ts will be called and will throw.
+
+    const req = createMockSpotifyRequest(albumName, artistName);
+    const response = await GET(req); // Use the standard GET
     const data = await response.json();
 
     expect(response.status).toBe(503);
     expect(data.message).toBe('Error with Spotify authentication. Please try again.');
     expect(data.error).toBe('AUTH_TOKEN_REFRESH_FAILED_SPOTIFY');
+    expect(mockRedisGet).toHaveBeenCalledWith(cacheKey);
+    expect(mockRedisSet).not.toHaveBeenCalled(); // Should not cache on auth error
+
+    // Restore original env vars
+    process.env.SPOTIFY_CLIENT_ID = originalClientId;
+    process.env.SPOTIFY_CLIENT_SECRET = originalClientSecret;
   });
 
-  it('should handle Spotify searchAlbums API error', async () => {
+  it('should handle Spotify searchAlbums API error after cache miss', async () => {
+    const albumName = 'ApiError Album';
+    const artistName = 'ApiError Artist';
+    const cacheKey = `spotify-link:${artistName}:${albumName}`;
+    mockRedisGet.mockResolvedValue(null); // Cache miss
+
     globalThis.__spotifyMockControls.searchAlbumsResult = new Error('Spotify API Search Error');
 
-    const req = createMockSpotifyRequest('Test Album', 'Test Artist');
+    const req = createMockSpotifyRequest(albumName, artistName);
     const response = await GET(req);
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.message).toContain('Internal Server Error');
+    expect(data.message).toContain('Internal Server Error while fetching Spotify link.');
     expect(data.error).toBe('Spotify API Search Error');
+    expect(mockRedisGet).toHaveBeenCalledWith(cacheKey);
+    expect(mockRedisSet).not.toHaveBeenCalled(); // Should not cache on API error
   });
 
-  it('should refresh token if initial getAccessToken returns null', async () => {
+  it('should refresh token if initial getAccessToken returns null, after cache miss', async () => {
     const albumName = 'Test Album Refresh';
     const artistName = 'Test Artist Refresh';
     const expectedSpotifyUrl = 'http://spotify.com/album/refresh';
+    const cacheKey = `spotify-link:${artistName}:${albumName}`;
+
+    mockRedisGet.mockResolvedValue(null); // Cache miss
 
     // Setup: First call to getAccessToken returns null, then a valid token after refresh
-    globalThis.__spotifyMockControls.getAccessTokenValue = null;
-    globalThis.__spotifyMockControls.clientCredentialsGrantResult = { body: { 'access_token': 'new-refreshed-token' }};
+    globalThis.__spotifyMockControls.getAccessTokenValue = null; // Simulate token needs refresh
+    globalThis.__spotifyMockControls.clientCredentialsGrantResult = { body: { 'access_token': 'new-refreshed-token', 'expires_in': 3600 }};
     globalThis.__spotifyMockControls.searchAlbumsResult = {
       body: {
         albums: {
@@ -170,6 +275,12 @@ describe('GET /api/spotify-link', () => {
         },
       },
     };
+    // Re-access the mock for clientCredentialsGrant to check calls if needed
+    const SpotifyWebApi = require('spotify-web-api-node');
+    const spotifyApiInstance = new SpotifyWebApi(); // Get new instance or use existing if mock persists
+    const clientCredentialsGrantMock = spotifyApiInstance.clientCredentialsGrant as jest.Mock;
+    clientCredentialsGrantMock.mockClear();
+
 
     const req = createMockSpotifyRequest(albumName, artistName);
     const response = await GET(req);
@@ -177,10 +288,8 @@ describe('GET /api/spotify-link', () => {
 
     expect(response.status).toBe(200);
     expect(data.spotifyUrl).toBe(expectedSpotifyUrl);
-    // Implicitly, clientCredentialsGrant was called.
-    // To make this test more robust, we'd ideally check if clientCredentialsGrant was called.
-    // This requires the mock setup to allow spying, which the current global one makes harder.
-    // For now, the successful outcome implies token refresh.
-    // No need to manage timers here if not specifically testing expiry
+    expect(mockRedisGet).toHaveBeenCalledWith(cacheKey);
+    expect(clientCredentialsGrantMock).toHaveBeenCalledTimes(1); // Verify token refresh occurred
+    expect(mockRedisSet).toHaveBeenCalledWith(cacheKey, expectedSpotifyUrl, { ex: 86400 }); // Should cache after successful fetch
   });
 });

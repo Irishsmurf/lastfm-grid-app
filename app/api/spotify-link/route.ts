@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import SpotifyWebApi from 'spotify-web-api-node';
+import { redis } from '@/lib/redis'; // Import the redis client
 
 // Initialize Spotify API client
 const spotifyApi = new SpotifyWebApi({
@@ -50,7 +51,22 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const cacheKey = `spotify-link:${artistName}:${albumName}`;
+
   try {
+    // Check Redis cache first
+    const cachedLink = await redis.get(cacheKey);
+    if (cachedLink) {
+      if (cachedLink === "SPOTIFY_NOT_FOUND") {
+        return NextResponse.json(
+          { spotifyUrl: null, message: 'Album not found on Spotify (cached)' },
+          { status: 200 }
+        );
+      }
+      return NextResponse.json({ spotifyUrl: cachedLink }, { status: 200 });
+    }
+
+    // If not in cache, proceed with Spotify API call
     await getValidAccessToken(); // Ensures token is valid and set
 
     // Query Spotify API
@@ -60,8 +76,12 @@ export async function GET(req: NextRequest) {
 
     if (searchResponse.body.albums && searchResponse.body.albums.items.length > 0) {
       const spotifyUrl = searchResponse.body.albums.items[0].external_urls.spotify;
+      // Cache the found link in Redis for 24 hours
+      await redis.set(cacheKey, spotifyUrl, { ex: 86400 });
       return NextResponse.json({ spotifyUrl }, { status: 200 });
     } else {
+      // Cache "SPOTIFY_NOT_FOUND" for 1 hour
+      await redis.set(cacheKey, "SPOTIFY_NOT_FOUND", { ex: 3600 });
       return NextResponse.json(
         { spotifyUrl: null, message: 'Album not found on Spotify' },
         { status: 200 } // Changed to 200 as per instruction for client simplicity
