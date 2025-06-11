@@ -17,8 +17,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://lastfm.paddez.com"),
   title: "LastFM Album Collage Generator",
   description: "Generate an image of your top albums!",
+  openGraph: {
+    type: "website",
+    siteName: "LastFM Album Collage Generator",
+    title: "LastFM Album Collage Generator",
+    description: "Generate an image of your top albums!",
+    url: "/",
+    images: [
+      {
+        url: "/globe.svg", // Path relative to the public directory
+        width: 800,
+        height: 600,
+        alt: "LastFM Album Collage Generator",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
