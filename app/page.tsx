@@ -177,12 +177,12 @@ export default function Home() {
         newWindow.document.close(); // Important for some browsers
       } else {
         // Fallback or error message if popup was blocked
-        alert('Failed to open new tab. Please disable your popup blocker and try again.');
+        //alert('Failed to open new tab. Please disable your popup blocker and try again.');
         // Optionally, revert to direct download as a fallback:
-        // const link = document.createElement('a');
-        // link.download = `${username}-${timeRange}-albums.jpg`;
-        // link.href = imageURL;
-        // link.click();
+        const link = document.createElement('a');
+        link.download = `${username}-${timeRange}-albums.jpg`;
+        link.href = imageURL;
+        link.click();
       }
     } catch (error) {
       console.error('Error generating image:', error);
