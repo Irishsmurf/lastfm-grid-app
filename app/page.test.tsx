@@ -20,10 +20,14 @@ interface MockImageProps extends Omit<ImageProps, 'src'> { // Omit src if it's a
 jest.mock('next/image', () => ({
   __esModule: true,
   default: (props: MockImageProps) => {
-    const { src, alt, width, height, className, ...rest } = props;
-    // Removed unused: fill, sizes, onLoad, priority
-    // The eslint-disable-next-line @next/next/no-img-element was here, but the warning is for the usage below.
-    // The warning "Using `<img>` could result in slower LCP..." is fine for a mock.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { src, alt, width, height, className, fill, ...rest } = props;
+    // The `fill` prop is boolean in Next/Image. If true, it implies certain styles.
+    // For a simple img mock, we don't replicate those styles, but we must avoid passing boolean `fill` to DOM.
+    // We also removed other unused Next/Image specific props like sizes, onLoad, priority from MockImageProps or from being spread.
+
+    // The warning "Using `<img>` could result in slower LCP..." is fine for this mock.
+    // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={alt} className={className} width={width} height={height} {...rest} />;
   },
 }));
@@ -72,7 +76,7 @@ global.fetch = mockFetch;
 type CanvasContextOptions = Record<string, unknown>;
 HTMLCanvasElement.prototype.getContext = jest.fn(
     (_contextId: string, _options?: CanvasContextOptions): CanvasRenderingContext2D | null => null
-  );
+  ) as any; // Use 'as any' to simplify complex overload signature for mocking
 HTMLCanvasElement.prototype.toDataURL = jest.fn(() => 'data:image/jpeg;base64,mocked_image_data');
 
 // Define a more specific type for Album and Artist for the payload
@@ -85,143 +89,188 @@ interface MockArtist {
   mbid: string;
   url: string;
 }
-interface MockAlbum {
+interface MockAlbum { // Updated: spotifyUrl removed
   name: string;
   artist: MockArtist;
   image: MockLastFmImage[];
   mbid: string;
   playcount: number;
-  spotifyUrl: string | null;
+  // spotifyUrl: string | null; // Removed
 }
 
-const mockAlbumsPayload: MockAlbum[] = [
+// This payload is now only for /api/albums
+const mockApiAlbumsPayload: MockAlbum[] = [
   {
-    name: 'Album with Spotify',
+    name: 'Album 1', // Generic name for easy matching
     artist: { name: 'Artist A', mbid: 'artist-a-mbid', url: 'http://artist.a' },
-    image: [
-      { '#text': '', size: 'small' },
-      { '#text': '', size: 'medium' },
-      { '#text': '', size: 'large' },
-      { '#text': 'http://example.com/image1.jpg', size: 'extralarge' }
-    ],
-    mbid: 'album-1-mbid',
+    image: [{}, {}, {}, { '#text': 'http://example.com/image1.jpg', size: 'extralarge' }] as MockLastFmImage[],
+    mbid: 'album-1-mbid', // Unique mbid for keying spotifyLinks
     playcount: 100,
-    spotifyUrl: 'http://spotify.com/album/1',
   },
   {
-    name: 'Album without Spotify',
+    name: 'Album 2',
     artist: { name: 'Artist B', mbid: 'artist-b-mbid', url: 'http://artist.b' },
-    image: [
-      { '#text': '', size: 'small' },
-      { '#text': '', size: 'medium' },
-      { '#text': '', size: 'large' },
-      { '#text': 'http://example.com/image2.jpg', size: 'extralarge' }
-    ],
+    image: [{}, {}, {}, { '#text': 'http://example.com/image2.jpg', size: 'extralarge' }] as MockLastFmImage[],
     mbid: 'album-2-mbid',
     playcount: 90,
-    spotifyUrl: null,
+  },
+    {
+    name: 'Album 3 Error', // For testing error case
+    artist: { name: 'Artist C', mbid: 'artist-c-mbid', url: 'http://artist.c' },
+    image: [{}, {}, {}, { '#text': 'http://example.com/image3.jpg', size: 'extralarge' }] as MockLastFmImage[],
+    mbid: 'album-3-mbid',
+    playcount: 80,
   },
 ];
 
-describe('Home Page - Spotify Integration', () => {
+describe('Home Page - Asynchronous Spotify Integration', () => {
   beforeEach(() => {
     mockFetch.mockClear();
-    // Clear all localStorage mocks and reset the store for each test
-    mockLocalStorage.clear(); // This clears the 'store' object
+    mockLocalStorage.clear();
     mockLocalStorage.getItem.mockClear();
     mockLocalStorage.setItem.mockClear();
     mockLocalStorage.removeItem.mockClear();
-
-    // Set a default username in localStorage for tests that need it
-    // No need to wrap this specific setItem in act() as it's synchronous and part of setup
     mockLocalStorage.setItem('username', 'testuser');
+
+    // Default fetch mock implementation
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        // Default: Spotify link not found for most, specific overrides below
+        return {
+          ok: true,
+          json: async () => ({ spotifyUrl: null, message: 'Not found by default mock' }),
+        };
+      }
+      // Fallback for any other fetch calls
+      return { ok: false, status: 404, json: async () => ({ message: 'Unhandled fetch call' }) };
+    });
   });
 
-  const setupFetchMockSuccess = (albumsData: MockAlbum[]) => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ topalbums: { album: albumsData } }),
-    });
-  };
+  it('initially renders albums without Spotify icons', async () => {
+    render(<Home />);
+    const usernameInput = screen.getByPlaceholderText('LastFM Username') as HTMLInputElement;
+    expect(usernameInput.value).toBe('testuser');
 
-  it('displays Spotify icon on hover and links correctly when spotifyUrl is present', async () => {
-    setupFetchMockSuccess(mockAlbumsPayload);
+    fireEvent.click(screen.getByText('Generate Grid'));
+
+    await screen.findByText('Album 1'); // Wait for albums to render
+    expect(screen.getByText('Album 2')).toBeInTheDocument();
+
+    // Check that no Spotify links are present initially
+    const spotifyLinks = screen.queryAllByRole('link', { name: 'Play on Spotify' });
+    expect(spotifyLinks.length).toBe(0);
+  });
+
+  it('fetches and displays Spotify link for an album, and handles not found', async () => {
+    // Override fetch mock for specific spotify-link calls
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      const urlParams = new URL(urlString, 'http://localhost').searchParams; // Base URL for parsing
+
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        const albumName = urlParams.get('albumName');
+        if (albumName === 'Album 1') {
+          return {
+            ok: true,
+            json: async () => ({ spotifyUrl: 'http://spotify.com/album/1-found' }),
+          };
+        }
+        if (albumName === 'Album 2') { // Explicitly not found
+          return {
+            ok: true,
+            json: async () => ({ spotifyUrl: null, message: 'Not found for Album 2' }),
+          };
+        }
+      }
+      return { ok: false, status: 404, json: async () => ({ message: 'Unhandled fetch call' }) };
+    });
 
     render(<Home />);
+    fireEvent.click(screen.getByText('Generate Grid'));
 
-    // Username input should be pre-filled from localStorage mock
-    const usernameInput = screen.getByPlaceholderText('LastFM Username') as HTMLInputElement;
-    expect(usernameInput.value).toBe('testuser'); // Verify it's pre-filled
+    // Wait for Album 1's Spotify link to appear
+    const spotifyLinkAlbum1 = await screen.findByRole('link', { name: 'Play on Spotify' });
+    expect(spotifyLinkAlbum1).toBeInTheDocument();
+    expect(spotifyLinkAlbum1).toHaveAttribute('href', 'http://spotify.com/album/1-found');
 
-    const generateButton = screen.getByText('Generate Grid');
-    // Use act for fetch and subsequent state updates
-    await act(async () => {
-        fireEvent.click(generateButton);
-    });
+    // Ensure Album 1 image has hover effect enabled
+    const album1Image = screen.getByAltText('Album 1 by Artist A');
+    expect(album1Image.className).toContain('group-hover:opacity-70');
 
-    // Wait for the first album to appear by its name
-    const album1Name = await screen.findByText('Album with Spotify');
-    expect(album1Name).toBeInTheDocument();
-
-    // Find the image associated with "Album with Spotify" to get its container
-    const albumImage = screen.getByAltText('Album with Spotify by Artist A');
-    // The hover container is the parent div with class "group" and "album-hover-container"
-    const hoverContainer = albumImage.closest('div.group.album-hover-container');
-    expect(hoverContainer).toBeInTheDocument();
-
-    if (hoverContainer) {
-      // Simulate mouse enter on the hover container
-      fireEvent.mouseEnter(hoverContainer);
-
-      // Check for Spotify icon link. It should become visible on hover.
-      // The link is identified by its aria-label or role, if specific enough, or test-id.
-      // In page.tsx, the link has alt text "Play on Spotify" via its Image child.
-      const spotifyLink = await waitFor(() => screen.getByRole('link', { name: 'Play on Spotify' }));
-      expect(spotifyLink).toBeInTheDocument();
-      expect(spotifyLink).toHaveAttribute('href', 'http://spotify.com/album/1');
-      expect(spotifyLink).toHaveAttribute('target', '_blank');
-
-      // Tailwind's group-hover:opacity-100 makes it visible.
-      // Direct opacity check is hard in JSDOM. Check for classes that imply visibility on hover.
-      expect(spotifyLink).toHaveClass('opacity-0', 'group-hover:opacity-100');
-
-      // Check for dimming effect on the main album image
-      // The class string includes 'group-hover:opacity-70' when spotifyUrl is present
-      expect(albumImage).toHaveClass('group-hover:opacity-70');
+    // For Album 2, ensure the link does NOT appear (even after Album 1's link has loaded)
+    // We need to be careful here. waitFor might timeout if it never finds it.
+    // Instead, query within Album 2's card after some time or after other elements settle.
+    const album2Image = screen.getByAltText('Album 2 by Artist B');
+    const album2Card = album2Image.closest('div.group.album-hover-container');
+    expect(album2Card).toBeInTheDocument();
+    if(album2Card) {
+        // Wait a brief moment to ensure async operations for Album 2 might have completed
+        await act(async () => {
+            await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+        });
+        const spotifyLinkAlbum2 = within(album2Card as HTMLElement).queryByRole('link', { name: 'Play on Spotify' });
+        expect(spotifyLinkAlbum2).not.toBeInTheDocument();
+        expect(album2Image.className).not.toContain('group-hover:opacity-70');
     }
   });
 
-  it('does not display Spotify icon or dim on hover when spotifyUrl is not present', async () => {
-    setupFetchMockSuccess(mockAlbumsPayload);
-    render(<Home />);
+  it('handles error when fetching a Spotify link for an album', async () => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      const urlParams = new URL(urlString, 'http://localhost').searchParams;
 
-    const usernameInput = screen.getByPlaceholderText('LastFM Username') as HTMLInputElement;
-    expect(usernameInput.value).toBe('testuser'); // Verify pre-fill
-
-    const generateButton = screen.getByText('Generate Grid');
-    await act(async () => {
-        fireEvent.click(generateButton);
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        const albumName = urlParams.get('albumName');
+        if (albumName === 'Album 3 Error') {
+          return {
+            ok: false, // Simulate server error for this specific album
+            status: 500,
+            json: async () => ({ message: 'Server error fetching Spotify link' }),
+          };
+        }
+        // Other albums might succeed or not be found
+        return { ok: true, json: async () => ({ spotifyUrl: null }) };
+      }
+      return { ok: false, status: 404, json: async () => ({ message: 'Unhandled fetch call' }) };
     });
 
-    // Wait for the second album to appear
-    const album2Name = await screen.findByText('Album without Spotify');
-    expect(album2Name).toBeInTheDocument();
+    render(<Home />);
+    fireEvent.click(screen.getByText('Generate Grid'));
 
-    const albumImage = screen.getByAltText('Album without Spotify by Artist B');
-    const hoverContainer = albumImage.closest('div.group.album-hover-container');
-    expect(hoverContainer).toBeInTheDocument();
+    // Wait for albums to render
+    await screen.findByText('Album 3 Error');
 
-    if (hoverContainer) { // Check if hoverContainer is not null
-      fireEvent.mouseEnter(hoverContainer);
+    const album3Image = screen.getByAltText('Album 3 Error by Artist C');
+    const album3Card = album3Image.closest('div.group.album-hover-container');
+    expect(album3Card).toBeInTheDocument();
 
-      // Use `within` to query inside the specific album's container
-      // Assert hoverContainer is HTMLElement for `within`
-      const spotifyLink = within(hoverContainer as HTMLElement).queryByRole('link', { name: 'Play on Spotify' });
-      expect(spotifyLink).not.toBeInTheDocument();
-
-      // Image should not have the specific hover-dimming class part
-      // The conditional class ` ${album.spotifyUrl ? 'group-hover:opacity-70' : ''}` results in an empty string.
-      expect(albumImage.className).not.toContain('group-hover:opacity-70');
+    if(album3Card) {
+        // Wait for async operations
+        await act(async () => {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        });
+        const spotifyLinkAlbum3 = within(album3Card as HTMLElement).queryByRole('link', { name: 'Play on Spotify' });
+        expect(spotifyLinkAlbum3).not.toBeInTheDocument();
+        expect(album3Image.className).not.toContain('group-hover:opacity-70');
     }
   });
 });
