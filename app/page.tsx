@@ -478,10 +478,10 @@ export default function Home() {
                           )}
                         </div>
                         <div className="mt-2">
-                        <p className="font-semibold truncate">
+<p className="font-semibold truncate" title={album.name}>
                             <a href={`https://musicbrainz.org/release/${album.mbid}`} target="_blank" rel="noopener noreferrer">{album.name}</a>
                         </p>
-                        <p className="text-sm text-muted-foreground truncate">
+<p className="text-sm text-muted-foreground truncate" title={album.artist.name}>
                             <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`} target="_blank" rel="noopener noreferrer">{album.artist.name}</a>
                         </p>
                       </div>
