@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '../../../../lib/redis'; // Adjusted path for Redis client
 
-interface GetParams {
-  params: {
-    collectionId: string;
-  };
-}
+// The GetParams interface is removed as it's no longer directly used by the function signature.
 
-export async function GET(request: NextRequest, { params }: GetParams) {
-  const { collectionId } = params;
+export async function GET(
+  request: NextRequest,
+  context: { params: { collectionId: string } }
+) {
+  const { collectionId } = context.params;
 
   if (!collectionId) {
     // This case should ideally be handled by Next.js routing if the param is missing in the path structure

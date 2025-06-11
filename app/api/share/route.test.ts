@@ -1,7 +1,7 @@
 import { POST } from './route';
 import { NextRequest } from 'next/server';
 import { redis } from '../../../lib/redis';
-import { randomUUID } from 'crypto';
+// Removed: import { randomUUID } from 'crypto'; // Was unused
 
 // Mock dependencies
 jest.mock('../../../lib/redis', () => ({
@@ -13,10 +13,16 @@ jest.mock('../../../lib/redis', () => ({
 
 // Mock crypto.randomUUID
 const mockRandomUUID = jest.fn();
-jest.mock('crypto', () => ({
-  ...jest.requireActual('crypto'), // import and retain default behavior
-  randomUUID: () => mockRandomUUID(),
-}));
+// Ensure 'crypto' module is still mocked for randomUUID if other parts of 'crypto' are used.
+// If randomUUID was the *only* thing, this specific mock could be simplified,
+// but it's safer to keep the structure if other crypto functions might be used elsewhere.
+jest.mock('crypto', () => {
+  const actualCrypto = jest.requireActual('crypto');
+  return {
+    ...actualCrypto,
+    randomUUID: () => mockRandomUUID(),
+  };
+});
 
 
 const mockFetch = jest.fn();

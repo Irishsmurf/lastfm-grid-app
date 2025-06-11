@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image'; // Import Next.js Image component
 import SpotifyLinkButton from '../../../components/spotify-link-button'; // Import the new component
 
 interface Album {
@@ -106,10 +107,12 @@ export default async function SharedCollectionPage({ params }: SharedCollectionP
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {collection.albumsData.map((album, index) => (
               <li key={album.mbid || `${album.name}-${album.artist.name}-${index}`} style={{ display: 'flex', marginBottom: '20px', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                <img
+                <Image
                   src={getImageUrl(album)}
                   alt={`Cover art for ${album.name} by ${album.artist.name}`}
-                  style={{ width: '100px', height: '100px', marginRight: '15px', objectFit: 'cover' }}
+                  width={100}
+                  height={100}
+                  style={{ marginRight: '15px', objectFit: 'cover', borderRadius: '4px' }} // Keep existing styles, ensure objectFit is compatible
                 />
                 <div style={{ flexGrow: 1 }}>
                   <h3 style={{ marginTop: 0, marginBottom: '5px' }}>{album.name}</h3>

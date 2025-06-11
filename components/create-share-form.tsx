@@ -76,7 +76,7 @@ const CreateShareForm: React.FC = () => {
     marginBottom: '10px',
     border: '1px solid #ccc',
     borderRadius: '4px',
-    boxSizing: 'border-box' as 'border-box',
+    boxSizing: 'border-box' as const,
   };
   const labelStyle = {
     display: 'block',
