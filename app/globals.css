@@ -100,4 +100,11 @@ footer a:hover {
   footer a {
     color: #77b5fe; /* Lighter blue for dark mode */
   }
+
+.image-fade-enter {
+  opacity: 0;
+}
+.image-fade-enter-active {
+  opacity: 1;
+  transition: opacity 500ms ease-in-out;
 }
