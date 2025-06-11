@@ -5,6 +5,8 @@ import { redis } from "../../../lib/redis";
 import { db } from "../../../lib/firebase"; // Adjust path if necessary
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const username = searchParams.get("username");
