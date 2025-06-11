@@ -229,12 +229,12 @@ export default function Home() {
                         onLoad={() => handleImageLoad(index)}
                       />
                     </div>
-                    <div className="mt-2">
+                    <div className="mt-2 border rounded-md p-2">
                       <p className="font-semibold truncate">
-                          <a href={`https://musicbrainz.org/release/${album.mbid}`}>{album.name}</a>
+                          <a href={`https://musicbrainz.org/release/${album.mbid}`} className="text-blue-600 dark:text-blue-400 hover:underline">{album.name}</a>
                       </p>
                       <p className="text-sm text-muted-foreground truncate">
-                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`}>{album.artist.name}</a>
+                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`} className="text-sky-600 dark:text-sky-400 hover:underline">{album.artist.name}</a>
                       </p>
                     </div>
                   </CardContent>
