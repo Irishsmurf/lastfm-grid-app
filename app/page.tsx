@@ -47,6 +47,14 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
 
+  // Load username from localStorage on component mount
+  useEffect(() => {
+    const storedUsername = localStorage.getItem('username');
+    if (storedUsername) {
+      setUsername(storedUsername);
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   const fetchTopAlbums = async () => {
     if (!username) {
       setError('Please enter a username');
@@ -75,6 +83,8 @@ export default function Home() {
       }));
 
       setAlbums(albumData);
+      // Save username to localStorage after successful fetch
+      localStorage.setItem('username', username);
     } catch (err) {
       console.error('An error occurred: ', err);
       setError('Error fetching albums. Please check the username and try again.');
