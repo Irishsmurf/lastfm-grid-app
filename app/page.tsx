@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import CreateShareForm from '../components/create-share-form'; // Import the new form component
 
 const timeRanges = {
   '7day': "Last Week",
@@ -322,6 +323,16 @@ export default function Home() {
         )}
       </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* New Section for Sharing */}
+      <div className="max-w-4xl mx-auto mt-12">
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-2xl font-semibold mb-4 text-center">Share Your Music Taste</h2>
+            <CreateShareForm />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
