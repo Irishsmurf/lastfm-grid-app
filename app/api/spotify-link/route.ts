@@ -77,11 +77,11 @@ export async function GET(req: NextRequest) {
     if (searchResponse.body.albums && searchResponse.body.albums.items.length > 0) {
       const spotifyUrl = searchResponse.body.albums.items[0].external_urls.spotify;
       // Cache the found link in Redis for 24 hours
-      await redis.set(cacheKey, spotifyUrl, { ex: 86400 });
+      await redis.set(cacheKey, spotifyUrl, 'EX', 86400);
       return NextResponse.json({ spotifyUrl }, { status: 200 });
     } else {
       // Cache "SPOTIFY_NOT_FOUND" for 1 hour
-      await redis.set(cacheKey, "SPOTIFY_NOT_FOUND", { ex: 3600 });
+      await redis.set(cacheKey, "SPOTIFY_NOT_FOUND", 'EX', 3600);
       return NextResponse.json(
         { spotifyUrl: null, message: 'Album not found on Spotify' },
         { status: 200 } // Changed to 200 as per instruction for client simplicity
