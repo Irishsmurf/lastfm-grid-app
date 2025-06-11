@@ -2,6 +2,7 @@
 
 import { GET } from './route';
 import { NextRequest } from 'next/server';
+import SpotifyWebApi from 'spotify-web-api-node'; // Import the actual module
 
 // Mock Redis client
 const mockRedisGet = jest.fn();
@@ -77,13 +78,15 @@ describe('GET /api/spotify-link', () => {
     process.env.SPOTIFY_CLIENT_SECRET = 'test-spotify-client-secret';
 
     // Get a reference to the mock function for spotifyApi.searchAlbums
-    // This requires spotify-web-api-node to be mocked as it is.
-    // We need to re-require or ensure the mock is fresh if using jest.resetModules elsewhere.
-    // For now, assuming standard mock lifecycle.
-    const SpotifyWebApi = require('spotify-web-api-node');
-    const spotifyApiInstance = new SpotifyWebApi();
+    // SpotifyWebApi is now imported, and its constructor is mocked by jest.mock at the top.
+    const spotifyApiInstance = new SpotifyWebApi(); // This instance will use the mocked methods
     spotifySearchAlbumsMock = spotifyApiInstance.searchAlbums as jest.Mock;
-    spotifySearchAlbumsMock.mockClear(); // Clear call history for spotifySearchAlbumsMock
+    spotifySearchAlbumsMock.mockClear();
+
+    // Similarly, ensure clientCredentialsGrant can be accessed and cleared if needed for other tests
+    // (though it's typically only called once per logical flow being tested)
+    const clientCredentialsGrantMock = spotifyApiInstance.clientCredentialsGrant as jest.Mock;
+    clientCredentialsGrantMock.mockClear();
   });
 
   it('should return Spotify URL when album is found and cache it', async () => {
@@ -275,12 +278,12 @@ describe('GET /api/spotify-link', () => {
         },
       },
     };
-    // Re-access the mock for clientCredentialsGrant to check calls if needed
-    const SpotifyWebApi = require('spotify-web-api-node');
-    const spotifyApiInstance = new SpotifyWebApi(); // Get new instance or use existing if mock persists
+    // Access the mock for clientCredentialsGrant via an instance from the imported & mocked SpotifyWebApi
+    const spotifyApiInstance = new SpotifyWebApi(); // Instance uses mocked methods
     const clientCredentialsGrantMock = spotifyApiInstance.clientCredentialsGrant as jest.Mock;
-    clientCredentialsGrantMock.mockClear();
-
+    // No need to clear here if it's the first call in this test logic,
+    // but if there were prior calls in the same test, clearing would be important.
+    // beforeEach already clears it for a new test.
 
     const req = createMockSpotifyRequest(albumName, artistName);
     const response = await GET(req);
