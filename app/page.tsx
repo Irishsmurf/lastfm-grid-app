@@ -46,6 +46,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [jpgImageData, setJpgImageData] = useState<string>('');
+  const [isJpgView, setIsJpgView] = useState<boolean>(false);
   const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>({});
   const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
@@ -170,21 +172,9 @@ export default function Home() {
       ctx.textAlign = 'center';
       ctx.fillText(`${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`, canvas.width / 2, canvas.height - 10);
 
-      // Open image in a new tab (revised approach)
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
-      const newWindow = window.open('', '_blank');
-      if (newWindow) {
-        newWindow.document.write('<html><head><title>Album Grid</title></head><body><img src="' + imageURL + '" style="display: block; margin: auto; max-width: 100%; max-height: 100vh;"></body></html>');
-        newWindow.document.close(); // Important for some browsers
-      } else {
-        // Fallback or error message if popup was blocked
-        //alert('Failed to open new tab. Please disable your popup blocker and try again.');
-        // Optionally, revert to direct download as a fallback:
-        const link = document.createElement('a');
-        link.download = `${username}-${timeRange}-albums.jpg`;
-        link.href = imageURL;
-        link.click();
-      }
+    setJpgImageData(imageURL);
+    setIsJpgView(true);
     } catch (error) {
       console.error('Error generating image:', error);
       setError('Error generating image. Please try again.');
@@ -407,69 +397,96 @@ export default function Home() {
         {albums.length > 0 && !showSpinner && ( // Also hide grid if spinner is shown
           <>
             <div className="flex justify-end mb-4">
-              <Button onClick={generateImage} className="gap-2">
-                <Download size={16} />
-                Download Grid
+              <Button
+                onClick={() => {
+                  if (isJpgView) {
+                    setIsJpgView(false);
+                  } else {
+                    generateImage();
+                  }
+                }}
+                className="gap-2"
+              >
+                {isJpgView ? (
+                  'Revert to Grid'
+                ) : (
+                  <>
+                    <Download size={16} />
+                    Convert to JPG
+                  </>
+                )}
               </Button>
             </div>
-            <div data-testid="album-grid-container" className={`grid grid-cols-3 gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}>
-              {albums.map((album, index) => {
-                const currentSpotifyUrl = album.mbid ? spotifyLinks[album.mbid] : null;
-                const logoBgType = album.mbid ? logoColorStates[album.mbid] : 'dark'; // Default if not found
-                const showCue = album.mbid ? spotifyCueVisible[album.mbid] : false;
-                return (
-                  <Card key={album.mbid || index}> {/* Use mbid as key if available */}
-                    <CardContent className="p-4">
-                      <div className="aspect-square relative group album-hover-container">
-                        <Image
-                          src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
-                          alt={`${album.name} by ${album.artist.name}`}
-                          fill
-                          className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
-                          sizes="(max-width: 768px) 100vw, 300px"
-                          onLoad={() => handleImageLoad(index)}
-                        />
-                        {showCue && (
-                          <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
-                            <Image
-                              src="/spotify_icon.svg"
-                              alt="Spotify Playable Cue"
-                              width={24}
-                              height={24}
-                              className="w-6 h-6 opacity-75"
-                            />
-                          </div>
-                        )}
-                        {currentSpotifyUrl && (
-                          <a
-                            href={currentSpotifyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
-                          >
-                            <Image
-                              src="/spotify_icon.svg"
-                              alt="Play on Spotify"
-                              width={64} // Adjust size as needed
-                              height={64} // Adjust size as needed
-                              className="w-16 h-16" // Tailwind class for size
-                            />
-                          </a>
-                        )}
+
+            {isJpgView && jpgImageData ? (
+              <Image
+                src={jpgImageData}
+                alt="Album Grid JPG"
+                width={900} // Intrinsic width of the generated image
+                height={900} // Intrinsic height of the generated image
+                className="w-full h-auto border rounded-lg shadow-md" // Example styling
+                priority // Consider adding priority if this image becomes LCP
+              />
+            ) : (
+              <div data-testid="album-grid-container" className={`grid grid-cols-3 gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}>
+                {albums.map((album, index) => {
+                  const currentSpotifyUrl = album.mbid ? spotifyLinks[album.mbid] : null;
+                  const logoBgType = album.mbid ? logoColorStates[album.mbid] : 'dark'; // Default if not found
+                  const showCue = album.mbid ? spotifyCueVisible[album.mbid] : false;
+                  return (
+                    <Card key={album.mbid || index}> {/* Use mbid as key if available */}
+                      <CardContent className="p-4">
+                        <div className="aspect-square relative group album-hover-container">
+                          <Image
+                            src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
+                            alt={`${album.name} by ${album.artist.name}`}
+                            fill
+                            className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
+                            sizes="(max-width: 768px) 100vw, 300px"
+                            onLoad={() => handleImageLoad(index)}
+                          />
+                          {showCue && (
+                            <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
+                              <Image
+                                src="/spotify_icon.svg"
+                                alt="Spotify Playable Cue"
+                                width={24}
+                                height={24}
+                                className="w-6 h-6 opacity-75"
+                              />
+                            </div>
+                          )}
+                          {currentSpotifyUrl && (
+                            <a
+                              href={currentSpotifyUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+                            >
+                              <Image
+                                src="/spotify_icon.svg"
+                                alt="Play on Spotify"
+                                width={64} // Adjust size as needed
+                                height={64} // Adjust size as needed
+                                className="w-16 h-16" // Tailwind class for size
+                              />
+                            </a>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                        <p className="font-semibold truncate">
+                            <a href={`https://musicbrainz.org/release/${album.mbid}`} target="_blank" rel="noopener noreferrer">{album.name}</a>
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate">
+                            <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`} target="_blank" rel="noopener noreferrer">{album.artist.name}</a>
+                        </p>
                       </div>
-                      <div className="mt-2">
-                      <p className="font-semibold truncate">
-                          <a href={`https://musicbrainz.org/release/${album.mbid}`} target="_blank" rel="noopener noreferrer">{album.name}</a>
-                      </p>
-                      <p className="text-sm text-muted-foreground truncate">
-                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`} target="_blank" rel="noopener noreferrer">{album.artist.name}</a>
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ); // Explicit semicolon
-            })}
-            </div>
+                    </CardContent>
+                  </Card>
+                ); // Explicit semicolon
+              })}
+              </div>
+            )}
           </>
         )}
       </div>
