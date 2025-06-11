@@ -420,13 +420,15 @@ export default function Home() {
                           onLoad={() => handleImageLoad(index)}
                         />
                         {showCue && (
-                          <Image
-                            src="/spotify_icon.svg"
-                            alt="Spotify Playable Cue"
-                            width={24}
-                            height={24}
-                            className="absolute top-2 right-2 w-6 h-6 opacity-75 z-10"
-                          />
+                          <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
+                            <Image
+                              src="/spotify_icon.svg"
+                              alt="Spotify Playable Cue"
+                              width={24}
+                              height={24}
+                              className="w-6 h-6 opacity-75"
+                            />
+                          </div>
                         )}
                         {currentSpotifyUrl && (
                           <a
