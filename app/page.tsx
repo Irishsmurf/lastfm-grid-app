@@ -150,7 +150,7 @@ export default function Home() {
           ctx.fillStyle = '#f0f0f0';
           ctx.fillRect(x, y, 300, 300);
           ctx.fillStyle = '#666666';
-          ctx.font = '14px Arial';
+          ctx.font = '14px Inter';
           ctx.textAlign = 'center';
           ctx.fillText('Image not available', x + 150, y + 150);
         }
@@ -160,7 +160,7 @@ export default function Home() {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
       ctx.fillStyle = '#000000';
-      ctx.font = '16px Arial';
+      ctx.font = '16px Inter';
       ctx.textAlign = 'center';
       ctx.fillText(`${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`, canvas.width / 2, canvas.height - 10);
 
