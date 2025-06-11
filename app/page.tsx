@@ -169,9 +169,21 @@ export default function Home() {
       ctx.textAlign = 'center';
       ctx.fillText(`${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`, canvas.width / 2, canvas.height - 10);
 
-      // Open image in a new tab
+      // Open image in a new tab (revised approach)
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
-      window.open(imageURL, '_blank');
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+        newWindow.document.write('<html><head><title>Album Grid</title></head><body><img src="' + imageURL + '" style="display: block; margin: auto; max-width: 100%; max-height: 100vh;"></body></html>');
+        newWindow.document.close(); // Important for some browsers
+      } else {
+        // Fallback or error message if popup was blocked
+        alert('Failed to open new tab. Please disable your popup blocker and try again.');
+        // Optionally, revert to direct download as a fallback:
+        // const link = document.createElement('a');
+        // link.download = `${username}-${timeRange}-albums.jpg`;
+        // link.href = imageURL;
+        // link.click();
+      }
     } catch (error) {
       console.error('Error generating image:', error);
       setError('Error generating image. Please try again.');
