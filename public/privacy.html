@@ -55,10 +55,16 @@
             <li><strong>Purpose:</strong> This is solely to prefill the username input field when you revisit the application, saving you from having to re-enter it each time.</li>
             <li><strong>Locally Stored:</strong> This information is stored only on your computer within your web browser's local storage.</li>
             <li><strong>No Transmission:</strong> The username stored in <code>localStorage</code> is not transmitted to our servers or any third-party services. It remains local to your browser session.</li>
+            <li><strong>Theme Preferences:</strong> To allow you to customize your viewing experience, we store your preferred theme (e.g., light or dark mode) in your browser's <code>localStorage</code>. The default storage key for this preference is 'vite-ui-theme'. This information is stored locally in your browser and is not transmitted to our servers.</li>
         </ul>
 
         <h2>Interaction with Third-Party Services</h2>
         <p>Our application interacts with Last.fm. When you use our application to access Last.fm services, any username or other information you provide for this purpose is sent directly to Last.fm's servers. We do not store this information on our servers. We encourage you to review Last.fm's privacy policy to understand how they handle your data.</p>
+
+        <h2>Spotify Album Links</h2>
+        <p>Our application can fetch links to albums on Spotify. When you request a Spotify link for an album, the application sends the album name and artist name you provide to our server. Our server then uses this information to query the Spotify API to find the relevant album link.</p>
+        <p>To improve performance and reduce the number of requests to Spotify, we cache the results of these lookups. If an album link is found, it is stored on our server for up to 24 hours. If an album is not found on Spotify, this "not found" status is cached for up to 1 hour. This cache only contains the album and artist name and the corresponding Spotify link (or not-found status); it does not include any personal user data.</p>
+        <p>The use of the Spotify API is subject to <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank" rel="noopener noreferrer">Spotify's Privacy Policy</a>. We encourage you to review their policy to understand how Spotify handles your information.</p>
 
         <h2>Data Security</h2>
         <p>We do not store any data related to your requests, such as IP addresses or usage logs.</p>
