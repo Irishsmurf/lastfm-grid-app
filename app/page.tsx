@@ -47,6 +47,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
+  const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>({});
   const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
 
   // Load username from localStorage on component mount
@@ -175,10 +176,28 @@ export default function Home() {
 
   const handleImageLoad = (index: number) => {
     setImageLoadingStates(prev => ({ ...prev, [index]: true }));
+    setFadeInStates(prev => ({ ...prev, [index]: true }));
   };
 
   useEffect(() => {
     setImageLoadingStates({});
+    if (albums.length > 0) {
+      const initialFadeInStates = albums.reduce((acc, _, index) => {
+        acc[index] = false;
+        return acc;
+      }, {} as { [key: number]: boolean });
+      setFadeInStates(initialFadeInStates);
+
+      setTimeout(() => {
+        const activeFadeInStates = albums.reduce((acc, _, index) => {
+          acc[index] = true;
+          return acc;
+        }, {} as { [key: number]: boolean });
+        setFadeInStates(activeFadeInStates);
+      }, 20);
+    } else {
+      setFadeInStates({});
+    }
   }, [albums]);
 
   // useEffect to fetch Spotify links when albums change
@@ -284,7 +303,7 @@ export default function Home() {
                           src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
                           alt={`${album.name} by ${album.artist.name}`}
                           fill
-                          className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''}`}
+                          className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
                           sizes="(max-width: 768px) 100vw, 300px"
                           onLoad={() => handleImageLoad(index)}
                         />
