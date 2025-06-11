@@ -38,6 +38,9 @@ export default function RootLayout({
           {children}
           <SpeedInsights />
           <Analytics />
+          <footer>
+            <a href="/privacy.html">Privacy Policy</a>
+          </footer>
         </ThemeProvider>
       </body>
     </html>
