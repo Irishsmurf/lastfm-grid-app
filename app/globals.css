@@ -109,3 +109,12 @@ footer a:hover {
   opacity: 1;
   transition: opacity 500ms ease-in-out;
 }
+
+/* Styles for Spotify logo based on background */
+.spotify-logo-light-bg {
+  color: #000000; /* Black logo for light backgrounds */
+}
+
+.spotify-logo-dark-bg {
+  color: #FFFFFF; /* White logo for dark backgrounds */
+}

@@ -49,6 +49,7 @@ export default function Home() {
   const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>({});
   const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
+  const [logoColorStates, setLogoColorStates] = useState<Record<string, 'light' | 'dark'>>({});
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -200,8 +201,49 @@ export default function Home() {
     }
   }, [albums]);
 
-  // useEffect to fetch Spotify links when albums change
+  // Function to determine logo background type (moved outside of useEffect)
+  const getLogoBackgroundColorType = (imageUrl: string, albumKey: string) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const sampleSize = 64; // Matching logo size
+      canvas.width = sampleSize;
+      canvas.height = sampleSize;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        console.error('Failed to get canvas context for logo color analysis');
+        setLogoColorStates(prev => ({ ...prev, [albumKey]: 'dark' })); // Default to dark
+        return;
+      }
+
+      // Calculate source x, y to sample center of the image
+      const sourceX = (img.naturalWidth - sampleSize) / 2;
+      const sourceY = (img.naturalHeight - sampleSize) / 2;
+
+      ctx.drawImage(img, sourceX, sourceY, sampleSize, sampleSize, 0, 0, sampleSize, sampleSize);
+
+      const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+      let totalBrightness = 0;
+      for (let i = 0; i < imageData.length; i += 4) {
+        const brightness = (0.299 * imageData[i] + 0.587 * imageData[i+1] + 0.114 * imageData[i+2]);
+        totalBrightness += brightness;
+      }
+      const avgBrightness = totalBrightness / (sampleSize * sampleSize);
+      const type = avgBrightness > 128 ? 'light' : 'dark';
+      setLogoColorStates(prev => ({ ...prev, [albumKey]: type }));
+    };
+    img.onerror = () => {
+      console.error('Error loading image for logo color analysis:', imageUrl);
+      setLogoColorStates(prev => ({ ...prev, [albumKey]: 'dark' })); // Default to dark on error
+    };
+    img.src = imageUrl;
+  };
+
+  // useEffect to fetch Spotify links and determine logo color when albums change
   useEffect(() => {
+    setLogoColorStates({}); // Clear logo color states on new album fetch or when albums are cleared
     if (albums.length === 0) {
       setSpotifyLinks({}); // Clear links if no albums
       return;
@@ -210,11 +252,12 @@ export default function Home() {
     setSpotifyLinks({}); // Reset links before fetching for new set of albums
 
     albums.forEach(album => {
-      if (!album.mbid) { // Ensure we have a key
-        console.warn('Album missing mbid, cannot fetch Spotify link:', album.name);
+      if (!album.mbid) { // Ensure we have a key for spotify link and logo color
+        console.warn('Album missing mbid, cannot fetch Spotify link or analyze logo color:', album.name);
         return;
       }
 
+      // Fetch Spotify link
       const fetchSpotifyLink = async () => {
         try {
           const response = await fetch(
@@ -243,8 +286,16 @@ export default function Home() {
       };
 
       fetchSpotifyLink();
+
+      // Analyze album art for logo color
+      if (album.image[3]?.['#text']) {
+        getLogoBackgroundColorType(album.image[3]['#text'], album.mbid);
+      } else {
+        // If no image, default to dark background for logo
+        setLogoColorStates(prev => ({ ...prev, [album.mbid]: 'dark' }));
+      }
     });
-  }, [albums]); // Dependency: albums array itself, not its content for this trigger
+  }, [albums]); // Dependency: albums array itself
 
   return (
     <div className="min-h-screen bg-background py-12 px-4">
@@ -295,6 +346,7 @@ export default function Home() {
             <div className="grid grid-cols-3 gap-4">
               {albums.map((album, index) => {
                 const currentSpotifyUrl = album.mbid ? spotifyLinks[album.mbid] : null;
+                const logoBgType = album.mbid ? logoColorStates[album.mbid] : 'dark'; // Default if not found
                 return (
                   <Card key={album.mbid || index}> {/* Use mbid as key if available */}
                     <CardContent className="p-4">
@@ -312,7 +364,7 @@ export default function Home() {
                             href={currentSpotifyUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay"
+                            className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
                           >
                             <Image
                               src="/spotify_icon.svg"
