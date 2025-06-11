@@ -17,8 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  // IMPORTANT: Replace https://example.com with your actual domain before deployment!
-  metadataBase: new URL("https://example.com"),
+  metadataBase: new URL("https://lastfm.paddez.com"),
   title: "LastFM Album Collage Generator",
   description: "Generate an image of your top albums!",
   openGraph: {
