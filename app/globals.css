@@ -70,3 +70,11 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.image-fade-enter {
+  opacity: 0;
+}
+.image-fade-enter-active {
+  opacity: 1;
+  transition: opacity 500ms ease-in-out;
+}

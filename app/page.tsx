@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
 
   const fetchTopAlbums = async () => {
     if (!username) {
@@ -160,6 +161,14 @@ export default function Home() {
     }
   };
 
+  const handleImageLoad = (index: number) => {
+    setImageLoadingStates(prev => ({ ...prev, [index]: true }));
+  };
+
+  useEffect(() => {
+    setImageLoadingStates({});
+  }, [albums]);
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
@@ -211,12 +220,13 @@ export default function Home() {
                 <Card key={index}>
                   <CardContent className="p-4">
                     <div className="aspect-square relative">
-                      <Image 
-                        src={album.image[3]?.['#text'] || '/api/placeholder/300/300' }
+                      <Image
+                        src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
                         alt={`${album.name} by ${album.artist.name}`}
                         fill
-                        className="object-cover"
+                        className={`object-cover ${!imageLoadingStates[index] ? 'image-fade-enter' : 'image-fade-enter-active'}`}
                         sizes="(max-width: 768px) 100vw, 300px"
+                        onLoad={() => handleImageLoad(index)}
                       />
                     </div>
                     <div className="mt-2">
