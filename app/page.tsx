@@ -284,7 +284,7 @@ export default function Home() {
                           src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
                           alt={`${album.name} by ${album.artist.name}`}
                           fill
-                          className={`object-cover transition-opacity duration-300 ${!imageLoadingStates[index] ? 'image-fade-enter' : 'image-fade-enter-active'} ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''}`}
+                          className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''}`}
                           sizes="(max-width: 768px) 100vw, 300px"
                           onLoad={() => handleImageLoad(index)}
                         />
