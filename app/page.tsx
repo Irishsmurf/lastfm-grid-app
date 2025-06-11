@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download } from 'lucide-react';
+import { Download, FileImage } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 const timeRanges = {
@@ -338,6 +338,15 @@ export default function Home() {
     return () => clearTimeout(timer); // Cleanup timer
   }, [isGridUpdating]);
 
+  const handleToggleView = () => {
+    if (isJpgView) {
+      setIsJpgView(false);
+      setJpgImageData(''); // Ensure this line is present
+    } else {
+      generateImage();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
@@ -399,21 +408,14 @@ export default function Home() {
           <>
             <div className="flex justify-end mb-4">
               <Button
-                onClick={() => {
-                  if (isJpgView) {
-                    setIsJpgView(false);
-                    setJpgImageData(''); // Add this line
-                  } else {
-                    generateImage();
-                  }
-                }}
+                onClick={handleToggleView} // Update this line
                 className="gap-2"
               >
                 {isJpgView ? (
                   'Revert to Grid'
                 ) : (
                   <>
-                    <Download size={16} />
+                    <FileImage size={16} />
                     Convert to JPG
                   </>
                 )}
