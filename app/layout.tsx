@@ -44,6 +44,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* TODO: User will add their Google AdSense script here, using next/script for optimal loading.
+              The 'src' should include their publisher ID from an environment variable.
+              Example:
+              <Script
+                async
+                src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID}`}
+                strategy="afterInteractive"
+                crossOrigin="anonymous"
+              />
+        */}
+      </head>
       <body
         className={`${inter.variable} ${montserrat.variable} antialiased`}
       >
@@ -51,16 +63,36 @@ export default function RootLayout({
           defaultTheme="system"
           storageKey="vite-ui-theme"
         >
-          {children}
-          <SpeedInsights />
-          <Analytics />
-          <footer>
-            <a href="/privacy.html">Privacy Policy</a>
-            <div className="copyright">
-              © {new Date().getFullYear()} LastFM Album Collage Generator. All Rights Reserved.
+          <div className="flex min-h-screen">
+            {/* Left Ad Sidebar Placeholder */}
+            <div id="left-ad-sidebar" className="fixed left-0 top-0 h-screen w-40 bg-gray-100 dark:bg-gray-800 p-2 shadow-md">
+              {/* <!-- Google AdSense code for LEFT sidebar ad unit. Use process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID for data-ad-client and process.env.NEXT_PUBLIC_ADSENSE_LEFT_SLOT_ID for data-ad-slot --> */}
+              <p className="text-sm text-gray-500">Left Ad Area</p> {/* Placeholder visible content */}
             </div>
-          </footer>
+
+            {/* Main Content Area */}
+            <main id="main-content" className="flex-grow ml-40 mr-40 p-4 flex flex-col">
+              <div className="flex-grow">
+                {children}
+              </div>
+              <SpeedInsights />
+              <Analytics />
+              <footer>
+                <a href="/privacy.html">Privacy Policy</a>
+                <div className="copyright">
+                  © {new Date().getFullYear()} LastFM Album Collage Generator. All Rights Reserved.
+                </div>
+              </footer>
+            </main>
+
+            {/* Right Ad Sidebar Placeholder */}
+            <div id="right-ad-sidebar" className="fixed right-0 top-0 h-screen w-40 bg-gray-100 dark:bg-gray-800 p-2 shadow-md">
+              {/* <!-- Google AdSense code for RIGHT sidebar ad unit. Use process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID for data-ad-client and process.env.NEXT_PUBLIC_ADSENSE_RIGHT_SLOT_ID for data-ad-slot --> */}
+              <p className="text-sm text-gray-500">Right Ad Area</p> {/* Placeholder visible content */}
+            </div>
+          </div>
         </ThemeProvider>
+        {/* Optional: Google AdSense script can also be placed here if not using next/script in Head */}
       </body>
     </html>
   );
