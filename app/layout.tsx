@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from 'next/script';
 import { Inter, Montserrat } from "next/font/google";
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from "@vercel/analytics/react"
@@ -45,16 +46,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* TODO: User will add their Google AdSense script here, using next/script for optimal loading.
-              The 'src' should include their publisher ID from an environment variable.
-              Example:
-              <Script
-                async
-                src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID}`}
-                strategy="afterInteractive"
-                crossOrigin="anonymous"
-              />
-        */}
+        <Script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID}`}
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
+        />
       </head>
       <body
         className={`${inter.variable} ${montserrat.variable} antialiased`}
@@ -66,8 +63,15 @@ export default function RootLayout({
           <div className="flex min-h-screen">
             {/* Left Ad Sidebar Placeholder */}
             <div id="left-ad-sidebar" className="fixed left-0 top-0 h-screen w-40 bg-gray-100 dark:bg-gray-800 p-2 shadow-md">
-              {/* <!-- Google AdSense code for LEFT sidebar ad unit. Use process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID for data-ad-client and process.env.NEXT_PUBLIC_ADSENSE_LEFT_SLOT_ID for data-ad-slot --> */}
-              <p className="text-sm text-gray-500">Left Ad Area</p> {/* Placeholder visible content */}
+              <ins className="adsbygoogle"
+                   style={{display: 'block'}}
+                   data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID}
+                   data-ad-slot={process.env.NEXT_PUBLIC_ADSENSE_LEFT_SLOT_ID}
+                   data-ad-format="auto"
+                   data-full-width-responsive="true"></ins>
+              <script>
+                   (adsbygoogle = window.adsbygoogle || []).push({});
+              </script>
             </div>
 
             {/* Main Content Area */}
@@ -87,8 +91,15 @@ export default function RootLayout({
 
             {/* Right Ad Sidebar Placeholder */}
             <div id="right-ad-sidebar" className="fixed right-0 top-0 h-screen w-40 bg-gray-100 dark:bg-gray-800 p-2 shadow-md">
-              {/* <!-- Google AdSense code for RIGHT sidebar ad unit. Use process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID for data-ad-client and process.env.NEXT_PUBLIC_ADSENSE_RIGHT_SLOT_ID for data-ad-slot --> */}
-              <p className="text-sm text-gray-500">Right Ad Area</p> {/* Placeholder visible content */}
+              <ins className="adsbygoogle"
+                   style={{display: 'block'}}
+                   data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID}
+                   data-ad-slot={process.env.NEXT_PUBLIC_ADSENSE_RIGHT_SLOT_ID}
+                   data-ad-format="auto"
+                   data-full-width-responsive="true"></ins>
+              <script>
+                   (adsbygoogle = window.adsbygoogle || []).push({});
+              </script>
             </div>
           </div>
         </ThemeProvider>
