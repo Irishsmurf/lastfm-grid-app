@@ -118,3 +118,20 @@ footer .copyright {
 .spotify-logo-dark-bg {
   color: #FFFFFF; /* White logo for dark backgrounds */
 }
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.grid-fade-out {
+  opacity: 1;
+}
+
+.grid-fade-out-active {
+  animation: fadeOut 500ms ease-in-out forwards;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
