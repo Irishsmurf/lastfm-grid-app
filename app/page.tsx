@@ -28,8 +28,9 @@ interface Album {
   name: string;
   artist: Artist;
   image: Array<AlbumImage>;
-  mbid: string;
+  mbid: string; // Assuming mbid is consistently available and unique
   playcount: number;
+  // spotifyUrl is removed from here, will be managed by spotifyLinks state
 }
 
 interface Artist {
@@ -46,6 +47,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
+  const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -74,12 +76,12 @@ export default function Home() {
       }
 
       const data = await response.json();
-      const albumData = data.topalbums.album.slice(0, 9).map((album: Album) => ({
+      const albumData = data.topalbums.album.slice(0, 9).map((album: Album) => ({ // Ensure Album type here doesn't expect spotifyUrl
         name: album.name,
         artist: album.artist,
-        image: album.image, // Get largest image
+        image: album.image,
         mbid: album.mbid,
-        playcount: album.playcount
+        playcount: album.playcount,
       }));
 
       setAlbums(albumData);
@@ -179,6 +181,52 @@ export default function Home() {
     setImageLoadingStates({});
   }, [albums]);
 
+  // useEffect to fetch Spotify links when albums change
+  useEffect(() => {
+    if (albums.length === 0) {
+      setSpotifyLinks({}); // Clear links if no albums
+      return;
+    }
+
+    setSpotifyLinks({}); // Reset links before fetching for new set of albums
+
+    albums.forEach(album => {
+      if (!album.mbid) { // Ensure we have a key
+        console.warn('Album missing mbid, cannot fetch Spotify link:', album.name);
+        return;
+      }
+
+      const fetchSpotifyLink = async () => {
+        try {
+          const response = await fetch(
+            `/api/spotify-link?albumName=${encodeURIComponent(album.name)}&artistName=${encodeURIComponent(album.artist.name)}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setSpotifyLinks(prevLinks => ({
+              ...prevLinks,
+              [album.mbid]: data.spotifyUrl || null,
+            }));
+          } else {
+            console.error(`Failed to fetch Spotify link for ${album.name}: ${response.status}`);
+            setSpotifyLinks(prevLinks => ({
+              ...prevLinks,
+              [album.mbid]: null,
+            }));
+          }
+        } catch (err) {
+          console.error(`Error fetching Spotify link for ${album.name}:`, err);
+          setSpotifyLinks(prevLinks => ({
+            ...prevLinks,
+            [album.mbid]: null,
+          }));
+        }
+      };
+
+      fetchSpotifyLink();
+    });
+  }, [albums]); // Dependency: albums array itself, not its content for this trigger
+
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
@@ -226,30 +274,49 @@ export default function Home() {
               </Button>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              {albums.map((album, index) => (
-                <Card key={index}>
-                  <CardContent className="p-4">
-                    <div className="aspect-square relative">
-                      <Image
-                        src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
-                        alt={`${album.name} by ${album.artist.name}`}
-                        fill
-                        className={`object-cover ${!imageLoadingStates[index] ? 'image-fade-enter' : 'image-fade-enter-active'}`}
-                        sizes="(max-width: 768px) 100vw, 300px"
-                        onLoad={() => handleImageLoad(index)}
-                      />
-                    </div>
-                    <div className="mt-2">
+              {albums.map((album, index) => {
+                const currentSpotifyUrl = album.mbid ? spotifyLinks[album.mbid] : null;
+                return (
+                  <Card key={album.mbid || index}> {/* Use mbid as key if available */}
+                    <CardContent className="p-4">
+                      <div className="aspect-square relative group album-hover-container">
+                        <Image
+                          src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
+                          alt={`${album.name} by ${album.artist.name}`}
+                          fill
+                          className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''}`}
+                          sizes="(max-width: 768px) 100vw, 300px"
+                          onLoad={() => handleImageLoad(index)}
+                        />
+                        {currentSpotifyUrl && (
+                          <a
+                            href={currentSpotifyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay"
+                          >
+                            <Image
+                              src="/spotify_icon.svg"
+                              alt="Play on Spotify"
+                              width={64} // Adjust size as needed
+                              height={64} // Adjust size as needed
+                              className="w-16 h-16" // Tailwind class for size
+                            />
+                          </a>
+                        )}
+                      </div>
+                      <div className="mt-2">
                       <p className="font-semibold truncate">
-                          <a href={`https://musicbrainz.org/release/${album.mbid}`}>{album.name}</a>
+                          <a href={`https://musicbrainz.org/release/${album.mbid}`} target="_blank" rel="noopener noreferrer">{album.name}</a>
                       </p>
                       <p className="text-sm text-muted-foreground truncate">
-                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`}>{album.artist.name}</a>
+                          <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`} target="_blank" rel="noopener noreferrer">{album.artist.name}</a>
                       </p>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              ); // Explicit semicolon
+            })}
             </div>
           </>
         )}

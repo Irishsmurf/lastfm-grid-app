@@ -44,8 +44,10 @@ export async function GET(req: NextRequest) {
         console.log(`Error fetching albums: ${error}`);
     }
 
+    // Ensure the error message is properly serialized in the JSON response
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { message: "Error fetching albums", error: error },
+      { message: "Error fetching albums", error: { message: errorMessage } },
       { status: 500 }
     );
   }
