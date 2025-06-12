@@ -1,5 +1,6 @@
 import SpotifyWebApi from 'spotify-web-api-node';
 import { redis } from '@/lib/redis';
+import logger from '../utils/logger';
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
@@ -11,6 +12,7 @@ let spotifyApiInstance: SpotifyWebApi | null = null;
 
 function getSpotifyApiInstance(): SpotifyWebApi {
   if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+    logger.error("lib/spotifyService.ts", "Spotify client ID or secret not configured in environment variables");
     throw new Error(
       'Spotify client ID or secret not configured in environment variables'
     );
@@ -38,10 +40,10 @@ async function refreshSpotifyToken(): Promise<string> {
       accessToken
     );
     spotifyApi.setAccessToken(accessToken); // Sets on the singleton instance
-    console.log('Spotify access token refreshed and stored in Redis.');
+    logger.info("lib/spotifyService.ts", "Spotify access token refreshed and stored in Redis.");
     return accessToken;
   } catch (error) {
-    console.error('Error refreshing Spotify access token:', error);
+    logger.error("lib/spotifyService.ts", `Error refreshing Spotify access token: ${error}`);
     throw new Error('Failed to refresh Spotify access token');
   }
 }
@@ -50,13 +52,11 @@ async function getAccessToken(): Promise<string> {
   const spotifyApi = getSpotifyApiInstance();
   let token = await redis.get(SPOTIFY_ACCESS_TOKEN_REDIS_KEY);
   if (!token) {
-    console.log(
-      'Spotify access token not found in Redis or expired, refreshing...'
-    );
+    logger.info("lib/spotifyService.ts", "Spotify access token not found in Redis or expired, refreshing...");
     token = await refreshSpotifyToken();
   } else {
     spotifyApi.setAccessToken(token); // Sets on the singleton instance
-    console.log('Spotify access token retrieved from Redis.');
+    logger.info("lib/spotifyService.ts", "Spotify access token retrieved from Redis.");
   }
   return token;
 }
@@ -76,20 +76,22 @@ export async function searchAlbum(
   artistName: string
 ): Promise<{ spotifyUrl: string | null }> {
   const spotifyApi = getSpotifyApiInstance();
+  logger.info("lib/spotifyService.ts", `Searching for album on Spotify: ${albumName} by ${artistName}`);
   try {
     await getAccessToken(); // This ensures the token is set on the shared instance
     const query = `album:${albumName} artist:${artistName}`;
     const response = await spotifyApi.searchAlbums(query, { limit: 1 });
 
     if (response.body.albums && response.body.albums.items.length > 0) {
-      return {
-        spotifyUrl: response.body.albums.items[0].external_urls.spotify,
-      };
+      const spotifyUrl = response.body.albums.items[0].external_urls.spotify;
+      logger.info("lib/spotifyService.ts", `Found Spotify URL for ${albumName} by ${artistName}: ${spotifyUrl}`);
+      return { spotifyUrl };
     } else {
+      logger.info("lib/spotifyService.ts", `No Spotify URL found for ${albumName} by ${artistName}`);
       return { spotifyUrl: null };
     }
   } catch (error) {
-    console.error('Error searching for album on Spotify:', error);
+    logger.error("lib/spotifyService.ts", `Error searching for album on Spotify: ${error}`);
     // Potentially re-throw or return a structured error response
     // For now, returning null similar to album not found
     return { spotifyUrl: null };
