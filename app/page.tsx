@@ -25,18 +25,18 @@ const timeRanges = {
   overall: 'Overall',
 };
 
-interface AlbumImage {
-  size: string;
-  '#text': string;
-}
+// interface AlbumImage { // Removed
+//   size: string;
+//   '#text': string;
+// }
 
 interface Album {
+  // This is the local interface in app/page.tsx
   name: string;
   artist: Artist;
-  image: Array<AlbumImage>;
-  mbid: string; // Assuming mbid is consistently available and unique
+  imageUrl: string; // Changed from image: Array<AlbumImage>
+  mbid: string;
   playcount: number;
-  // spotifyUrl is removed from here, will be managed by spotifyLinks state
 }
 
 interface Artist {
@@ -100,16 +100,28 @@ export default function Home() {
         throw new Error('Failed to fetch albums');
       }
 
-      const data = await response.json();
-      const albumData = data.topalbums.album
-        .slice(0, 9)
-        .map((album: Album) => ({
-          name: album.name,
-          artist: album.artist,
-          image: album.image,
-          mbid: album.mbid,
-          playcount: album.playcount,
-        }));
+      // Assuming API returns data compatible with the updated local Album interface
+      // The actual type from API is MinimizedAlbum[]
+      const rawApiAlbums: Array<{
+        name: string;
+        artist: { name: string; mbid: string };
+        imageUrl: string;
+        mbid: string;
+        playcount: number;
+      }> = await response.json();
+
+      const albumData: Album[] = rawApiAlbums.slice(0, 9).map((apiAlbum) => ({
+        name: apiAlbum.name,
+        artist: {
+          // Adjust artist mapping
+          name: apiAlbum.artist.name,
+          mbid: apiAlbum.artist.mbid,
+          url: '', // URL not provided by minimized API
+        },
+        imageUrl: apiAlbum.imageUrl,
+        mbid: apiAlbum.mbid,
+        playcount: Number(apiAlbum.playcount), // Ensure playcount is a number
+      }));
 
       setAlbums(albumData);
       // Save username to localStorage after successful fetch
@@ -172,7 +184,7 @@ export default function Home() {
         const y = Math.floor(i / 3) * 300;
 
         try {
-          const img = await loadImage(albums[i].image[3]['#text']);
+          const img = await loadImage(albums[i].imageUrl); // Updated image access
           ctx.drawImage(img, x, y, 300, 300);
         } catch (error) {
           console.log('Image failed to load: ', error);
@@ -359,8 +371,9 @@ export default function Home() {
       fetchSpotifyLink();
 
       // Analyze album art for logo color
-      if (album.image[3]?.['#text']) {
-        getLogoBackgroundColorType(album.image[3]['#text'], album.mbid);
+      if (album.imageUrl) {
+        // Updated image access
+        getLogoBackgroundColorType(album.imageUrl, album.mbid);
       } else {
         // If no image, default to dark background for logo
         setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
@@ -509,10 +522,7 @@ export default function Home() {
                         <CardContent className="p-4">
                           <div className="aspect-square relative group album-hover-container">
                             <Image
-                              src={
-                                album.image[3]?.['#text'] ||
-                                '/api/placeholder/300/300'
-                              }
+                              src={album.imageUrl || '/api/placeholder/300/300'} // Updated image access
                               alt={`${album.name} by ${album.artist.name}`}
                               fill
                               className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
