@@ -1,5 +1,8 @@
 // Assuming fetch is globally available (e.g., in Next.js environment)
 // If not, you might need to import it: import fetch from 'node-fetch';
+import { logger } from '@/utils/logger';
+
+const CTX = 'LastFMService';
 
 // const LASTFM_API_KEY = process.env.LASTFM_API_KEY; // Will read directly in function
 // const LASTFM_BASE_URL =
@@ -67,6 +70,10 @@ export async function getTopAlbums(
     process.env.LASTFM_BASE_URL || 'https://ws.audioscrobbler.com/2.0/';
 
   if (!apiKey) {
+    logger.error(
+      CTX,
+      'Last.fm API key not configured in environment variables (LASTFM_API_KEY)'
+    );
     throw new Error(
       'Last.fm API key not configured in environment variables (LASTFM_API_KEY)'
     );
@@ -82,15 +89,18 @@ export async function getTopAlbums(
   });
 
   const apiUrl = `${baseUrl}?${params.toString()}`;
+  const urlForLogging = new URL(apiUrl);
+  urlForLogging.searchParams.delete('api_key');
+  logger.info(CTX, `Fetching Last.fm API: ${urlForLogging.toString()}`);
 
   try {
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
-        `Last.fm API Error: ${response.status} ${response.statusText}`,
-        errorText
+      logger.error(
+        CTX,
+        `Last.fm API Error: ${response.status} ${response.statusText} - ${errorText}`
       );
       throw new Error(
         `Failed to fetch top albums from Last.fm: ${response.statusText}`
@@ -101,7 +111,8 @@ export async function getTopAlbums(
 
     // Last.fm API returns a 200 OK even for API errors, so check the body
     if ('error' in data) {
-      console.error(
+      logger.error(
+        CTX,
         `Last.fm API Error (in response body): ${data.error} - ${data.message}`
       );
       throw new Error(`Last.fm API error: ${data.message}`);
@@ -109,9 +120,12 @@ export async function getTopAlbums(
 
     // Ensure the response structure is as expected before returning
     if (!data.topalbums || !data.topalbums.album) {
-      console.warn(
-        'Last.fm response does not contain topalbums.album array.',
-        data
+      const receivedKeys = data
+        ? Object.keys(data).join(', ')
+        : 'null or undefined';
+      logger.warn(
+        CTX,
+        `Last.fm response is missing 'topalbums.album' structure. Received object keys: ${receivedKeys}`
       );
       // Return a structure that matches success but with empty albums,
       // or handle as an error depending on desired strictness.
@@ -129,9 +143,17 @@ export async function getTopAlbums(
       };
     }
 
+    logger.info(
+      CTX,
+      `Successfully fetched ${data.topalbums.album.length} albums from Last.fm for user ${username}`
+    );
     return data as LastFmTopAlbumsResponse;
   } catch (error) {
-    console.error('Error fetching or processing Last.fm data:', error);
+    const errorMessage = error instanceof Error ? error.message : error;
+    logger.error(
+      CTX,
+      `Error fetching or processing Last.fm data: ${errorMessage}`
+    );
     if (error instanceof Error) {
       throw error; // Re-throw known errors
     }
