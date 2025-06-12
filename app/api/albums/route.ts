@@ -5,17 +5,23 @@ import {
   MinimizedAlbum,
 } from '@/lib/minimizedLastfmService'; // Added
 import { handleCaching } from '@/lib/cache';
-import logger from '../../../../utils/logger';
+import logger from '@/utils/logger';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const username = searchParams.get('username');
   const period = searchParams.get('period');
 
-  logger.info("app/api/albums/route.ts", `Received request for username: ${username}, period: ${period}`);
+  logger.info(
+    'app/api/albums/route.ts',
+    `Received request for username: ${username}, period: ${period}`
+  );
 
   if (!username || !period) {
-    logger.warn("app/api/albums/route.ts", "Missing username or period in request");
+    logger.warn(
+      'app/api/albums/route.ts',
+      'Missing username or period in request'
+    );
     return NextResponse.json(
       { message: 'Username and period are required' },
       { status: 400 }
@@ -35,7 +41,10 @@ export async function GET(req: NextRequest) {
 
   const fetchDataFunction = async (): Promise<MinimizedAlbum[]> => {
     // Updated return type
-    logger.info("app/api/albums/route.ts", `Fetching fresh data from Last.fm for ${username}, period ${period}`);
+    logger.info(
+      'app/api/albums/route.ts',
+      `Fetching fresh data from Last.fm for ${username}, period ${period}`
+    );
     // The getTopAlbums function itself handles Last.fm API errors (like invalid user)
     // and should return a structure that isNotFound can evaluate.
     // Default limit is 9 in getTopAlbums, can be passed if made dynamic here.
@@ -58,18 +67,27 @@ export async function GET(req: NextRequest) {
     // If data matches notFoundReturnValue, it means it was either a cached "not found"
     // or a fresh fetch that resulted in "not found".
     // The client should receive this structured response.
-    const lastFmAlbumCount = data.length;
-    const spotifyLinkCount = data.filter(album => album.spotifyUrl).length;
+    const lastFmAlbumCount = data ? data.length : 0;
+    // spotifyLinkCount cannot be determined here as MinimizedAlbum does not have spotifyUrl
 
-    logger.info("app/api/albums/route.ts", `Metrics for username: ${username}, period: ${period} - Last.fm albums: ${lastFmAlbumCount}, Spotify links: ${spotifyLinkCount}`);
-    logger.info("app/api/albums/route.ts", `Successfully fetched ${lastFmAlbumCount} albums for username: ${username}, period: ${period}`);
+    logger.info(
+      'app/api/albums/route.ts',
+      `Metrics for username: ${username}, period: ${period} - Last.fm albums: ${lastFmAlbumCount}`
+    );
+    logger.info(
+      'app/api/albums/route.ts',
+      `Successfully fetched ${lastFmAlbumCount} albums for username: ${username}, period: ${period}`
+    );
     return NextResponse.json(data, { status: 200 });
   } catch (error) {
     let errorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    logger.error("app/api/albums/route.ts", `Error for ${username}/${period}: ${errorMessage}`);
+    logger.error(
+      'app/api/albums/route.ts',
+      `Error for ${username}/${period}: ${errorMessage}`
+    );
     return NextResponse.json(
       { message: 'Error fetching albums', error: errorMessage },
       { status: 500 }
