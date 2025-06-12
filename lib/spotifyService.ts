@@ -53,7 +53,7 @@ async function getAccessToken(): Promise<string> {
     console.log(
       'Spotify access token not found in Redis or expired, refreshing...'
     );
-    token = await refreshSpotifyToken(); // This will also call getSpotifyApiInstance
+    token = await refreshSpotifyToken();
   } else {
     spotifyApi.setAccessToken(token); // Sets on the singleton instance
     console.log('Spotify access token retrieved from Redis.');
@@ -95,6 +95,3 @@ export async function searchAlbum(
     return { spotifyUrl: null };
   }
 }
-
-// Export any other functions if needed, for now only searchAlbum
-// export { getAccessToken, refreshSpotifyToken };

@@ -55,7 +55,6 @@ export default function Home() {
   const [jpgImageData, setJpgImageData] = useState<string>('');
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
   const [imageLoadingStates, setImageLoadingStates] = useState<{
-    // Re-added state
     [key: number]: boolean;
   }>({});
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
@@ -105,7 +104,6 @@ export default function Home() {
       const albumData = data.topalbums.album
         .slice(0, 9)
         .map((album: Album) => ({
-          // Ensure Album type here doesn't expect spotifyUrl
           name: album.name,
           artist: album.artist,
           image: album.image,
@@ -215,7 +213,6 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // setImageLoadingStates({}); // Initialize imageLoadingStates here if needed, or ensure it's used
     if (albums.length > 0) {
       const initialFadeInStates = albums.reduce(
         (acc, _, index) => {
@@ -367,10 +364,6 @@ export default function Home() {
       } else {
         // If no image, default to dark background for logo
         setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
-        // Also ensure cue visibility is false if there's no image for logo analysis (though this is more tied to Spotify link)
-        // This part might be redundant if already handled by Spotify link logic, but ensures consistency if mbid exists but image doesn't
-        // The ESLint warning is about spotifyCueVisible being read here (implicitly via the state in the component scope)
-        // and not being in the dependency array. Adding it.
         if (!spotifyCueVisible[album.mbid]) {
           // Check if not already set by link fetching
           setSpotifyCueVisible((prevCues) => ({
@@ -399,7 +392,7 @@ export default function Home() {
   const handleToggleView = () => {
     if (isJpgView) {
       setIsJpgView(false);
-      setJpgImageData(''); // Ensure this line is present
+      setJpgImageData('');
     } else {
       generateImage();
     }
@@ -473,10 +466,7 @@ export default function Home() {
           !showSpinner && ( // Also hide grid if spinner is shown
             <>
               <div className="flex justify-end mb-4">
-                <Button
-                  onClick={handleToggleView} // Update this line
-                  className="gap-2"
-                >
+                <Button onClick={handleToggleView} className="gap-2">
                   {isJpgView ? (
                     'Revert to Grid'
                   ) : (
@@ -550,9 +540,9 @@ export default function Home() {
                                 <Image
                                   src="/spotify_icon.svg"
                                   alt="Play on Spotify"
-                                  width={64} // Adjust size as needed
-                                  height={64} // Adjust size as needed
-                                  className="w-16 h-16" // Tailwind class for size
+                                  width={64}
+                                  height={64}
+                                  className="w-16 h-16"
                                 />
                               </a>
                             )}
@@ -585,7 +575,7 @@ export default function Home() {
                           </div>
                         </CardContent>
                       </Card>
-                    ); // Explicit semicolon
+                    );
                   })}
                 </div>
               )}

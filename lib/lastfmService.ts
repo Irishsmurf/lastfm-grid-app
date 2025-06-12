@@ -29,7 +29,6 @@ interface LastFmError {
 }
 
 export interface LastFmTopAlbumsResponse {
-  // Added export
   topalbums?: {
     album: LastFmAlbum[];
     '@attr': {
@@ -73,7 +72,7 @@ export async function getTopAlbums(
     method: 'user.gettopalbums',
     user: username,
     period: period,
-    api_key: LASTFM_API_KEY, // Non-null assertion is still valid due to the check above
+    api_key: LASTFM_API_KEY,
     format: 'json',
     limit: limit.toString(),
   });

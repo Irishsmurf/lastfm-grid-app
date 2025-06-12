@@ -37,17 +37,16 @@ export async function handleCaching<T>({
   cacheExpirySeconds,
   notFoundCacheExpirySeconds,
   isNotFound,
-  notFoundValue = null, // Default notFoundValue to null
+  notFoundValue = null,
   notFoundRedisPlaceholder = 'NOT_FOUND_PLACEHOLDER',
 }: HandleCachingParams<T>): Promise<T | null> {
-  // Changed return type and default param
   try {
     const cachedDataString = await redis.get(cacheKey);
 
     if (cachedDataString) {
       if (cachedDataString === notFoundRedisPlaceholder) {
         console.log(`Cache hit for NOT_FOUND placeholder: ${cacheKey}`);
-        return notFoundValue; // This should now be fine
+        return notFoundValue;
       }
       try {
         const parsedData = JSON.parse(cachedDataString);
