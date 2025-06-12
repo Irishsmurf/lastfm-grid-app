@@ -448,8 +448,8 @@ export default function Home() {
                                 sizes="(max-width: 768px) 100vw, 300px"
                                 onLoad={() => handleImageLoad(index)}
                               />
-                              {/* This is the new overlay div */}
-                              <div className="album-image-overlay"></div>
+                              {/* Conditionally render the overlay */}
+                              {currentSpotifyUrl && <div className="album-image-overlay"></div>}
                             </div>
 
                             {/* Spotify cue remains as is */}
