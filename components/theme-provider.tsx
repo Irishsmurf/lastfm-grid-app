@@ -25,22 +25,29 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(() => {
     let initialValue: Theme;
     if (typeof window !== 'undefined') {
-      const storedTheme = localStorage.getItem(storageKey) as Theme | 'system' | null;
+      const storedTheme = localStorage.getItem(storageKey) as
+        | Theme
+        | 'system'
+        | null;
       if (storedTheme === 'light' || storedTheme === 'dark') {
         initialValue = storedTheme;
       } else if (storedTheme === 'system') {
-        initialValue = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        initialValue = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
       } else if (defaultTheme === 'system') {
-        initialValue = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        initialValue = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
       } else {
         initialValue = defaultTheme as Theme; // defaultTheme is 'light' or 'dark' at this point
       }
     } else {
       // SSR default
       if (defaultTheme === 'system') {
-          initialValue = 'light'; // Default for SSR if system is chosen, can be 'dark' too
+        initialValue = 'light'; // Default for SSR if system is chosen, can be 'dark' too
       } else {
-          initialValue = defaultTheme as Theme;
+        initialValue = defaultTheme as Theme;
       }
     }
     return initialValue;
