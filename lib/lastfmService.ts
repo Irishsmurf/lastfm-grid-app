@@ -1,13 +1,13 @@
 // Assuming fetch is globally available (e.g., in Next.js environment)
 // If not, you might need to import it: import fetch from 'node-fetch';
 
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
-const LASTFM_BASE_URL =
-  process.env.LASTFM_BASE_URL || 'https://ws.audioscrobbler.com/2.0/';
+// const LASTFM_API_KEY = process.env.LASTFM_API_KEY; // Will read directly in function
+// const LASTFM_BASE_URL =
+// process.env.LASTFM_BASE_URL || 'https://ws.audioscrobbler.com/2.0/'; // Will read directly in function
 
 // Removed top-level API key check. It will be checked within functions using it.
 
-interface LastFmAlbum {
+export interface LastFmAlbum {
   artist: {
     name: string;
     mbid: string;
@@ -62,7 +62,10 @@ export async function getTopAlbums(
   period: string,
   limit: number = 9
 ): Promise<LastFmTopAlbumsResponse> {
-  if (!LASTFM_API_KEY) {
+  const apiKey = process.env.LASTFM_API_KEY;
+  const baseUrl = process.env.LASTFM_BASE_URL || 'https://ws.audioscrobbler.com/2.0/';
+
+  if (!apiKey) {
     throw new Error(
       'Last.fm API key not configured in environment variables (LASTFM_API_KEY)'
     );
@@ -72,12 +75,12 @@ export async function getTopAlbums(
     method: 'user.gettopalbums',
     user: username,
     period: period,
-    api_key: LASTFM_API_KEY,
+    api_key: apiKey,
     format: 'json',
     limit: limit.toString(),
   });
 
-  const apiUrl = `${LASTFM_BASE_URL}?${params.toString()}`;
+  const apiUrl = `${baseUrl}?${params.toString()}`;
 
   try {
     const response = await fetch(apiUrl);
