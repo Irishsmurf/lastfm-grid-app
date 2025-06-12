@@ -69,6 +69,7 @@ To run this project, you will need to create a `.env.local` file in the root dir
 - `SPOTIFY_CLIENT_ID`: Your Spotify application client ID from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/). Required for fetching Spotify album links.
 - `SPOTIFY_CLIENT_SECRET`: Your Spotify application client secret. Required for fetching Spotify album links.
 - `REDIS_URL`: The connection URL for your Redis instance (e.g., `redis://localhost:6379` or `redis://:yourpassword@yourhost:yourport`). Required for caching API responses.
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID`: Your Google Analytics Measurement ID (e.g., `G-XXXXXXXXXX`). This is used to enable Google Analytics tracking on the site. Set this to your own ID if you want to track user activity.
 
 **Example `.env.local`:**
 
@@ -78,6 +79,7 @@ LASTFM_BASE_URL=https://ws.audioscrobbler.com/2.0/
 SPOTIFY_CLIENT_ID=your_spotify_client_id_here
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
 REDIS_URL=redis://localhost:6379
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
 **Important:** Do not commit your `.env.local` file to version control. It should be listed in your `.gitignore` file (which is standard for Next.js projects).
