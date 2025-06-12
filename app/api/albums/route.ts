@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTopAlbums } from '@/lib/lastfmService'; // Keep LastFmTopAlbumsResponse if still needed for raw fetch
-import { transformLastFmResponse, MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Added
+import {
+  transformLastFmResponse,
+  MinimizedAlbum,
+} from '@/lib/minimizedLastfmService'; // Added
 import { handleCaching } from '@/lib/cache';
 
 export async function GET(req: NextRequest) {
@@ -19,13 +22,15 @@ export async function GET(req: NextRequest) {
   const cacheExpirySeconds = 3600; // 1 hour
   const notFoundCacheExpirySeconds = 600; // 10 minutes
 
-  const isResultNotFound = (data: MinimizedAlbum[]): boolean => { // Updated type and logic
+  const isResultNotFound = (data: MinimizedAlbum[]): boolean => {
+    // Updated type and logic
     return !data || data.length === 0;
   };
 
   const notFoundReturnValue: MinimizedAlbum[] = []; // Updated
 
-  const fetchDataFunction = async (): Promise<MinimizedAlbum[]> => { // Updated return type
+  const fetchDataFunction = async (): Promise<MinimizedAlbum[]> => {
+    // Updated return type
     console.log(
       `Fetching fresh data from Last.fm for ${username}, period ${period}`
     );

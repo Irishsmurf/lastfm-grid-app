@@ -42,14 +42,15 @@ describe('GET /api/albums', () => {
     // Arrange
     const mockUsername = 'testuser';
     const mockPeriod = '7day';
-    const mockCachedData: MinimizedAlbum[] = [ // Updated mockCachedData
+    const mockCachedData: MinimizedAlbum[] = [
+      // Updated mockCachedData
       {
         name: 'Test Album',
         artist: { name: 'Test Artist', mbid: 'artist-mbid-cache' },
         imageUrl: 'cached.jpg',
         mbid: 'album-mbid-cache',
-        playcount: 10
-      }
+        playcount: 10,
+      },
     ];
     (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(mockCachedData));
 
@@ -75,13 +76,33 @@ describe('GET /api/albums', () => {
     // Full Last.fm structure for mock fetch
     const mockLastFmAlbum = {
       name: 'Fetched Album',
-      artist: { name: 'Test Artist', mbid: 'artist-mbid-fetch', url: 'artist-url' },
-      image: [{ '#text': 'small.jpg', size: 'small' }, { '#text': 'medium.jpg', size: 'medium' }, { '#text': 'large.jpg', size: 'large' }, { '#text': 'extralarge.jpg', size: 'extralarge' }],
+      artist: {
+        name: 'Test Artist',
+        mbid: 'artist-mbid-fetch',
+        url: 'artist-url',
+      },
+      image: [
+        { '#text': 'small.jpg', size: 'small' },
+        { '#text': 'medium.jpg', size: 'medium' },
+        { '#text': 'large.jpg', size: 'large' },
+        { '#text': 'extralarge.jpg', size: 'extralarge' },
+      ],
       mbid: 'album-mbid-fetch',
       playcount: '120', // Playcount as string from Last.fm
       url: 'album-url',
     };
-    const mockLastFmData = { topalbums: { album: [mockLastFmAlbum], '@attr': { user: mockUsername, totalPages: '1', page: '1', perPage: '9', total: '1' } } };
+    const mockLastFmData = {
+      topalbums: {
+        album: [mockLastFmAlbum],
+        '@attr': {
+          user: mockUsername,
+          totalPages: '1',
+          page: '1',
+          perPage: '9',
+          total: '1',
+        },
+      },
+    };
 
     // Expected transformed data
     const expectedTransformedData: MinimizedAlbum[] = [
@@ -95,7 +116,8 @@ describe('GET /api/albums', () => {
     ];
 
     (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
-    mockFetch.mockResolvedValue({ // Mock Last.fm fetch
+    mockFetch.mockResolvedValue({
+      // Mock Last.fm fetch
       ok: true,
       json: jest.fn().mockResolvedValue(mockLastFmData),
     });
@@ -126,10 +148,22 @@ describe('GET /api/albums', () => {
   it('should fetch data and return empty array if LastFM returns no albums', async () => {
     const mockUsername = 'testuser';
     const mockPeriod = '3month';
-    const mockEmptyLastFmData = { topalbums: { album: [], '@attr': { user: mockUsername, totalPages: '0', page: '1', perPage: '9', total: '0' } } };
+    const mockEmptyLastFmData = {
+      topalbums: {
+        album: [],
+        '@attr': {
+          user: mockUsername,
+          totalPages: '0',
+          page: '1',
+          perPage: '9',
+          total: '0',
+        },
+      },
+    };
 
     (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
-    mockFetch.mockResolvedValue({ // Mock Last.fm fetch
+    mockFetch.mockResolvedValue({
+      // Mock Last.fm fetch
       ok: true,
       json: jest.fn().mockResolvedValue(mockEmptyLastFmData),
     });
@@ -138,7 +172,9 @@ describe('GET /api/albums', () => {
     const response = await GET(req);
     const data = await response.json();
 
-    expect(redis.get).toHaveBeenCalledWith(`lastfm:albums:${mockUsername}:${mockPeriod}:minimized`);
+    expect(redis.get).toHaveBeenCalledWith(
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`
+    );
     expect(mockFetch).toHaveBeenCalled();
     // Check that "NOT_FOUND_PLACEHOLDER" is cached with notFoundCacheExpirySeconds
     expect(redis.setex).toHaveBeenCalledWith(

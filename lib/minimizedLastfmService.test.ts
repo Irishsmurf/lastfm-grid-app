@@ -3,7 +3,11 @@ import { transformLastFmResponse } from './minimizedLastfmService';
 import { LastFmTopAlbumsResponse, LastFmAlbum } from './lastfmService'; // For constructing mock input
 
 describe('transformLastFmResponse', () => {
-  const mockArtist = { name: 'Test Artist', mbid: 'artist-mbid', url: 'artist-url' };
+  const mockArtist = {
+    name: 'Test Artist',
+    mbid: 'artist-mbid',
+    url: 'artist-url',
+  };
   const mockImages = [
     { '#text': 'small.jpg', size: 'small' },
     { '#text': 'medium.jpg', size: 'medium' },
@@ -23,7 +27,13 @@ describe('transformLastFmResponse', () => {
     const mockResponse: LastFmTopAlbumsResponse = {
       topalbums: {
         album: [mockAlbum],
-        '@attr': { user: 'testuser', totalPages: '1', page: '1', perPage: '1', total: '1' },
+        '@attr': {
+          user: 'testuser',
+          totalPages: '1',
+          page: '1',
+          perPage: '1',
+          total: '1',
+        },
       },
     };
 
@@ -40,7 +50,9 @@ describe('transformLastFmResponse', () => {
 
   it('should return an empty array if topalbums or album array is missing', () => {
     expect(transformLastFmResponse({ topalbums: undefined })).toEqual([]);
-    expect(transformLastFmResponse({ topalbums: { album: [], '@attr': {} as any } })).toEqual([]);
+    expect(
+      transformLastFmResponse({ topalbums: { album: [], '@attr': {} as any } })
+    ).toEqual([]);
     expect(transformLastFmResponse({} as LastFmTopAlbumsResponse)).toEqual([]);
   });
 
@@ -77,7 +89,8 @@ describe('transformLastFmResponse', () => {
   });
 
   it('should handle completely missing image property by setting imageUrl to empty string', () => {
-    const mockAlbum = { // Deliberately not typed as LastFmAlbum to test missing 'image'
+    const mockAlbum = {
+      // Deliberately not typed as LastFmAlbum to test missing 'image'
       name: 'Missing Image Prop Album',
       artist: mockArtist,
       // image property is completely missing

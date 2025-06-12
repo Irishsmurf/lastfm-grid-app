@@ -63,7 +63,8 @@ export async function getTopAlbums(
   limit: number = 9
 ): Promise<LastFmTopAlbumsResponse> {
   const apiKey = process.env.LASTFM_API_KEY;
-  const baseUrl = process.env.LASTFM_BASE_URL || 'https://ws.audioscrobbler.com/2.0/';
+  const baseUrl =
+    process.env.LASTFM_BASE_URL || 'https://ws.audioscrobbler.com/2.0/';
 
   if (!apiKey) {
     throw new Error(
