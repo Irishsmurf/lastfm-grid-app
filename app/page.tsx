@@ -380,7 +380,7 @@ export default function Home() {
         }
       }
     });
-  }, [albums, spotifyCueVisible]); // Added spotifyCueVisible to dependency array
+  }, [albums]); // Dependency: albums array itself, spotifyCueVisible removed
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
