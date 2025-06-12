@@ -5,18 +5,27 @@ const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const SPOTIFY_ACCESS_TOKEN_REDIS_KEY = 'spotify:accessToken';
 
-if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-  throw new Error(
-    'Spotify client ID or secret not configured in environment variables'
-  );
+// Removed top-level check and spotifyApi instantiation
+
+let spotifyApiInstance: SpotifyWebApi | null = null;
+
+function getSpotifyApiInstance(): SpotifyWebApi {
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+    throw new Error(
+      'Spotify client ID or secret not configured in environment variables'
+    );
+  }
+  if (!spotifyApiInstance) {
+    spotifyApiInstance = new SpotifyWebApi({
+      clientId: SPOTIFY_CLIENT_ID,
+      clientSecret: SPOTIFY_CLIENT_SECRET,
+    });
+  }
+  return spotifyApiInstance;
 }
 
-const spotifyApi = new SpotifyWebApi({
-  clientId: SPOTIFY_CLIENT_ID,
-  clientSecret: SPOTIFY_CLIENT_SECRET,
-});
-
 async function refreshSpotifyToken(): Promise<string> {
+  const spotifyApi = getSpotifyApiInstance();
   try {
     const data = await spotifyApi.clientCredentialsGrant();
     const accessToken = data.body['access_token'];
@@ -28,7 +37,7 @@ async function refreshSpotifyToken(): Promise<string> {
       expiresIn - 300,
       accessToken
     );
-    spotifyApi.setAccessToken(accessToken);
+    spotifyApi.setAccessToken(accessToken); // Sets on the singleton instance
     console.log('Spotify access token refreshed and stored in Redis.');
     return accessToken;
   } catch (error) {
@@ -38,14 +47,15 @@ async function refreshSpotifyToken(): Promise<string> {
 }
 
 async function getAccessToken(): Promise<string> {
+  const spotifyApi = getSpotifyApiInstance();
   let token = await redis.get(SPOTIFY_ACCESS_TOKEN_REDIS_KEY);
   if (!token) {
     console.log(
       'Spotify access token not found in Redis or expired, refreshing...'
     );
-    token = await refreshSpotifyToken();
+    token = await refreshSpotifyToken(); // This will also call getSpotifyApiInstance
   } else {
-    spotifyApi.setAccessToken(token);
+    spotifyApi.setAccessToken(token); // Sets on the singleton instance
     console.log('Spotify access token retrieved from Redis.');
   }
   return token;
@@ -65,8 +75,9 @@ export async function searchAlbum(
   albumName: string,
   artistName: string
 ): Promise<{ spotifyUrl: string | null }> {
+  const spotifyApi = getSpotifyApiInstance();
   try {
-    await getAccessToken();
+    await getAccessToken(); // This ensures the token is set on the shared instance
     const query = `album:${albumName} artist:${artistName}`;
     const response = await spotifyApi.searchAlbums(query, { limit: 1 });
 

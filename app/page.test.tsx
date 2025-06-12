@@ -5,7 +5,7 @@ import {
   screen,
   fireEvent,
   act,
-  waitFor,
+  // waitFor, // Removed unused import
 } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
@@ -27,8 +27,8 @@ jest.mock('next/image', () => ({
   __esModule: true,
   default: (props: MockImageProps) => {
     const { src, alt, width, height, className } = props;
-    // eslint-disable-next-line @next/next/no-img-element
     return (
+      // Removed unused eslint-disable-next-line comment
       <img
         src={src as string}
         alt={alt}

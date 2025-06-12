@@ -7,7 +7,7 @@ interface HandleCachingParams<T> {
   notFoundCacheExpirySeconds?: number;
   // Using a function to check for notFoundValue allows for more complex checks (e.g. empty array)
   isNotFound?: (value: T) => boolean;
-  notFoundValue?: T; // The actual value to return when not found and placeholder was hit or fetch returned not found
+  notFoundValue?: T | null; // The actual value to return when not found and placeholder was hit or fetch returned not found
   notFoundRedisPlaceholder?: string;
 }
 
@@ -26,9 +26,9 @@ interface HandleCachingParams<T> {
  * @param {number} params.cacheExpirySeconds The time in seconds for which the data should be cached.
  * @param {number} [params.notFoundCacheExpirySeconds] Optional expiry time for "not found" results.
  * @param {(value: T) => boolean} [params.isNotFound] Optional function to determine if a fetched result is a "not found" case.
- * @param {T} [params.notFoundValue=null] Optional value to return when a "not found" placeholder is hit in cache or when fetchDataFunction returns a "not found" state.
+ * @param {T | null} [params.notFoundValue=null] Optional value to return when a "not found" placeholder is hit in cache or when fetchDataFunction returns a "not found" state.
  * @param {string} [params.notFoundRedisPlaceholder="NOT_FOUND_PLACEHOLDER"] Optional string to store in Redis for "not found" results.
- * @returns {Promise<T>} The cached or freshly fetched data.
+ * @returns {Promise<T | null>} The cached or freshly fetched data, or null if notFoundValue is null and used.
  * @throws Will re-throw errors from `fetchDataFunction` or Redis operations.
  */
 export async function handleCaching<T>({
@@ -37,16 +37,17 @@ export async function handleCaching<T>({
   cacheExpirySeconds,
   notFoundCacheExpirySeconds,
   isNotFound,
-  notFoundValue = null as any, // Default notFoundValue to null, can be overridden
+  notFoundValue = null, // Default notFoundValue to null
   notFoundRedisPlaceholder = 'NOT_FOUND_PLACEHOLDER',
-}: HandleCachingParams<T>): Promise<T> {
+}: HandleCachingParams<T>): Promise<T | null> {
+  // Changed return type and default param
   try {
     const cachedDataString = await redis.get(cacheKey);
 
     if (cachedDataString) {
       if (cachedDataString === notFoundRedisPlaceholder) {
         console.log(`Cache hit for NOT_FOUND placeholder: ${cacheKey}`);
-        return notFoundValue;
+        return notFoundValue; // This should now be fine
       }
       try {
         const parsedData = JSON.parse(cachedDataString);

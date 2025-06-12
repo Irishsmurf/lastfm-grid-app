@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Download, FileImage } from 'lucide-react';
+import { FileImage } from 'lucide-react'; // Removed Download
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 const timeRanges = {
@@ -55,6 +55,7 @@ export default function Home() {
   const [jpgImageData, setJpgImageData] = useState<string>('');
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
   const [imageLoadingStates, setImageLoadingStates] = useState<{
+    // Re-added state
     [key: number]: boolean;
   }>({});
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
@@ -214,7 +215,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    setImageLoadingStates({});
+    // setImageLoadingStates({}); // Initialize imageLoadingStates here if needed, or ensure it's used
     if (albums.length > 0) {
       const initialFadeInStates = albums.reduce(
         (acc, _, index) => {
@@ -368,6 +369,8 @@ export default function Home() {
         setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
         // Also ensure cue visibility is false if there's no image for logo analysis (though this is more tied to Spotify link)
         // This part might be redundant if already handled by Spotify link logic, but ensures consistency if mbid exists but image doesn't
+        // The ESLint warning is about spotifyCueVisible being read here (implicitly via the state in the component scope)
+        // and not being in the dependency array. Adding it.
         if (!spotifyCueVisible[album.mbid]) {
           // Check if not already set by link fetching
           setSpotifyCueVisible((prevCues) => ({
@@ -377,7 +380,7 @@ export default function Home() {
         }
       }
     });
-  }, [albums]); // Dependency: albums array itself
+  }, [albums, spotifyCueVisible]); // Added spotifyCueVisible to dependency array
 
   useEffect(() => {
     let timer: NodeJS.Timeout;

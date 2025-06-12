@@ -5,11 +5,7 @@ const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 const LASTFM_BASE_URL =
   process.env.LASTFM_BASE_URL || 'https://ws.audioscrobbler.com/2.0/';
 
-if (!LASTFM_API_KEY) {
-  throw new Error(
-    'Last.fm API key not configured in environment variables (LASTFM_API_KEY)'
-  );
-}
+// Removed top-level API key check. It will be checked within functions using it.
 
 interface LastFmAlbum {
   artist: {
@@ -32,7 +28,8 @@ interface LastFmError {
   message: string;
 }
 
-interface LastFmTopAlbumsResponse {
+export interface LastFmTopAlbumsResponse {
+  // Added export
   topalbums?: {
     album: LastFmAlbum[];
     '@attr': {
@@ -66,11 +63,17 @@ export async function getTopAlbums(
   period: string,
   limit: number = 9
 ): Promise<LastFmTopAlbumsResponse> {
+  if (!LASTFM_API_KEY) {
+    throw new Error(
+      'Last.fm API key not configured in environment variables (LASTFM_API_KEY)'
+    );
+  }
+
   const params = new URLSearchParams({
     method: 'user.gettopalbums',
     user: username,
     period: period,
-    api_key: LASTFM_API_KEY,
+    api_key: LASTFM_API_KEY, // Non-null assertion is still valid due to the check above
     format: 'json',
     limit: limit.toString(),
   });

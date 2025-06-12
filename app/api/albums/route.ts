@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTopAlbums } from '@/lib/lastfmService';
+import { getTopAlbums, LastFmTopAlbumsResponse } from '@/lib/lastfmService'; // Imported LastFmTopAlbumsResponse
 import { handleCaching } from '@/lib/cache';
-import { redis } from '@/lib/redis'; // Keep for direct access if ever needed, or remove if strictly not. For now, good to have if clearing cache etc.
+// import { redis } from '@/lib/redis'; // Removed unused import
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,12 +22,17 @@ export async function GET(req: NextRequest) {
   // This is what Last.fm returns for a valid user but no albums in the period (or an invalid user)
   // It's an empty 'topalbums' object or an error object.
   // We will specifically check for the album array.
-  const isResultNotFound = (data: any): boolean => {
-    if (data && data.error) {
+  // Type for data can be LastFmTopAlbumsResponse or a Last.fm error object structure
+  const isResultNotFound = (
+    data: LastFmTopAlbumsResponse | { error?: number; message?: string }
+  ): boolean => {
+    if (data && 'error' in data && data.error) {
       // Last.fm API error encoded in response
       return true;
     }
-    return !data?.topalbums?.album?.length;
+    // Check if it's LastFmTopAlbumsResponse and if albums array is empty or missing
+    const topAlbumsData = data as LastFmTopAlbumsResponse;
+    return !topAlbumsData?.topalbums?.album?.length;
   };
 
   // The value to return if the isResultNotFound condition is met by fetchDataFunction,
