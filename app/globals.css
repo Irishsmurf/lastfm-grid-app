@@ -146,3 +146,35 @@ footer .copyright {
     transform: rotate(360deg);
   }
 }
+
+/* Album hover fade effects */
+.album-image-container {
+  position: relative; /* Needed for absolute positioning of the overlay */
+  width: 100%;
+  height: 100%;
+}
+
+.album-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  z-index: 1; /* Ensure overlay is above the image but below the Spotify logo */
+}
+
+.album-image-container:hover .album-image-overlay {
+  opacity: 1;
+}
+
+/* Light theme: fade to white */
+.light .album-image-overlay {
+  background-color: rgba(255, 255, 255, 0.8); /* White with some transparency */
+}
+
+/* Dark theme: fade to black */
+.dark .album-image-overlay {
+  background-color: rgba(0, 0, 0, 0.8); /* Black with some transparency */
+}
