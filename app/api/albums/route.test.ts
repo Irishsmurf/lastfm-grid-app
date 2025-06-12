@@ -3,6 +3,7 @@
 import { GET } from './route';
 import { NextRequest } from 'next/server';
 import { redis } from '../../../lib/redis';
+import { MinimizedAlbum } from '../../../lib/minimizedLastfmService'; // Added
 // We will import the mocked version of SpotifyWebApi later
 // import SpotifyWebApi from 'spotify-web-api-node';
 
@@ -41,12 +42,16 @@ describe('GET /api/albums', () => {
     // Arrange
     const mockUsername = 'testuser';
     const mockPeriod = '7day';
-    // Cached data should not contain spotifyUrl anymore
-    const mockCachedData = {
-      topalbums: {
-        album: [{ name: 'Test Album', artist: { name: 'Test Artist' } }],
+    const mockCachedData: MinimizedAlbum[] = [
+      // Updated mockCachedData
+      {
+        name: 'Test Album',
+        artist: { name: 'Test Artist', mbid: 'artist-mbid-cache' },
+        imageUrl: 'cached.jpg',
+        mbid: 'album-mbid-cache',
+        playcount: 10,
       },
-    };
+    ];
     (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(mockCachedData));
 
     const req = createMockRequest(mockUsername, mockPeriod);
@@ -57,7 +62,7 @@ describe('GET /api/albums', () => {
 
     // Assert
     expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:${mockUsername}:${mockPeriod}`
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Updated cache key
     );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
@@ -68,14 +73,51 @@ describe('GET /api/albums', () => {
     // Arrange
     const mockUsername = 'testuser';
     const mockPeriod = '1month';
+    // Full Last.fm structure for mock fetch
     const mockLastFmAlbum = {
       name: 'Fetched Album',
-      artist: { name: 'Test Artist' },
+      artist: {
+        name: 'Test Artist',
+        mbid: 'artist-mbid-fetch',
+        url: 'artist-url',
+      },
+      image: [
+        { '#text': 'small.jpg', size: 'small' },
+        { '#text': 'medium.jpg', size: 'medium' },
+        { '#text': 'large.jpg', size: 'large' },
+        { '#text': 'extralarge.jpg', size: 'extralarge' },
+      ],
+      mbid: 'album-mbid-fetch',
+      playcount: '120', // Playcount as string from Last.fm
+      url: 'album-url',
     };
-    const mockLastFmData = { topalbums: { album: [mockLastFmAlbum] } };
+    const mockLastFmData = {
+      topalbums: {
+        album: [mockLastFmAlbum],
+        '@attr': {
+          user: mockUsername,
+          totalPages: '1',
+          page: '1',
+          perPage: '9',
+          total: '1',
+        },
+      },
+    };
 
-    (redis.get as jest.Mock).mockResolvedValue(null);
+    // Expected transformed data
+    const expectedTransformedData: MinimizedAlbum[] = [
+      {
+        name: 'Fetched Album',
+        artist: { name: 'Test Artist', mbid: 'artist-mbid-fetch' },
+        imageUrl: 'extralarge.jpg',
+        mbid: 'album-mbid-fetch',
+        playcount: 120, // Playcount as number
+      },
+    ];
+
+    (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
     mockFetch.mockResolvedValue({
+      // Mock Last.fm fetch
       ok: true,
       json: jest.fn().mockResolvedValue(mockLastFmData),
     });
@@ -88,19 +130,60 @@ describe('GET /api/albums', () => {
 
     // Assert
     expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:${mockUsername}:${mockPeriod}`
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Updated cache key
     );
     expect(mockFetch).toHaveBeenCalledWith(
       `${process.env.LASTFM_BASE_URL}?method=user.gettopalbums&user=${mockUsername}&period=${mockPeriod}&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=9`
     );
-    // Data saved to cache should be the raw LastFM data
+    // Data saved to cache should be the TRANSFORMED data
     expect(redis.setex).toHaveBeenCalledWith(
-      `lastfm:${mockUsername}:${mockPeriod}`,
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`, // Updated cache key
       3600,
-      JSON.stringify(mockLastFmData)
+      JSON.stringify(expectedTransformedData) // Transformed data
     );
     expect(response.status).toBe(200);
-    expect(data).toEqual(mockLastFmData); // Response should be raw LastFM data
+    expect(data).toEqual(expectedTransformedData); // Response should be TRANSFORMED data
+  });
+
+  it('should fetch data and return empty array if LastFM returns no albums', async () => {
+    const mockUsername = 'testuser';
+    const mockPeriod = '3month';
+    const mockEmptyLastFmData = {
+      topalbums: {
+        album: [],
+        '@attr': {
+          user: mockUsername,
+          totalPages: '0',
+          page: '1',
+          perPage: '9',
+          total: '0',
+        },
+      },
+    };
+
+    (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
+    mockFetch.mockResolvedValue({
+      // Mock Last.fm fetch
+      ok: true,
+      json: jest.fn().mockResolvedValue(mockEmptyLastFmData),
+    });
+
+    const req = createMockRequest(mockUsername, mockPeriod);
+    const response = await GET(req);
+    const data = await response.json();
+
+    expect(redis.get).toHaveBeenCalledWith(
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`
+    );
+    expect(mockFetch).toHaveBeenCalled();
+    // Check that "NOT_FOUND_PLACEHOLDER" is cached with notFoundCacheExpirySeconds
+    expect(redis.setex).toHaveBeenCalledWith(
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`,
+      600, // notFoundCacheExpirySeconds
+      'NOT_FOUND_PLACEHOLDER' // Adjusted expectation based on Jest's reported "Received" value
+    );
+    expect(response.status).toBe(200);
+    expect(data).toEqual([]); // Expect empty array as per transform and notFoundReturnValue
   });
 
   // Removed Spotify-specific tests:
@@ -118,6 +201,7 @@ describe('GET /api/albums', () => {
       ok: false,
       statusText: 'Not Found',
       status: 404,
+      text: jest.fn().mockResolvedValue('Mock Last.fm error message text'), // Added text() method
     });
 
     const req = createMockRequest(mockUsername, mockPeriod);
@@ -128,7 +212,7 @@ describe('GET /api/albums', () => {
 
     // Assert
     expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:${mockUsername}:${mockPeriod}`
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Updated cache key
     );
     expect(mockFetch).toHaveBeenCalled();
     expect(response.status).toBe(500);
@@ -150,7 +234,7 @@ describe('GET /api/albums', () => {
 
     // Assert
     expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:${mockUsername}:${mockPeriod}`
+      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Corrected cache key
     );
     expect(mockFetch).toHaveBeenCalled();
     // searchAlbums should not have been called

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTopAlbums, LastFmTopAlbumsResponse } from '@/lib/lastfmService'; // Imported LastFmTopAlbumsResponse
+import { getTopAlbums } from '@/lib/lastfmService'; // Keep LastFmTopAlbumsResponse if still needed for raw fetch
+import {
+  transformLastFmResponse,
+  MinimizedAlbum,
+} from '@/lib/minimizedLastfmService'; // Added
 import { handleCaching } from '@/lib/cache';
-// import { redis } from '@/lib/redis'; // Removed unused import
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -15,55 +18,32 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const cacheKey = `lastfm:albums:${username}:${period}`;
+  const cacheKey = `lastfm:albums:${username}:${period}:minimized`; // Consider updating cache key
   const cacheExpirySeconds = 3600; // 1 hour
   const notFoundCacheExpirySeconds = 600; // 10 minutes
 
-  // This is what Last.fm returns for a valid user but no albums in the period (or an invalid user)
-  // It's an empty 'topalbums' object or an error object.
-  // We will specifically check for the album array.
-  // Type for data can be LastFmTopAlbumsResponse or a Last.fm error object structure
-  const isResultNotFound = (
-    data: LastFmTopAlbumsResponse | { error?: number; message?: string }
-  ): boolean => {
-    if (data && 'error' in data && data.error) {
-      // Last.fm API error encoded in response
-      return true;
-    }
-    // Check if it's LastFmTopAlbumsResponse and if albums array is empty or missing
-    const topAlbumsData = data as LastFmTopAlbumsResponse;
-    return !topAlbumsData?.topalbums?.album?.length;
+  const isResultNotFound = (data: MinimizedAlbum[]): boolean => {
+    // Updated type and logic
+    return !data || data.length === 0;
   };
 
-  // The value to return if the isResultNotFound condition is met by fetchDataFunction,
-  // or if the notFoundRedisPlaceholder is retrieved from cache.
-  // For Last.fm, an empty album list within the structure is appropriate.
-  const notFoundReturnValue = {
-    topalbums: {
-      album: [],
-      '@attr': {
-        user: username,
-        period: period,
-        totalPages: '0',
-        page: '1',
-        perPage: '9', // Assuming default limit, adjust if dynamic
-        total: '0',
-      },
-    },
-  };
+  const notFoundReturnValue: MinimizedAlbum[] = []; // Updated
 
-  const fetchDataFunction = async () => {
+  const fetchDataFunction = async (): Promise<MinimizedAlbum[]> => {
+    // Updated return type
     console.log(
       `Fetching fresh data from Last.fm for ${username}, period ${period}`
     );
     // The getTopAlbums function itself handles Last.fm API errors (like invalid user)
     // and should return a structure that isNotFound can evaluate.
     // Default limit is 9 in getTopAlbums, can be passed if made dynamic here.
-    return getTopAlbums(username, period);
+    const rawTopAlbums = await getTopAlbums(username, period);
+    return transformLastFmResponse(rawTopAlbums); // Added transformation
   };
 
   try {
-    const data = await handleCaching({
+    // Updated generic type for handleCaching
+    const data = await handleCaching<MinimizedAlbum[]>({
       cacheKey,
       fetchDataFunction,
       cacheExpirySeconds,
