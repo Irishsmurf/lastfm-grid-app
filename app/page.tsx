@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { FileImage } from 'lucide-react'; // Removed Download
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import { useTheme } from '@/components/theme-provider';
 
 const timeRanges = {
   '7day': 'Last Week',
@@ -63,14 +64,12 @@ export default function Home() {
   const [spotifyLinks, setSpotifyLinks] = useState<
     Record<string, string | null>
   >({});
-  const [logoColorStates, setLogoColorStates] = useState<
-    Record<string, 'light' | 'dark'>
-  >({});
   const [isGridUpdating, setIsGridUpdating] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false); // New state for spinner
   const [spotifyCueVisible, setSpotifyCueVisible] = useState<
     Record<string, boolean>
   >({});
+  const { theme } = useTheme();
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -238,62 +237,8 @@ export default function Home() {
     }
   }, [albums]);
 
-  // Function to determine logo background type (moved outside of useEffect)
-  const getLogoBackgroundColorType = (imageUrl: string, albumKey: string) => {
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const sampleSize = 64; // Matching logo size
-      canvas.width = sampleSize;
-      canvas.height = sampleSize;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        console.error('Failed to get canvas context for logo color analysis');
-        setLogoColorStates((prev) => ({ ...prev, [albumKey]: 'dark' })); // Default to dark
-        return;
-      }
-
-      // Calculate source x, y to sample center of the image
-      const sourceX = (img.naturalWidth - sampleSize) / 2;
-      const sourceY = (img.naturalHeight - sampleSize) / 2;
-
-      ctx.drawImage(
-        img,
-        sourceX,
-        sourceY,
-        sampleSize,
-        sampleSize,
-        0,
-        0,
-        sampleSize,
-        sampleSize
-      );
-
-      const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
-      let totalBrightness = 0;
-      for (let i = 0; i < imageData.length; i += 4) {
-        const brightness =
-          0.299 * imageData[i] +
-          0.587 * imageData[i + 1] +
-          0.114 * imageData[i + 2];
-        totalBrightness += brightness;
-      }
-      const avgBrightness = totalBrightness / (sampleSize * sampleSize);
-      const type = avgBrightness > 128 ? 'light' : 'dark';
-      setLogoColorStates((prev) => ({ ...prev, [albumKey]: type }));
-    };
-    img.onerror = () => {
-      console.error('Error loading image for logo color analysis:', imageUrl);
-      setLogoColorStates((prev) => ({ ...prev, [albumKey]: 'dark' })); // Default to dark on error
-    };
-    img.src = imageUrl;
-  };
-
   // useEffect to fetch Spotify links and determine logo color when albums change
   useEffect(() => {
-    setLogoColorStates({}); // Clear logo color states on new album fetch or when albums are cleared
     setSpotifyCueVisible({}); // Clear cue visibility states
     if (albums.length === 0) {
       setSpotifyLinks({}); // Clear links if no albums
@@ -357,21 +302,6 @@ export default function Home() {
       };
 
       fetchSpotifyLink();
-
-      // Analyze album art for logo color
-      if (album.image[3]?.['#text']) {
-        getLogoBackgroundColorType(album.image[3]['#text'], album.mbid);
-      } else {
-        // If no image, default to dark background for logo
-        setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
-        if (!spotifyCueVisible[album.mbid]) {
-          // Check if not already set by link fetching
-          setSpotifyCueVisible((prevCues) => ({
-            ...prevCues,
-            [album.mbid]: false,
-          }));
-        }
-      }
     });
   }, [albums]); // Dependency: albums array itself, spotifyCueVisible removed
 
@@ -496,9 +426,6 @@ export default function Home() {
                     const currentSpotifyUrl = album.mbid
                       ? spotifyLinks[album.mbid]
                       : null;
-                    const logoBgType = album.mbid
-                      ? logoColorStates[album.mbid]
-                      : 'dark'; // Default if not found
                     const showCue = album.mbid
                       ? spotifyCueVisible[album.mbid]
                       : false;
@@ -508,17 +435,24 @@ export default function Home() {
                         {/* Use mbid as key if available */}
                         <CardContent className="p-4">
                           <div className="aspect-square relative group album-hover-container">
-                            <Image
-                              src={
-                                album.image[3]?.['#text'] ||
-                                '/api/placeholder/300/300'
-                              }
-                              alt={`${album.name} by ${album.artist.name}`}
-                              fill
-                              className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
-                              sizes="(max-width: 768px) 100vw, 300px"
-                              onLoad={() => handleImageLoad(index)}
-                            />
+                            {/* This new container wraps the image and the new overlay */}
+                            <div className="album-image-container">
+                              <Image
+                                src={
+                                  album.image[3]?.['#text'] ||
+                                  '/api/placeholder/300/300'
+                                }
+                                alt={`${album.name} by ${album.artist.name}`}
+                                fill
+                                className={`object-cover ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`} // Removed group-hover:opacity-70
+                                sizes="(max-width: 768px) 100vw, 300px"
+                                onLoad={() => handleImageLoad(index)}
+                              />
+                              {/* Conditionally render the overlay */}
+                              {currentSpotifyUrl && <div className="album-image-overlay"></div>}
+                            </div>
+
+                            {/* Spotify cue remains as is */}
                             {showCue && (
                               <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
                                 <Image
@@ -530,12 +464,14 @@ export default function Home() {
                                 />
                               </div>
                             )}
+
+                            {/* Spotify logo link - ensure it has a higher z-index */}
                             {currentSpotifyUrl && (
                               <a
                                 href={currentSpotifyUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+                                className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${theme === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'} z-10`} // Added z-10
                               >
                                 <Image
                                   src="/spotify_icon.svg"
