@@ -46,10 +46,11 @@ declare global {
 
 global.__spotifyMockControls = {
   searchAlbumsResult: { body: { albums: { items: [] } } },
-  clientCredentialsGrantResult: { body: { 'access_token': 'initial-mock-access-token' } },
+  clientCredentialsGrantResult: {
+    body: { access_token: 'initial-mock-access-token' },
+  },
   getAccessTokenValue: 'initial-mock-access-token',
 };
-
 
 if (typeof global.Request === 'undefined') {
   try {
@@ -57,7 +58,10 @@ if (typeof global.Request === 'undefined') {
     global.Request = undici.Request;
     global.Response = undici.Response;
   } catch (e) {
-    console.error("Failed to initialize undici for Request/Response polyfills:", e);
+    console.error(
+      'Failed to initialize undici for Request/Response polyfills:',
+      e
+    );
     // Fallback or define basic mocks if undici fails (e.g. due to Node version)
     if (typeof global.Request === 'undefined') {
       global.Request = class MockRequest {} as any; // Basic mock
@@ -70,9 +74,10 @@ if (typeof global.Request === 'undefined') {
   // For now, the primary concern for API tests was Request/Response for NextRequest/NextResponse
 }
 
-
 // You can also add other global setup here, e.g., for @testing-library/jest-dom
 // import '@testing-library/jest-dom'; // This is often in page.test.tsx but can be global
 // However, it's usually fine where it is, as long as it's imported before tests that need it.
 
-console.log('Jest setup file executed: Polyfills for WebAPIs and global Spotify mock controls initialized.');
+console.log(
+  'Jest setup file executed: Polyfills for WebAPIs and global Spotify mock controls initialized.'
+);

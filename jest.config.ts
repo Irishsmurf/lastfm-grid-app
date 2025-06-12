@@ -14,15 +14,15 @@ const config: Config = {
       {
         tsconfig: {
           module: 'commonjs', // Output CommonJS for Jest
-          jsx: 'react-jsx',  // Use the new JSX transform. Overrides tsconfig.json's "jsx": "preserve" for tests.
-                             // Ensures React is not expected to be in scope globally for JSX.
-         },
+          jsx: 'react-jsx', // Use the new JSX transform. Overrides tsconfig.json's "jsx": "preserve" for tests.
+          // Ensures React is not expected to be in scope globally for JSX.
+        },
         // No explicit babelConfig needed if ts-jest with react-jsx handles Next.js/React specific JSX correctly.
       },
     ],
   },
   transformIgnorePatterns: [
-    "/node_modules/(?!lucide-react)/"
+    '/node_modules/(?!lucide-react)/',
     // Add other ESM modules from node_modules here if they cause similar issues
     // e.g., "/node_modules/(?!lucide-react|another-es-module)/"
   ],

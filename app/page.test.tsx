@@ -1,6 +1,12 @@
 // app/page.test.tsx
 import React from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  // waitFor, // Removed unused import
+} from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
 import { ImageProps } from 'next/image';
@@ -21,8 +27,16 @@ jest.mock('next/image', () => ({
   __esModule: true,
   default: (props: MockImageProps) => {
     const { src, alt, width, height, className } = props;
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src as string} alt={alt} width={width as number} height={height as number} className={className} />;
+    return (
+      // Removed unused eslint-disable-next-line comment
+      <img
+        src={src as string}
+        alt={alt}
+        width={width as number}
+        height={height as number}
+        className={className}
+      />
+    );
   },
 }));
 
@@ -33,9 +47,15 @@ jest.mock('@/components/theme-toggle-button', () => ({
 
 type IconProps = React.SVGProps<SVGSVGElement>;
 jest.mock('lucide-react', () => ({
-  Download: (props: IconProps) => <svg data-testid="download-icon" {...props} />,
-  ChevronDown: (props: IconProps) => <svg data-testid="chevron-down-icon" {...props} />,
-  ChevronUp: (props: IconProps) => <svg data-testid="chevron-up-icon" {...props} />,
+  Download: (props: IconProps) => (
+    <svg data-testid="download-icon" {...props} />
+  ),
+  ChevronDown: (props: IconProps) => (
+    <svg data-testid="chevron-down-icon" {...props} />
+  ),
+  ChevronUp: (props: IconProps) => (
+    <svg data-testid="chevron-up-icon" {...props} />
+  ),
   Check: (props: IconProps) => <svg data-testid="check-icon" {...props} />,
 }));
 
@@ -43,9 +63,15 @@ const mockLocalStorage = (() => {
   let store: { [key: string]: string } = {};
   return {
     getItem: jest.fn((key: string) => store[key] || null),
-    setItem: jest.fn((key: string, value: string) => { store[key] = value.toString(); }),
-    removeItem: jest.fn((key: string) => { delete store[key]; }),
-    clear: jest.fn(() => { store = {}; }),
+    setItem: jest.fn((key: string, value: string) => {
+      store[key] = value.toString();
+    }),
+    removeItem: jest.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: jest.fn(() => {
+      store = {};
+    }),
   };
 })();
 Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
@@ -54,10 +80,19 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 HTMLCanvasElement.prototype.getContext = jest.fn(() => null) as any;
-HTMLCanvasElement.prototype.toDataURL = jest.fn(() => 'data:image/jpeg;base64,mocked_image_data');
+HTMLCanvasElement.prototype.toDataURL = jest.fn(
+  () => 'data:image/jpeg;base64,mocked_image_data'
+);
 
-interface MockLastFmImage { '#text': string; size: string; }
-interface MockArtist { name: string; mbid: string; url: string; }
+interface MockLastFmImage {
+  '#text': string;
+  size: string;
+}
+interface MockArtist {
+  name: string;
+  mbid: string;
+  url: string;
+}
 type MockLastFmImageList = MockLastFmImage[];
 interface MockAlbum {
   name: string;
@@ -69,9 +104,15 @@ interface MockAlbum {
 
 const mockApiAlbumsPayload: MockAlbum[] = Array.from({ length: 9 }, (_, i) => ({
   name: `Album ${i + 1}`,
-  artist: { name: `Artist ${String.fromCharCode(65 + i)}`, mbid: `artist-${i}-mbid`, url: `http://artist.${i}` },
+  artist: {
+    name: `Artist ${String.fromCharCode(65 + i)}`,
+    mbid: `artist-${i}-mbid`,
+    url: `http://artist.${i}`,
+  },
   image: [
-    { '#text': '', size: 'small' }, { '#text': '', size: 'medium' }, { '#text': '', size: 'large' },
+    { '#text': '', size: 'small' },
+    { '#text': '', size: 'medium' },
+    { '#text': '', size: 'large' },
     { '#text': `http://example.com/image${i + 1}.jpg`, size: 'extralarge' },
   ],
   mbid: `album-${i + 1}-mbid`,
@@ -89,20 +130,26 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     mockLocalStorage.clear();
     mockLocalStorage.setItem('username', 'testuser');
 
-    mockFetch.mockImplementation(async (url: RequestInfo | URL): Promise<Partial<Response>> => {
-      const urlString = url.toString();
-      if (urlString.startsWith('/api/albums')) {
-        return new Promise((resolve, reject) => {
-          resolveAlbumsFetch = resolve;
-          rejectAlbumsFetch = reject; // Store reject function if needed for error testing
-        });
+    mockFetch.mockImplementation(
+      async (url: RequestInfo | URL): Promise<Partial<Response>> => {
+        const urlString = url.toString();
+        if (urlString.startsWith('/api/albums')) {
+          return new Promise((resolve, reject) => {
+            resolveAlbumsFetch = resolve;
+            rejectAlbumsFetch = reject; // Store reject function if needed for error testing
+          });
+        }
+        if (urlString.startsWith('/api/spotify-link')) {
+          // Spotify links are fetched after albums load, keep this immediate for simplicity unless testing its loading states
+          return { ok: true, json: async () => ({ spotifyUrl: null }) };
+        }
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({ message: 'Unhandled fetch call' }),
+        };
       }
-      if (urlString.startsWith('/api/spotify-link')) {
-        // Spotify links are fetched after albums load, keep this immediate for simplicity unless testing its loading states
-        return { ok: true, json: async () => ({ spotifyUrl: null }) };
-      }
-      return { ok: false, status: 404, json: async () => ({ message: 'Unhandled fetch call' }) };
-    });
+    );
 
     jest.useFakeTimers();
   });
@@ -115,20 +162,30 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
   test('full grid update cycle: initial load, fade-out, spinner, new grid fade-in', async () => {
     render(<Home />);
 
-    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), { target: { value: 'testuser' } });
-    const generateButton = screen.getByRole('button', { name: 'Generate Grid' });
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    const generateButton = screen.getByRole('button', {
+      name: 'Generate Grid',
+    });
 
     // === Initial Load ===
     fireEvent.click(generateButton);
 
     // Button becomes "Loading..." (indicates isGridUpdating=true, loading=true)
-    expect(await screen.findByRole('button', { name: 'Loading...' })).toBeDisabled();
+    expect(
+      await screen.findByRole('button', { name: 'Loading...' })
+    ).toBeDisabled();
 
     // Spinner appears after 500ms
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
     expect(screen.getByTestId('loading-spinner')).toBeVisible();
     // At this moment, no grid container should be visible as albums haven't loaded
-    expect(screen.queryByTestId('album-grid-container')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('album-grid-container')
+    ).not.toBeInTheDocument();
 
     // Resolve the albums fetch
     await act(async () => {
@@ -144,7 +201,9 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     });
 
     // Advance timers for the individual image fade-in useEffect (20ms)
-    act(() => { jest.advanceTimersByTime(20); });
+    act(() => {
+      jest.advanceTimersByTime(20);
+    });
 
     // Spinner should be gone
     expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument();
@@ -154,29 +213,39 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     expect(gridContainer).toBeVisible();
     expect(gridContainer).not.toHaveClass('grid-fade-out-active');
 
-    const initialAlbumImages = await screen.findAllByRole('img', { name: /Album \d+ by Artist [A-Z]/ });
+    const initialAlbumImages = await screen.findAllByRole('img', {
+      name: /Album \d+ by Artist [A-Z]/,
+    });
     expect(initialAlbumImages.length).toBe(mockApiAlbumsPayload.length);
-    initialAlbumImages.forEach(img => {
+    initialAlbumImages.forEach((img) => {
       expect(img.className).toContain('image-fade-enter-active');
     });
 
     // === Subsequent Update (Click "Generate Grid" again) ===
-    const generateButtonAgain = screen.getByRole('button', { name: 'Generate Grid' });
+    const generateButtonAgain = screen.getByRole('button', {
+      name: 'Generate Grid',
+    });
     fireEvent.click(generateButtonAgain);
 
     // Button becomes "Loading..."
-    expect(await screen.findByRole('button', { name: 'Loading...' })).toBeDisabled();
+    expect(
+      await screen.findByRole('button', { name: 'Loading...' })
+    ).toBeDisabled();
 
     // Grid container should now have the fade-out class (it has existing content)
     // It should still be in the DOM because showSpinner is false initially in this cycle
     expect(gridContainer).toHaveClass('grid-fade-out-active');
 
     // Spinner appears after 500ms
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
     expect(screen.getByTestId('loading-spinner')).toBeVisible();
 
     // Now the grid container with its items should be unmounted due to `!showSpinner` condition
-    expect(screen.queryByTestId('album-grid-container')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('album-grid-container')
+    ).not.toBeInTheDocument();
 
     // Resolve the second albums fetch
     await act(async () => {
@@ -188,8 +257,9 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    act(() => { jest.advanceTimersByTime(20); });
-
+    act(() => {
+      jest.advanceTimersByTime(20);
+    });
 
     // Spinner should be gone
     expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument();
@@ -199,24 +269,31 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     expect(newGridContainer).toBeVisible();
     expect(newGridContainer).not.toHaveClass('grid-fade-out-active');
 
-    const newAlbumImages = await screen.findAllByRole('img', { name: /Album \d+ by Artist [A-Z]/ });
+    const newAlbumImages = await screen.findAllByRole('img', {
+      name: /Album \d+ by Artist [A-Z]/,
+    });
     expect(newAlbumImages.length).toBe(mockApiAlbumsPayload.length);
-    newAlbumImages.forEach(img => {
+    newAlbumImages.forEach((img) => {
       expect(img.className).toContain('image-fade-enter-active');
     });
   });
 });
 
 describe('Home Page - Basic Rendering', () => {
-    beforeEach(() => {
-      // Minimal setup for basic rendering, localStorage might not be needed for all basic tests
-      mockLocalStorage.clear();
-      mockFetch.mockImplementation(async () => ({ ok: false, json: async () => ({}) })); // Default to avoid unhandled fetch
-    });
+  beforeEach(() => {
+    // Minimal setup for basic rendering, localStorage might not be needed for all basic tests
+    mockLocalStorage.clear();
+    mockFetch.mockImplementation(async () => ({
+      ok: false,
+      json: async () => ({}),
+    })); // Default to avoid unhandled fetch
+  });
 
-    it('renders username input and generate button', () => {
-      render(<Home />);
-      expect(screen.getByPlaceholderText('LastFM Username')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Generate Grid' })).toBeInTheDocument();
-    });
+  it('renders username input and generate button', () => {
+    render(<Home />);
+    expect(screen.getByPlaceholderText('LastFM Username')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Generate Grid' })
+    ).toBeInTheDocument();
+  });
 });

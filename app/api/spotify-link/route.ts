@@ -1,43 +1,6 @@
-// app/api/spotify-link/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
-import SpotifyWebApi from 'spotify-web-api-node';
-import { redis } from '@/lib/redis'; // Import the redis client
-
-// Initialize Spotify API client
-const spotifyApi = new SpotifyWebApi({
-  clientId: process.env.SPOTIFY_CLIENT_ID,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-});
-
-// In-memory cache for the access token
-let accessToken: string | null = null;
-let tokenExpiryTime: number = 0;
-
-async function refreshSpotifyToken() {
-  try {
-    const data = await spotifyApi.clientCredentialsGrant();
-    accessToken = data.body['access_token'];
-    // Spotify tokens usually expire in 1 hour (3600 seconds)
-    // Set expiry time slightly earlier to be safe, e.g., 55 minutes
-    tokenExpiryTime = Date.now() + data.body['expires_in'] * 1000 - 5 * 60 * 1000;
-    spotifyApi.setAccessToken(accessToken);
-    // console.log('Spotify access token refreshed successfully.'); // Debug
-  } catch (_error) { // Prefixed unused error variable
-    // console.error('Error refreshing Spotify access token:', _error); // Debug
-    accessToken = null; // Clear token on error
-    tokenExpiryTime = 0;
-    // Use a very specific error message for this re-throw
-    throw new Error('AUTH_TOKEN_REFRESH_FAILED_SPOTIFY');
-  }
-}
-
-async function getValidAccessToken() {
-  if (!accessToken || Date.now() >= tokenExpiryTime) {
-    await refreshSpotifyToken();
-  }
-  return accessToken;
-}
+import { searchAlbum } from '@/lib/spotifyService'; // Corrected import path
+import { handleCaching } from '@/lib/cache';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -46,82 +9,86 @@ export async function GET(req: NextRequest) {
 
   if (!albumName || !artistName) {
     return NextResponse.json(
-      { message: 'Missing required query parameters: albumName and artistName' },
+      {
+        message: 'Missing required query parameters: albumName and artistName',
+      },
       { status: 400 }
     );
   }
 
-  const cacheKey = `spotify-link:${artistName}:${albumName}`;
+  // Sanitize or encode parts of the cache key if they can contain special characters
+  // For simplicity here, assuming they are reasonably clean.
+  const safeArtistName = encodeURIComponent(artistName);
+  const safeAlbumName = encodeURIComponent(albumName);
+  const cacheKey = `spotify:link:${safeArtistName}:${safeAlbumName}`;
+
+  const cacheExpirySeconds = 86400; // 24 hours
+  const notFoundCacheExpirySeconds = 3600; // 1 hour
+  const notFoundRedisPlaceholder = 'SPOTIFY_NOT_FOUND'; // Specific placeholder
+
+  // Define how to check if the fetched data means "not found"
+  const isResultNotFound = (
+    data: { spotifyUrl: string | null } | null
+  ): boolean => {
+    return data?.spotifyUrl === null;
+  };
+
+  // Define the value to return when "not found" (either from cache placeholder or fresh fetch)
+  const notFoundReturnValue = { spotifyUrl: null };
+
+  // Define the function that fetches fresh data
+  const fetchDataFunction = async () => {
+    console.log(
+      `Fetching fresh Spotify link for album: ${albumName}, artist: ${artistName}`
+    );
+    // The searchAlbum function from spotifyService should handle its own errors,
+    // potentially throwing specific errors for auth failures.
+    return searchAlbum(albumName, artistName);
+  };
 
   try {
-    // Check Redis cache first
-    const cachedLink = await redis.get(cacheKey);
-    if (cachedLink) {
-      if (cachedLink === "SPOTIFY_NOT_FOUND") {
-        return NextResponse.json(
-          { spotifyUrl: null, message: 'Album not found on Spotify (cached)' },
-          { status: 200 }
-        );
-      }
-      return NextResponse.json({ spotifyUrl: cachedLink }, { status: 200 });
-    }
+    const result = await handleCaching({
+      cacheKey,
+      fetchDataFunction,
+      cacheExpirySeconds,
+      isNotFound: isResultNotFound,
+      notFoundValue: notFoundReturnValue,
+      notFoundCacheExpirySeconds,
+      notFoundRedisPlaceholder,
+    });
 
-    // If not in cache, proceed with Spotify API call
-    await getValidAccessToken(); // Ensures token is valid and set
-
-    // Query Spotify API
-    // Example: "album:Arrival artist:ABBA"
-    const query = `album:${albumName} artist:${artistName}`;
-    const searchResponse = await spotifyApi.searchAlbums(query, { limit: 1 });
-
-    if (searchResponse.body.albums && searchResponse.body.albums.items.length > 0) {
-      const spotifyUrl = searchResponse.body.albums.items[0].external_urls.spotify;
-      // Cache the found link in Redis for 24 hours
-      await redis.set(cacheKey, spotifyUrl, 'EX', 86400);
-      return NextResponse.json({ spotifyUrl }, { status: 200 });
-    } else {
-      // Cache "SPOTIFY_NOT_FOUND" for 1 hour
-      await redis.set(cacheKey, "SPOTIFY_NOT_FOUND", 'EX', 3600);
-      return NextResponse.json(
-        { spotifyUrl: null, message: 'Album not found on Spotify' },
-        { status: 200 } // Changed to 200 as per instruction for client simplicity
-      );
-    }
-  } catch (error) { // Changed from error: any
-    // console.error('Error fetching Spotify link:', error); // Debug
-
+    // The client expects a 200 OK even if spotifyUrl is null
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
     let statusCode = 500;
-    let message = 'Internal Server Error while fetching Spotify link.';
-    let errorMessage = 'An unexpected error occurred.';
+    let responseMessage = 'Internal Server Error while fetching Spotify link.';
+    let logErrorMessage = 'An unexpected error occurred.';
 
     if (error instanceof Error) {
-      errorMessage = error.message;
-      // Check for the specific error thrown by our token refresh logic
-      if (error.message === 'AUTH_TOKEN_REFRESH_FAILED_SPOTIFY') {
-          accessToken = null;
-          tokenExpiryTime = 0;
-          statusCode = 503;
-          message = 'Error with Spotify authentication. Please try again.';
+      logErrorMessage = error.message;
+      // Check for a specific error message or type that spotifyService might throw for auth issues
+      // For example, if spotifyService throws new Error('Failed to refresh Spotify access token')
+      if (error.message.includes('Spotify access token')) {
+        // Make this check more robust if needed
+        statusCode = 503; // Service Unavailable
+        responseMessage =
+          'Error with Spotify authentication. Please try again later.';
       } else {
-        // Check if it's a Spotify-like error object (duck typing)
-        interface SpotifyApiError extends Error {
-          statusCode?: number;
-          body?: { error?: { message?: string } };
-        }
-        const spotifyApiError = error as SpotifyApiError;
-        if (spotifyApiError.statusCode && typeof spotifyApiError.statusCode === 'number') {
-          statusCode = spotifyApiError.statusCode;
-          message = spotifyApiError.body?.error?.message || error.message || 'Spotify API error.';
-        }
-        // If not the specific auth error and not a SpotifyApiError with statusCode, it remains a generic 500 with original error message.
+        // For other errors, use a generic message for the client but log the specific one.
+        responseMessage =
+          'An error occurred while processing your request for a Spotify link.';
       }
     } else {
-      // Handle non-Error type errors
-      errorMessage = String(error);
+      logErrorMessage = String(error);
     }
 
+    console.error(
+      `[API SPOTIFY-LINK ROUTE] Error for ${artistName} - ${albumName}: ${logErrorMessage}`,
+      error
+    );
+
     return NextResponse.json(
-      { message, error: errorMessage },
+      { message: responseMessage, error: logErrorMessage }, // Provide error detail in non-prod for easier debugging if desired
       { status: statusCode }
     );
   }

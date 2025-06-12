@@ -19,7 +19,9 @@ global.fetch = mockFetch;
 
 // Helper function to create a mock request
 const createMockRequest = (username: string, period: string) => {
-  const url = new URL(`http://localhost:3000/api/albums?username=${username}&period=${period}`);
+  const url = new URL(
+    `http://localhost:3000/api/albums?username=${username}&period=${period}`
+  );
   // Cast to NextRequest for type compatibility in tests, actual Request is fine for route handler
   return new Request(url.toString()) as NextRequest;
 };
@@ -40,7 +42,11 @@ describe('GET /api/albums', () => {
     const mockUsername = 'testuser';
     const mockPeriod = '7day';
     // Cached data should not contain spotifyUrl anymore
-    const mockCachedData = { topalbums: { album: [{ name: 'Test Album', artist: { name: 'Test Artist' } }] } };
+    const mockCachedData = {
+      topalbums: {
+        album: [{ name: 'Test Album', artist: { name: 'Test Artist' } }],
+      },
+    };
     (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(mockCachedData));
 
     const req = createMockRequest(mockUsername, mockPeriod);
@@ -50,7 +56,9 @@ describe('GET /api/albums', () => {
     const data = await response.json();
 
     // Assert
-    expect(redis.get).toHaveBeenCalledWith(`lastfm:${mockUsername}:${mockPeriod}`);
+    expect(redis.get).toHaveBeenCalledWith(
+      `lastfm:${mockUsername}:${mockPeriod}`
+    );
     expect(mockFetch).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
     expect(data).toEqual(mockCachedData);
@@ -60,7 +68,10 @@ describe('GET /api/albums', () => {
     // Arrange
     const mockUsername = 'testuser';
     const mockPeriod = '1month';
-    const mockLastFmAlbum = { name: 'Fetched Album', artist: { name: 'Test Artist' } };
+    const mockLastFmAlbum = {
+      name: 'Fetched Album',
+      artist: { name: 'Test Artist' },
+    };
     const mockLastFmData = { topalbums: { album: [mockLastFmAlbum] } };
 
     (redis.get as jest.Mock).mockResolvedValue(null);
@@ -76,12 +87,18 @@ describe('GET /api/albums', () => {
     const data = await response.json();
 
     // Assert
-    expect(redis.get).toHaveBeenCalledWith(`lastfm:${mockUsername}:${mockPeriod}`);
+    expect(redis.get).toHaveBeenCalledWith(
+      `lastfm:${mockUsername}:${mockPeriod}`
+    );
     expect(mockFetch).toHaveBeenCalledWith(
       `${process.env.LASTFM_BASE_URL}?method=user.gettopalbums&user=${mockUsername}&period=${mockPeriod}&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=9`
     );
     // Data saved to cache should be the raw LastFM data
-    expect(redis.setex).toHaveBeenCalledWith(`lastfm:${mockUsername}:${mockPeriod}`, 3600, JSON.stringify(mockLastFmData));
+    expect(redis.setex).toHaveBeenCalledWith(
+      `lastfm:${mockUsername}:${mockPeriod}`,
+      3600,
+      JSON.stringify(mockLastFmData)
+    );
     expect(response.status).toBe(200);
     expect(data).toEqual(mockLastFmData); // Response should be raw LastFM data
   });
@@ -91,7 +108,6 @@ describe('GET /api/albums', () => {
   // - should set spotifyUrl to null if album not found on Spotify
   // - should set spotifyUrl to null and not break if Spotify API search fails for an album
   // - should handle failure in fetching Spotify access token
-
 
   it('should handle LastFM fetch failure gracefully', async () => {
     // Arrange
@@ -111,12 +127,13 @@ describe('GET /api/albums', () => {
     const data = await response.json();
 
     // Assert
-    expect(redis.get).toHaveBeenCalledWith(`lastfm:${mockUsername}:${mockPeriod}`);
+    expect(redis.get).toHaveBeenCalledWith(
+      `lastfm:${mockUsername}:${mockPeriod}`
+    );
     expect(mockFetch).toHaveBeenCalled();
     expect(response.status).toBe(500);
     expect(data.message).toBe('Error fetching albums');
   });
-
 
   it('should handle errors thrown during general fetch processing', async () => {
     // Arrange
@@ -132,7 +149,9 @@ describe('GET /api/albums', () => {
     const data = await response.json();
 
     // Assert
-    expect(redis.get).toHaveBeenCalledWith(`lastfm:${mockUsername}:${mockPeriod}`);
+    expect(redis.get).toHaveBeenCalledWith(
+      `lastfm:${mockUsername}:${mockPeriod}`
+    );
     expect(mockFetch).toHaveBeenCalled();
     // searchAlbums should not have been called
     expect(redis.setex).not.toHaveBeenCalled();

@@ -3,24 +3,30 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, FileImage } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FileImage } from 'lucide-react'; // Removed Download
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 const timeRanges = {
-  '7day': "Last Week",
+  '7day': 'Last Week',
   '1month': 'Last Month',
   '3month': 'Last 3 Months',
   '6month': 'Last 6 Months',
   '12month': 'Last Year',
-  'overall': 'Overall'
+  overall: 'Overall',
 };
 
 interface AlbumImage {
-  'size': string;
+  size: string;
   '#text': string;
 }
 
@@ -48,13 +54,23 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [jpgImageData, setJpgImageData] = useState<string>('');
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
-  const [imageLoadingStates, setImageLoadingStates] = useState<{ [key: number]: boolean }>({});
-  const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>({});
-  const [spotifyLinks, setSpotifyLinks] = useState<Record<string, string | null>>({});
-  const [logoColorStates, setLogoColorStates] = useState<Record<string, 'light' | 'dark'>>({});
+  const [imageLoadingStates, setImageLoadingStates] = useState<{
+    [key: number]: boolean;
+  }>({});
+  const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
+    {}
+  );
+  const [spotifyLinks, setSpotifyLinks] = useState<
+    Record<string, string | null>
+  >({});
+  const [logoColorStates, setLogoColorStates] = useState<
+    Record<string, 'light' | 'dark'>
+  >({});
   const [isGridUpdating, setIsGridUpdating] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false); // New state for spinner
-  const [spotifyCueVisible, setSpotifyCueVisible] = useState<Record<string, boolean>>({});
+  const [spotifyCueVisible, setSpotifyCueVisible] = useState<
+    Record<string, boolean>
+  >({});
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -85,13 +101,15 @@ export default function Home() {
       }
 
       const data = await response.json();
-      const albumData = data.topalbums.album.slice(0, 9).map((album: Album) => ({ // Ensure Album type here doesn't expect spotifyUrl
-        name: album.name,
-        artist: album.artist,
-        image: album.image,
-        mbid: album.mbid,
-        playcount: album.playcount,
-      }));
+      const albumData = data.topalbums.album
+        .slice(0, 9)
+        .map((album: Album) => ({
+          name: album.name,
+          artist: album.artist,
+          image: album.image,
+          mbid: album.mbid,
+          playcount: album.playcount,
+        }));
 
       setAlbums(albumData);
       // Save username to localStorage after successful fetch
@@ -99,10 +117,12 @@ export default function Home() {
       setIsGridUpdating(false); // Set isGridUpdating to false
     } catch (err) {
       console.error('An error occurred: ', err);
-      setError('Error fetching albums. Please check the username and try again.');
+      setError(
+        'Error fetching albums. Please check the username and try again.'
+      );
     } finally {
       setLoading(false);
-  setIsGridUpdating(false); // Ensure isGridUpdating is reset
+      setIsGridUpdating(false); // Ensure isGridUpdating is reset
     }
   };
 
@@ -131,14 +151,15 @@ export default function Home() {
         }
 
         const img = document.createElement('img');
-        img.crossOrigin = "anonymous";
+        img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
         img.onerror = () => {
           // Create a fallback for failed images
           const fallbackImg = document.createElement('img');
           fallbackImg.src = '/api/placeholder/300/300';
           fallbackImg.onload = () => resolve(fallbackImg);
-          fallbackImg.onerror = () => reject(new Error('Failed to load placeholder image'));
+          fallbackImg.onerror = () =>
+            reject(new Error('Failed to load placeholder image'));
         };
         img.src = url;
       });
@@ -149,12 +170,12 @@ export default function Home() {
       for (let i = 0; i < 9; i++) {
         const x = (i % 3) * 300;
         const y = Math.floor(i / 3) * 300;
-        
+
         try {
           const img = await loadImage(albums[i].image[3]['#text']);
           ctx.drawImage(img, x, y, 300, 300);
         } catch (error) {
-          console.log('Image failed to load: ', error)
+          console.log('Image failed to load: ', error);
           // If image fails to load, draw a placeholder rectangle
           ctx.fillStyle = '#f0f0f0';
           ctx.fillRect(x, y, 300, 300);
@@ -171,11 +192,15 @@ export default function Home() {
       ctx.fillStyle = '#000000';
       ctx.font = '16px Inter';
       ctx.textAlign = 'center';
-      ctx.fillText(`${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`, canvas.width / 2, canvas.height - 10);
+      ctx.fillText(
+        `${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`,
+        canvas.width / 2,
+        canvas.height - 10
+      );
 
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
-    setJpgImageData(imageURL);
-    setIsJpgView(true);
+      setJpgImageData(imageURL);
+      setIsJpgView(true);
     } catch (error) {
       console.error('Error generating image:', error);
       setError('Error generating image. Please try again.');
@@ -183,24 +208,29 @@ export default function Home() {
   };
 
   const handleImageLoad = (index: number) => {
-    setImageLoadingStates(prev => ({ ...prev, [index]: true }));
-    setFadeInStates(prev => ({ ...prev, [index]: true }));
+    setImageLoadingStates((prev) => ({ ...prev, [index]: true }));
+    setFadeInStates((prev) => ({ ...prev, [index]: true }));
   };
 
   useEffect(() => {
-    setImageLoadingStates({});
     if (albums.length > 0) {
-      const initialFadeInStates = albums.reduce((acc, _, index) => {
-        acc[index] = false;
-        return acc;
-      }, {} as { [key: number]: boolean });
+      const initialFadeInStates = albums.reduce(
+        (acc, _, index) => {
+          acc[index] = false;
+          return acc;
+        },
+        {} as { [key: number]: boolean }
+      );
       setFadeInStates(initialFadeInStates);
 
       setTimeout(() => {
-        const activeFadeInStates = albums.reduce((acc, _, index) => {
-          acc[index] = true;
-          return acc;
-        }, {} as { [key: number]: boolean });
+        const activeFadeInStates = albums.reduce(
+          (acc, _, index) => {
+            acc[index] = true;
+            return acc;
+          },
+          {} as { [key: number]: boolean }
+        );
         setFadeInStates(activeFadeInStates);
       }, 20);
     } else {
@@ -211,7 +241,7 @@ export default function Home() {
   // Function to determine logo background type (moved outside of useEffect)
   const getLogoBackgroundColorType = (imageUrl: string, albumKey: string) => {
     const img = new window.Image();
-    img.crossOrigin = "anonymous";
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const sampleSize = 64; // Matching logo size
@@ -221,7 +251,7 @@ export default function Home() {
 
       if (!ctx) {
         console.error('Failed to get canvas context for logo color analysis');
-        setLogoColorStates(prev => ({ ...prev, [albumKey]: 'dark' })); // Default to dark
+        setLogoColorStates((prev) => ({ ...prev, [albumKey]: 'dark' })); // Default to dark
         return;
       }
 
@@ -229,21 +259,34 @@ export default function Home() {
       const sourceX = (img.naturalWidth - sampleSize) / 2;
       const sourceY = (img.naturalHeight - sampleSize) / 2;
 
-      ctx.drawImage(img, sourceX, sourceY, sampleSize, sampleSize, 0, 0, sampleSize, sampleSize);
+      ctx.drawImage(
+        img,
+        sourceX,
+        sourceY,
+        sampleSize,
+        sampleSize,
+        0,
+        0,
+        sampleSize,
+        sampleSize
+      );
 
       const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
       let totalBrightness = 0;
       for (let i = 0; i < imageData.length; i += 4) {
-        const brightness = (0.299 * imageData[i] + 0.587 * imageData[i+1] + 0.114 * imageData[i+2]);
+        const brightness =
+          0.299 * imageData[i] +
+          0.587 * imageData[i + 1] +
+          0.114 * imageData[i + 2];
         totalBrightness += brightness;
       }
       const avgBrightness = totalBrightness / (sampleSize * sampleSize);
       const type = avgBrightness > 128 ? 'light' : 'dark';
-      setLogoColorStates(prev => ({ ...prev, [albumKey]: type }));
+      setLogoColorStates((prev) => ({ ...prev, [albumKey]: type }));
     };
     img.onerror = () => {
       console.error('Error loading image for logo color analysis:', imageUrl);
-      setLogoColorStates(prev => ({ ...prev, [albumKey]: 'dark' })); // Default to dark on error
+      setLogoColorStates((prev) => ({ ...prev, [albumKey]: 'dark' })); // Default to dark on error
     };
     img.src = imageUrl;
   };
@@ -259,11 +302,15 @@ export default function Home() {
 
     setSpotifyLinks({}); // Reset links before fetching for new set of albums
 
-    albums.forEach(album => {
-      if (!album.mbid) { // Ensure we have a key for spotify link and logo color
-        console.warn('Album missing mbid, cannot fetch Spotify link or analyze logo color:', album.name);
+    albums.forEach((album) => {
+      if (!album.mbid) {
+        // Ensure we have a key for spotify link and logo color
+        console.warn(
+          'Album missing mbid, cannot fetch Spotify link or analyze logo color:',
+          album.name
+        );
         // Set cue visibility to false if mbid is missing
-        setSpotifyCueVisible(prev => ({ ...prev, [album.name]: false })); // Use album.name as a fallback key if mbid is missing
+        setSpotifyCueVisible((prev) => ({ ...prev, [album.name]: false })); // Use album.name as a fallback key if mbid is missing
         return;
       }
 
@@ -275,32 +322,34 @@ export default function Home() {
           );
           if (response.ok) {
             const data = await response.json();
-            setSpotifyLinks(prevLinks => ({
+            setSpotifyLinks((prevLinks) => ({
               ...prevLinks,
               [album.mbid]: data.spotifyUrl || null,
             }));
-            setSpotifyCueVisible(prevCues => ({
+            setSpotifyCueVisible((prevCues) => ({
               ...prevCues,
               [album.mbid]: !!data.spotifyUrl, // True if link exists, false otherwise
             }));
           } else {
-            console.error(`Failed to fetch Spotify link for ${album.name}: ${response.status}`);
-            setSpotifyLinks(prevLinks => ({
+            console.error(
+              `Failed to fetch Spotify link for ${album.name}: ${response.status}`
+            );
+            setSpotifyLinks((prevLinks) => ({
               ...prevLinks,
               [album.mbid]: null,
             }));
-            setSpotifyCueVisible(prevCues => ({
+            setSpotifyCueVisible((prevCues) => ({
               ...prevCues,
               [album.mbid]: false,
             }));
           }
         } catch (err) {
           console.error(`Error fetching Spotify link for ${album.name}:`, err);
-          setSpotifyLinks(prevLinks => ({
+          setSpotifyLinks((prevLinks) => ({
             ...prevLinks,
             [album.mbid]: null,
           }));
-          setSpotifyCueVisible(prevCues => ({
+          setSpotifyCueVisible((prevCues) => ({
             ...prevCues,
             [album.mbid]: false,
           }));
@@ -314,15 +363,17 @@ export default function Home() {
         getLogoBackgroundColorType(album.image[3]['#text'], album.mbid);
       } else {
         // If no image, default to dark background for logo
-        setLogoColorStates(prev => ({ ...prev, [album.mbid]: 'dark' }));
-        // Also ensure cue visibility is false if there's no image for logo analysis (though this is more tied to Spotify link)
-        // This part might be redundant if already handled by Spotify link logic, but ensures consistency if mbid exists but image doesn't
-        if (!spotifyCueVisible[album.mbid]) { // Check if not already set by link fetching
-            setSpotifyCueVisible(prevCues => ({ ...prevCues, [album.mbid]: false }));
+        setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
+        if (!spotifyCueVisible[album.mbid]) {
+          // Check if not already set by link fetching
+          setSpotifyCueVisible((prevCues) => ({
+            ...prevCues,
+            [album.mbid]: false,
+          }));
         }
       }
     });
-  }, [albums]); // Dependency: albums array itself
+  }, [albums]); // Dependency: albums array itself, spotifyCueVisible removed
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -341,7 +392,7 @@ export default function Home() {
   const handleToggleView = () => {
     if (isJpgView) {
       setIsJpgView(false);
-      setJpgImageData(''); // Ensure this line is present
+      setJpgImageData('');
     } else {
       generateImage();
     }
@@ -381,118 +432,155 @@ export default function Home() {
               </Button>
               <ThemeToggleButton />
             </div>
-            {error && <p className="text-red-500 dark:text-red-400 mt-2">{error}</p>}
+            {error && (
+              <p className="text-red-500 dark:text-red-400 mt-2">{error}</p>
+            )}
           </CardContent>
         </Card>
 
         {showSpinner && (
-          <div data-testid="loading-spinner" style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 10, // Ensure it's above other content
-          }}>
-            <div style={{
-              border: '4px solid rgba(0, 0, 0, 0.1)',
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              borderLeftColor: 'var(--foreground)', // Use theme color
-              animation: 'spin 1s ease infinite',
-            }}></div>
+          <div
+            data-testid="loading-spinner"
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 10, // Ensure it's above other content
+            }}
+          >
+            <div
+              style={{
+                border: '4px solid rgba(0, 0, 0, 0.1)',
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                borderLeftColor: 'var(--foreground)', // Use theme color
+                animation: 'spin 1s ease infinite',
+              }}
+            ></div>
           </div>
         )}
 
-        {albums.length > 0 && !showSpinner && ( // Also hide grid if spinner is shown
-          <>
-            <div className="flex justify-end mb-4">
-              <Button
-                onClick={handleToggleView} // Update this line
-                className="gap-2"
-              >
-                {isJpgView ? (
-                  'Revert to Grid'
-                ) : (
-                  <>
-                    <FileImage size={16} />
-                    Convert to JPG
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {isJpgView && jpgImageData ? (
-              <Image
-                src={jpgImageData}
-                alt="Album Grid JPG"
-                width={900} // Intrinsic width of the generated image
-                height={900} // Intrinsic height of the generated image
-                className="w-full h-auto border rounded-lg shadow-md" // Example styling
-                priority // Consider adding priority if this image becomes LCP
-              />
-            ) : (
-              <div data-testid="album-grid-container" className={`grid grid-cols-3 gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}>
-                {albums.map((album, index) => {
-                  const currentSpotifyUrl = album.mbid ? spotifyLinks[album.mbid] : null;
-                  const logoBgType = album.mbid ? logoColorStates[album.mbid] : 'dark'; // Default if not found
-                  const showCue = album.mbid ? spotifyCueVisible[album.mbid] : false;
-                  return (
-                    <Card key={album.mbid || index}> {/* Use mbid as key if available */}
-                      <CardContent className="p-4">
-                        <div className="aspect-square relative group album-hover-container">
-                          <Image
-                            src={album.image[3]?.['#text'] || '/api/placeholder/300/300'}
-                            alt={`${album.name} by ${album.artist.name}`}
-                            fill
-                            className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
-                            sizes="(max-width: 768px) 100vw, 300px"
-                            onLoad={() => handleImageLoad(index)}
-                          />
-                          {showCue && (
-                            <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
-                              <Image
-                                src="/spotify_icon.svg"
-                                alt="Spotify Playable Cue"
-                                width={24}
-                                height={24}
-                                className="w-6 h-6 opacity-75"
-                              />
-                            </div>
-                          )}
-                          {currentSpotifyUrl && (
-                            <a
-                              href={currentSpotifyUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
-                            >
-                              <Image
-                                src="/spotify_icon.svg"
-                                alt="Play on Spotify"
-                                width={64} // Adjust size as needed
-                                height={64} // Adjust size as needed
-                                className="w-16 h-16" // Tailwind class for size
-                              />
-                            </a>
-                          )}
-                        </div>
-                        <div className="mt-2">
-<p className="font-semibold truncate" title={album.name}>
-                            <a href={`https://musicbrainz.org/release/${album.mbid}`} target="_blank" rel="noopener noreferrer">{album.name}</a>
-                        </p>
-<p className="text-sm text-muted-foreground truncate" title={album.artist.name}>
-                            <a href={`https://musicbrainz.org/artist/${album.artist.mbid}`} target="_blank" rel="noopener noreferrer">{album.artist.name}</a>
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ); // Explicit semicolon
-              })}
+        {albums.length > 0 &&
+          !showSpinner && ( // Also hide grid if spinner is shown
+            <>
+              <div className="flex justify-end mb-4">
+                <Button onClick={handleToggleView} className="gap-2">
+                  {isJpgView ? (
+                    'Revert to Grid'
+                  ) : (
+                    <>
+                      <FileImage size={16} />
+                      Convert to JPG
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
-          </>
-        )}
+
+              {isJpgView && jpgImageData ? (
+                <Image
+                  src={jpgImageData}
+                  alt="Album Grid JPG"
+                  width={900} // Intrinsic width of the generated image
+                  height={900} // Intrinsic height of the generated image
+                  className="w-full h-auto border rounded-lg shadow-md" // Example styling
+                  priority // Consider adding priority if this image becomes LCP
+                />
+              ) : (
+                <div
+                  data-testid="album-grid-container"
+                  className={`grid grid-cols-3 gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
+                >
+                  {albums.map((album, index) => {
+                    const currentSpotifyUrl = album.mbid
+                      ? spotifyLinks[album.mbid]
+                      : null;
+                    const logoBgType = album.mbid
+                      ? logoColorStates[album.mbid]
+                      : 'dark'; // Default if not found
+                    const showCue = album.mbid
+                      ? spotifyCueVisible[album.mbid]
+                      : false;
+                    return (
+                      <Card key={album.mbid || index}>
+                        {' '}
+                        {/* Use mbid as key if available */}
+                        <CardContent className="p-4">
+                          <div className="aspect-square relative group album-hover-container">
+                            <Image
+                              src={
+                                album.image[3]?.['#text'] ||
+                                '/api/placeholder/300/300'
+                              }
+                              alt={`${album.name} by ${album.artist.name}`}
+                              fill
+                              className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
+                              sizes="(max-width: 768px) 100vw, 300px"
+                              onLoad={() => handleImageLoad(index)}
+                            />
+                            {showCue && (
+                              <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
+                                <Image
+                                  src="/spotify_icon.svg"
+                                  alt="Spotify Playable Cue"
+                                  width={24}
+                                  height={24}
+                                  className="w-6 h-6 opacity-75"
+                                />
+                              </div>
+                            )}
+                            {currentSpotifyUrl && (
+                              <a
+                                href={currentSpotifyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+                              >
+                                <Image
+                                  src="/spotify_icon.svg"
+                                  alt="Play on Spotify"
+                                  width={64}
+                                  height={64}
+                                  className="w-16 h-16"
+                                />
+                              </a>
+                            )}
+                          </div>
+                          <div className="mt-2">
+                            <p
+                              className="font-semibold truncate"
+                              title={album.name}
+                            >
+                              <a
+                                href={`https://musicbrainz.org/release/${album.mbid}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {album.name}
+                              </a>
+                            </p>
+                            <p
+                              className="text-sm text-muted-foreground truncate"
+                              title={album.artist.name}
+                            >
+                              <a
+                                href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {album.artist.name}
+                              </a>
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
       </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
