@@ -1,11 +1,15 @@
+// app/api/albums/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getTopAlbums } from '@/lib/lastfmService'; // Keep LastFmTopAlbumsResponse if still needed for raw fetch
+import { getTopAlbums } from '@/lib/lastfmService';
 import {
   transformLastFmResponse,
   MinimizedAlbum,
-} from '@/lib/minimizedLastfmService'; // Added
+} from '@/lib/minimizedLastfmService';
 import { handleCaching } from '@/lib/cache';
 import { logger } from '@/utils/logger';
+import { nanoid } from 'nanoid'; // Added
+import type { SharedGridData } from '@/lib/types'; // Added
+import { redis } from '@/lib/redis'; // Added
 
 const CTX = 'AlbumsAPI';
 
@@ -27,65 +31,80 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const cacheKey = `lastfm:albums:${username}:${period}:minimized`; // Consider updating cache key
-  const cacheExpirySeconds = 3600; // 1 hour
-  const notFoundCacheExpirySeconds = 600; // 10 minutes
+  const cacheKey = `lastfm:albums:${username}:${period}:minimized`;
+  const cacheExpirySeconds = 3600; // 1 hour for album data itself
+  const notFoundCacheExpirySeconds = 600; // 10 minutes for "not found" album data
 
   const isResultNotFound = (data: MinimizedAlbum[]): boolean => {
-    // Updated type and logic
     return !data || data.length === 0;
   };
 
-  const notFoundReturnValue: MinimizedAlbum[] = []; // Updated
+  const notFoundReturnValue: MinimizedAlbum[] = [];
 
   const fetchDataFunction = async (): Promise<MinimizedAlbum[]> => {
-    // Updated return type
     logger.info(
       CTX,
       `Fetching fresh data from Last.fm for ${username}, period: ${period}`
     );
-    // The getTopAlbums function itself handles Last.fm API errors (like invalid user)
-    // and should return a structure that isNotFound can evaluate.
-    // Default limit is 9 in getTopAlbums, can be passed if made dynamic here.
     const rawTopAlbums = await getTopAlbums(username, period);
-    return transformLastFmResponse(rawTopAlbums); // Added transformation
+    return transformLastFmResponse(rawTopAlbums);
   };
 
   try {
-    // Updated generic type for handleCaching
-    const data = await handleCaching<MinimizedAlbum[]>({
+    const albumsData = await handleCaching<MinimizedAlbum[]>({ // Renamed to albumsData for clarity
       cacheKey,
       fetchDataFunction,
       cacheExpirySeconds,
       isNotFound: isResultNotFound,
       notFoundValue: notFoundReturnValue,
       notFoundCacheExpirySeconds,
-      // notFoundRedisPlaceholder can be left to default if 'NOT_FOUND_PLACEHOLDER' is acceptable
     });
 
-    // If data matches notFoundReturnValue, it means it was either a cached "not found"
-    // or a fresh fetch that resulted in "not found".
-    // The client should receive this structured response.
-    const lastFmAlbumCount = data ? data.length : 0;
-    // spotifyLinkCount cannot be determined here as MinimizedAlbum does not have spotifyUrl
-
+    const lastFmAlbumCount = albumsData ? albumsData.length : 0;
     logger.info(
       CTX,
       `Metrics for username: ${username}, period: ${period} - Last.fm albums: ${lastFmAlbumCount}`
     );
+
+    if (isResultNotFound(albumsData)) {
+      logger.info(
+        CTX,
+        `No albums found for username: ${username}, period: ${period}. Not generating share ID.`
+      );
+      return NextResponse.json({ albums: albumsData, sharedId: null }, { status: 200 });
+    }
+
+    // If albums are found, generate sharedId and store
+    const sharedId = nanoid();
+    const sharedGridEntry: SharedGridData = {
+      id: sharedId,
+      username, // username is in scope
+      period,   // period is in scope
+      albums: albumsData,
+      createdAt: new Date().toISOString(),
+    };
+
+    const SHARED_GRID_EXPIRY_SECONDS = 2592000; // 30 days
+    await redis.setex(
+      `sharedGrid:${sharedId}`,
+      SHARED_GRID_EXPIRY_SECONDS,
+      JSON.stringify(sharedGridEntry)
+    );
+
     logger.info(
       CTX,
-      `Successfully fetched ${lastFmAlbumCount} albums for username: ${username}, period: ${period}`
+      `Successfully fetched ${lastFmAlbumCount} albums and generated sharedId: ${sharedId} for username: ${username}, period: ${period}`
     );
-    return NextResponse.json(data, { status: 200 });
+    return NextResponse.json({ albums: albumsData, sharedId }, { status: 200 });
+
   } catch (error) {
     let errorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    logger.error(CTX, `Error for ${username}/${period}: ${errorMessage}`);
+    logger.error(CTX, `Error for ${username}/${period}: ${errorMessage}`, error);
     return NextResponse.json(
-      { message: 'Error fetching albums', error: errorMessage },
+      { message: 'Error fetching albums', error: errorMessage, albums: [], sharedId: null }, // Ensure consistent error response shape
       { status: 500 }
     );
   }

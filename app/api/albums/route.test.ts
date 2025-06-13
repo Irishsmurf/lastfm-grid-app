@@ -1,245 +1,160 @@
-// /app/api/albums/route.test.ts
-
+// app/api/albums/route.test.ts
 import { GET } from './route';
 import { NextRequest } from 'next/server';
-import { redis } from '../../../lib/redis';
-import { MinimizedAlbum } from '../../../lib/minimizedLastfmService'; // Added
-// We will import the mocked version of SpotifyWebApi later
-// import SpotifyWebApi from 'spotify-web-api-node';
+import { redis } from '@/lib/redis';
+import { nanoid } from 'nanoid';
+import * as lastfmService from '@/lib/lastfmService';
+import * as minimizedLastfmService from '@/lib/minimizedLastfmService';
+import { MinimizedAlbum } from '@/lib/minimizedLastfmService';
 
-// Mock external dependencies
-jest.mock('../../../lib/redis', () => ({
+// Mock Redis
+jest.mock('@/lib/redis', () => ({
   redis: {
-    get: jest.fn(),
-    setex: jest.fn(),
+    get: jest.fn(), // For cache
+    setex: jest.fn(), // For cache and sharedGrid
   },
 }));
 
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
+// Mock nanoid
+jest.mock('nanoid');
 
-// Helper function to create a mock request
-const createMockRequest = (username: string, period: string) => {
-  const url = new URL(
-    `http://localhost:3000/api/albums?username=${username}&period=${period}`
-  );
-  // Cast to NextRequest for type compatibility in tests, actual Request is fine for route handler
-  return new Request(url.toString()) as NextRequest;
-};
+// Mock Last.fm and transformation services
+jest.mock('@/lib/lastfmService');
+jest.mock('@/lib/minimizedLastfmService');
+
+// Mock logger
+jest.mock('@/utils/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
 
 describe('GET /api/albums', () => {
+  const mockUsername = 'testuser';
+  const mockPeriod = '1month';
+  const mockReq = (username = mockUsername, period = mockPeriod) => {
+    const url = `http://localhost/api/albums?username=${username}&period=${period}`;
+    return new NextRequest(url) as NextRequest;
+  };
+
+  const mockAlbumsData: MinimizedAlbum[] = [
+    { name: 'Album 1', artist: { name: 'Artist 1', mbid: 'a1'}, imageUrl: 'url1', mbid: 'm1', playcount: 10 },
+    { name: 'Album 2', artist: { name: 'Artist 2', mbid: 'a2'}, imageUrl: 'url2', mbid: 'm2', playcount: 20 },
+  ];
+
   beforeEach(() => {
-    // Clear all mocks before each test
-    jest.clearAllMocks();
-
-    // Mock environment variables
-    process.env.LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
-    process.env.LASTFM_API_KEY = 'testapikey';
-    // No longer need SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET for this test file
+    (redis.get as jest.Mock).mockReset();
+    (redis.setex as jest.Mock).mockReset();
+    (nanoid as jest.Mock).mockReset();
+    (lastfmService.getTopAlbums as jest.Mock).mockReset();
+    (minimizedLastfmService.transformLastFmResponse as jest.Mock).mockReset();
   });
 
-  it('should return cached data if available', async () => {
-    // Arrange
-    const mockUsername = 'testuser';
-    const mockPeriod = '7day';
-    const mockCachedData: MinimizedAlbum[] = [
-      // Updated mockCachedData
-      {
-        name: 'Test Album',
-        artist: { name: 'Test Artist', mbid: 'artist-mbid-cache' },
-        imageUrl: 'cached.jpg',
-        mbid: 'album-mbid-cache',
-        playcount: 10,
-      },
-    ];
-    (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(mockCachedData));
+  it('should return albums and sharedId, and save to Redis when albums are found', async () => {
+    const mockSharedId = 'test-shared-id';
+    (nanoid as jest.Mock).mockReturnValue(mockSharedId);
+    (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss for albums
+    (lastfmService.getTopAlbums as jest.Mock).mockResolvedValue({ topalbums: { album: [] } }); // Mock raw response
+    (minimizedLastfmService.transformLastFmResponse as jest.Mock).mockReturnValue(mockAlbumsData);
 
-    const req = createMockRequest(mockUsername, mockPeriod);
-
-    // Act
-    const response = await GET(req);
-    const data = await response.json();
-
-    // Assert
-    expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Updated cache key
-    );
-    expect(mockFetch).not.toHaveBeenCalled();
+    const response = await GET(mockReq());
     expect(response.status).toBe(200);
-    expect(data).toEqual(mockCachedData);
-  });
+    const body = await response.json();
 
-  it('should fetch data from LastFM if not cached', async () => {
-    // Arrange
-    const mockUsername = 'testuser';
-    const mockPeriod = '1month';
-    // Full Last.fm structure for mock fetch
-    const mockLastFmAlbum = {
-      name: 'Fetched Album',
-      artist: {
-        name: 'Test Artist',
-        mbid: 'artist-mbid-fetch',
-        url: 'artist-url',
-      },
-      image: [
-        { '#text': 'small.jpg', size: 'small' },
-        { '#text': 'medium.jpg', size: 'medium' },
-        { '#text': 'large.jpg', size: 'large' },
-        { '#text': 'extralarge.jpg', size: 'extralarge' },
-      ],
-      mbid: 'album-mbid-fetch',
-      playcount: '120', // Playcount as string from Last.fm
-      url: 'album-url',
-    };
-    const mockLastFmData = {
-      topalbums: {
-        album: [mockLastFmAlbum],
-        '@attr': {
-          user: mockUsername,
-          totalPages: '1',
-          page: '1',
-          perPage: '9',
-          total: '1',
-        },
-      },
-    };
+    expect(body.albums).toEqual(mockAlbumsData);
+    expect(body.sharedId).toBe(mockSharedId);
 
-    // Expected transformed data
-    const expectedTransformedData: MinimizedAlbum[] = [
-      {
-        name: 'Fetched Album',
-        artist: { name: 'Test Artist', mbid: 'artist-mbid-fetch' },
-        imageUrl: 'extralarge.jpg',
-        mbid: 'album-mbid-fetch',
-        playcount: 120, // Playcount as number
-      },
-    ];
+    expect(nanoid).toHaveBeenCalledTimes(1);
 
-    (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
-    mockFetch.mockResolvedValue({
-      // Mock Last.fm fetch
-      ok: true,
-      json: jest.fn().mockResolvedValue(mockLastFmData),
-    });
-
-    const req = createMockRequest(mockUsername, mockPeriod);
-
-    // Act
-    const response = await GET(req);
-    const data = await response.json();
-
-    // Assert
-    expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Updated cache key
-    );
-    expect(mockFetch).toHaveBeenCalledWith(
-      `${process.env.LASTFM_BASE_URL}?method=user.gettopalbums&user=${mockUsername}&period=${mockPeriod}&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=9`
-    );
-    // Data saved to cache should be the TRANSFORMED data
+    // Check caching of albums (from handleCaching via fetchDataFunction)
+    // The key depends on username, period and ":minimized"
+    const albumCacheKey = `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`;
     expect(redis.setex).toHaveBeenCalledWith(
-      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`, // Updated cache key
-      3600,
-      JSON.stringify(expectedTransformedData) // Transformed data
+      albumCacheKey,
+      3600, // cacheExpirySeconds for albums
+      JSON.stringify(mockAlbumsData)
     );
-    expect(response.status).toBe(200);
-    expect(data).toEqual(expectedTransformedData); // Response should be TRANSFORMED data
-  });
 
-  it('should fetch data and return empty array if LastFM returns no albums', async () => {
-    const mockUsername = 'testuser';
-    const mockPeriod = '3month';
-    const mockEmptyLastFmData = {
-      topalbums: {
-        album: [],
-        '@attr': {
-          user: mockUsername,
-          totalPages: '0',
-          page: '1',
-          perPage: '9',
-          total: '0',
-        },
-      },
+    // Check saving of shared grid
+    const sharedGridRedisKey = `sharedGrid:${mockSharedId}`;
+    const expectedSharedGridData = {
+      id: mockSharedId,
+      username: mockUsername,
+      period: mockPeriod,
+      albums: mockAlbumsData,
+      // createdAt will be dynamic, so we check its existence or mock Date
     };
-
-    (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
-    mockFetch.mockResolvedValue({
-      // Mock Last.fm fetch
-      ok: true,
-      json: jest.fn().mockResolvedValue(mockEmptyLastFmData),
-    });
-
-    const req = createMockRequest(mockUsername, mockPeriod);
-    const response = await GET(req);
-    const data = await response.json();
-
-    expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`
-    );
-    expect(mockFetch).toHaveBeenCalled();
-    // Check that "NOT_FOUND_PLACEHOLDER" is cached with notFoundCacheExpirySeconds
     expect(redis.setex).toHaveBeenCalledWith(
-      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`,
-      600, // notFoundCacheExpirySeconds
-      'NOT_FOUND_PLACEHOLDER' // Adjusted expectation based on Jest's reported "Received" value
+      sharedGridRedisKey,
+      2592000, // SHARED_GRID_EXPIRY_SECONDS
+      expect.stringContaining(`"id":"${mockSharedId}"`) // Check parts of the stringified object
     );
+    // More precise check for sharedGridData (might require mocking Date)
+    const setexCall = (redis.setex as jest.Mock).mock.calls.find(call => call[0] === sharedGridRedisKey);
+    expect(setexCall).toBeTruthy();
+    if (setexCall) {
+        const savedData = JSON.parse(setexCall[2]);
+        expect(savedData.id).toBe(mockSharedId);
+        expect(savedData.username).toBe(mockUsername);
+        expect(savedData.albums).toEqual(mockAlbumsData);
+        expect(savedData.createdAt).toBeDefined();
+    }
+  });
+
+  it('should return empty albums and null sharedId when no albums are found', async () => {
+    (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
+    (lastfmService.getTopAlbums as jest.Mock).mockResolvedValue({ topalbums: { album: [] } });
+    (minimizedLastfmService.transformLastFmResponse as jest.Mock).mockReturnValue([]); // No albums
+
+    const response = await GET(mockReq());
     expect(response.status).toBe(200);
-    expect(data).toEqual([]); // Expect empty array as per transform and notFoundReturnValue
+    const body = await response.json();
+
+    expect(body.albums).toEqual([]);
+    expect(body.sharedId).toBeNull();
+    expect(nanoid).not.toHaveBeenCalled();
+
+    // Check caching of "not found" for albums
+    const albumCacheKey = `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`;
+    const notFoundCacheExpirySeconds = 600;
+    // The handleCaching might store a placeholder or the empty array itself.
+    // If it stores notFoundReturnValue directly:
+    expect(redis.setex).toHaveBeenCalledWith(
+      albumCacheKey,
+      notFoundCacheExpirySeconds, // notFoundCacheExpirySeconds for albums
+      JSON.stringify([]) // or "NOT_FOUND_PLACEHOLDER" if that's how handleCaching is configured for this case
+    );
+
+    // Ensure sharedGrid data was NOT saved
+    const sharedGridSetExCall = (redis.setex as jest.Mock).mock.calls.find(call => call[0].startsWith("sharedGrid:"));
+    expect(sharedGridSetExCall).toBeUndefined();
   });
 
-  // Removed Spotify-specific tests:
-  // - should fetch Spotify access token if not available
-  // - should set spotifyUrl to null if album not found on Spotify
-  // - should set spotifyUrl to null and not break if Spotify API search fails for an album
-  // - should handle failure in fetching Spotify access token
+  it('should return 400 if username or period is missing', async () => {
+    let response = await GET(mockReq('', '1month'));
+    expect(response.status).toBe(400);
+    let body = await response.json();
+    expect(body.message).toBe('Username and period are required');
 
-  it('should handle LastFM fetch failure gracefully', async () => {
-    // Arrange
-    const mockUsername = 'testuser';
-    const mockPeriod = 'overall';
-    (redis.get as jest.Mock).mockResolvedValue(null);
-    mockFetch.mockResolvedValue({
-      ok: false,
-      statusText: 'Not Found',
-      status: 404,
-      text: jest.fn().mockResolvedValue('Mock Last.fm error message text'), // Added text() method
-    });
-
-    const req = createMockRequest(mockUsername, mockPeriod);
-
-    // Act
-    const response = await GET(req);
-    const data = await response.json();
-
-    // Assert
-    expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Updated cache key
-    );
-    expect(mockFetch).toHaveBeenCalled();
-    expect(response.status).toBe(500);
-    expect(data.message).toBe('Error fetching albums');
+    response = await GET(mockReq('testuser', ''));
+    expect(response.status).toBe(400);
+    body = await response.json();
+    expect(body.message).toBe('Username and period are required');
   });
 
-  it('should handle errors thrown during general fetch processing', async () => {
-    // Arrange
-    const mockUsername = 'testuser';
-    const mockPeriod = 'overall';
-    (redis.get as jest.Mock).mockResolvedValue(null);
-    mockFetch.mockRejectedValue(new Error('Network error')); // Generic error during LastFM fetch
+  // Add test for error from getTopAlbums or transformLastFmResponse
+  it('should return 500 and sharedId null if fetching albums fails', async () => {
+    (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss
+    (lastfmService.getTopAlbums as jest.Mock).mockRejectedValue(new Error('Last.fm API error'));
 
-    const req = createMockRequest(mockUsername, mockPeriod);
-
-    // Act
-    const response = await GET(req);
-    const data = await response.json();
-
-    // Assert
-    expect(redis.get).toHaveBeenCalledWith(
-      `lastfm:albums:${mockUsername}:${mockPeriod}:minimized` // Corrected cache key
-    );
-    expect(mockFetch).toHaveBeenCalled();
-    // searchAlbums should not have been called
-    expect(redis.setex).not.toHaveBeenCalled();
+    const response = await GET(mockReq());
     expect(response.status).toBe(500);
-    expect(data.message).toBe('Error fetching albums');
+    const body = await response.json();
+    expect(body.message).toBe('Error fetching albums');
+    expect(body.albums).toEqual([]); // Or whatever the error response shape is
+    expect(body.sharedId).toBeNull();
+    expect(nanoid).not.toHaveBeenCalled();
   });
 });

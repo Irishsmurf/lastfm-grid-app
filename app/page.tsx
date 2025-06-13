@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileImage } from 'lucide-react'; // Removed Download
+import { FileImage, Link as LinkIcon } from 'lucide-react'; // Added LinkIcon
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 const timeRanges = {
@@ -71,6 +71,8 @@ export default function Home() {
   const [spotifyCueVisible, setSpotifyCueVisible] = useState<
     Record<string, boolean>
   >({});
+  const [sharedId, setSharedId] = useState<string | null>(null); // New state for shared ID
+  const [showShareFeedback, setShowShareFeedback] = useState<boolean>(false); // New state for copy feedback
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -82,6 +84,9 @@ export default function Home() {
 
   const fetchTopAlbums = async () => {
     setIsJpgView(false); // Add this line
+    setSharedId(null); // Reset sharedId
+    setShowShareFeedback(false); // Reset feedback message
+
     if (!username) {
       setError('Please enter a username');
       return;
@@ -90,6 +95,11 @@ export default function Home() {
     setLoading(true);
     setIsGridUpdating(true); // Set isGridUpdating to true
     setError('');
+    setAlbums([]); // Clear previous albums
+    setSpotifyLinks({}); // Clear spotify links
+    setLogoColorStates({}); // Clear logo color states
+    setSpotifyCueVisible({}); // Clear cue visibility states
+    setFadeInStates({}); // Reset fade-in states
 
     try {
       const response = await fetch(
@@ -97,44 +107,73 @@ export default function Home() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch albums');
+        const errorData = await response.json().catch(() => ({})); // Try to parse error, default to empty if fail
+        setError(errorData.message || 'Failed to fetch albums');
+        throw new Error(errorData.message || 'Failed to fetch albums');
       }
 
-      // Assuming API returns data compatible with the updated local Album interface
-      // The actual type from API is MinimizedAlbum[]
-      const rawApiAlbums: Array<{
+      const responseJson = await response.json(); // Expect { albums: MinimizedAlbum[], sharedId: string | null }
+
+      if (!responseJson.albums) {
+        setError('Received an unexpected response from the server.');
+        setAlbums([]);
+        setSharedId(null);
+        return;
+      }
+
+      const albumDataFromApi: Array<{ // Using the same raw type for now
         name: string;
         artist: { name: string; mbid: string };
         imageUrl: string;
         mbid: string;
         playcount: number;
-      }> = await response.json();
+      }> = responseJson.albums;
 
-      const albumData: Album[] = rawApiAlbums.slice(0, 9).map((apiAlbum) => ({
+      const currentSharedId: string | null = responseJson.sharedId;
+
+      const albumData: Album[] = albumDataFromApi.slice(0, 9).map((apiAlbum) => ({
         name: apiAlbum.name,
         artist: {
-          // Adjust artist mapping
           name: apiAlbum.artist.name,
           mbid: apiAlbum.artist.mbid,
-          url: '', // URL not provided by minimized API
+          url: '',
         },
         imageUrl: apiAlbum.imageUrl,
         mbid: apiAlbum.mbid,
-        playcount: Number(apiAlbum.playcount), // Ensure playcount is a number
+        playcount: Number(apiAlbum.playcount),
       }));
 
       setAlbums(albumData);
+      setSharedId(currentSharedId); // Set the sharedId from the response
+
       // Save username to localStorage after successful fetch
       localStorage.setItem('username', username);
-      setIsGridUpdating(false); // Set isGridUpdating to false
+      // setIsGridUpdating(false); // This will be handled by the spinner useEffect
     } catch (err) {
-      console.error('An error occurred: ', err);
-      setError(
-        'Error fetching albums. Please check the username and try again.'
-      );
+      // console.error('An error occurred: ', err); // Already logged by API usually
+      if (!error) { // Avoid overwriting specific error from API
+         setError('Error fetching albums. Please check the username and try again.');
+      }
+      setAlbums([]); // Clear albums on error
+      setSharedId(null); // Clear sharedId on error
     } finally {
       setLoading(false);
       setIsGridUpdating(false); // Ensure isGridUpdating is reset
+    }
+  };
+
+  const handleShare = async () => {
+    if (!sharedId) return;
+    const shareUrl = window.location.origin + '/share/' + sharedId;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShowShareFeedback(true);
+      setTimeout(() => {
+        setShowShareFeedback(false);
+      }, 2000); // Hide message after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy share URL: ', err);
+      setError('Failed to copy link. Please try again or copy manually.');
     }
   };
 
@@ -478,7 +517,13 @@ export default function Home() {
         {albums.length > 0 &&
           !showSpinner && ( // Also hide grid if spinner is shown
             <>
-              <div className="flex justify-end mb-4">
+              <div className="flex justify-end mb-4 space-x-2"> {/* Added space-x-2 for button spacing */}
+                {sharedId && (
+                  <Button onClick={handleShare} variant="outline" className="gap-2">
+                    <LinkIcon size={16} />
+                    {showShareFeedback ? 'Copied!' : 'Copy Share Link'}
+                  </Button>
+                )}
                 <Button onClick={handleToggleView} className="gap-2">
                   {isJpgView ? (
                     'Revert to Grid'
@@ -517,8 +562,6 @@ export default function Home() {
                       : false;
                     return (
                       <Card key={album.mbid || index}>
-                        {' '}
-                        {/* Use mbid as key if available */}
                         <CardContent className="p-4">
                           <div className="aspect-square relative group album-hover-container">
                             <Image
@@ -566,6 +609,7 @@ export default function Home() {
                                 href={`https://musicbrainz.org/release/${album.mbid}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                className="hover:underline"
                               >
                                 {album.name}
                               </a>
@@ -578,6 +622,7 @@ export default function Home() {
                                 href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                className="hover:underline"
                               >
                                 {album.artist.name}
                               </a>
