@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 
 const timeRanges = {
   '7day': 'Last Week',
@@ -108,26 +109,22 @@ export default function Home() {
       const responseData = await response.json();
 
       if (responseData && Array.isArray(responseData.albums)) {
-        const rawApiAlbums: Array<{
-          name: string;
-          artist: string; // In MinimizedAlbum, artist is a string
-          image: string; // In MinimizedAlbum, image is a string (URL)
-          // mbid may or may not be present, handle accordingly
-          mbid?: string;
-        }> = responseData.albums;
-
-        const albumData: Album[] = rawApiAlbums.slice(0, 9).map((apiAlbum) => ({
-          name: apiAlbum.name,
-          artist: {
-            // Adapt to local Album interface structure
-            name: apiAlbum.artist,
-            mbid: apiAlbum.mbid || '', // Use mbid if present, else empty string
-            url: '', // Not available from MinimizedAlbum
-          },
-          imageUrl: apiAlbum.image, // map 'image' to 'imageUrl'
-          mbid: apiAlbum.mbid || '', // Use mbid if present
-          playcount: 0, // playcount not in MinimizedAlbum, default to 0 or remove if not used
-        }));
+        // responseData.albums is MinimizedAlbum[]
+        // MinimizedAlbum has: name: string, artist: { name: string, mbid: string }, imageUrl: string, mbid: string, playcount: number
+        const albumData: Album[] = responseData.albums
+          .slice(0, 9)
+          .map((apiAlbum: MinimizedAlbum) => ({
+            // Changed any to MinimizedAlbum
+            name: apiAlbum.name,
+            artist: {
+              name: apiAlbum.artist.name,
+              mbid: apiAlbum.artist.mbid,
+              url: '', // Local Album interface has url, MinimizedAlbum's artist does not
+            },
+            imageUrl: apiAlbum.imageUrl,
+            mbid: apiAlbum.mbid,
+            playcount: apiAlbum.playcount,
+          }));
 
         setAlbums(albumData);
 
