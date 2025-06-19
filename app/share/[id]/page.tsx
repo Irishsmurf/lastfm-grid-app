@@ -27,23 +27,31 @@ export async function generateMetadata(
     const response = await fetch(`https://lastfm.paddez.com/api/share/${id}`);
 
     if (!response.ok) {
-      logger.error('generateMetadata', `API error for ID ${id}: ${response.status}`);
+      logger.error(
+        'generateMetadata',
+        `API error for ID ${id}: ${response.status}`
+      );
       // Consider logging response.text() if the error body is useful
       // const errorBody = await response.text();
       // logger.error('generateMetadata', `Error body for ID ${id}: ${errorBody}`);
       return {
         title: 'Error Generating Grid Preview',
-        description: 'Could not load the shared grid data due to a server error.',
+        description:
+          'Could not load the shared grid data due to a server error.',
       };
     }
 
     const sharedData: SharedGridData = await response.json();
 
     if (!sharedData || !sharedData.username) {
-      logger.warn('generateMetadata', `No data or username found for ID: ${id}`);
+      logger.warn(
+        'generateMetadata',
+        `No data or username found for ID: ${id}`
+      );
       return {
         title: 'Grid Not Found',
-        description: 'The requested shared grid could not be found or is empty.',
+        description:
+          'The requested shared grid could not be found or is empty.',
         metadataBase: new URL('https://lastfm.paddez.com'),
       };
     }
@@ -102,14 +110,15 @@ export async function generateMetadata(
     );
     return {
       title: 'Error',
-      description: 'An unexpected error occurred while generating the grid preview.',
+      description:
+        'An unexpected error occurred while generating the grid preview.',
       metadataBase: new URL('https://lastfm.paddez.com'),
     };
   }
 }
 
 // The 'use client' directive should be AFTER server-side code like generateMetadata
-'use client';
+('use client');
 
 // Removed unused Artist, AlbumImage, and Album interfaces.
 // MinimizedAlbum is used directly from SharedGridData.
@@ -119,9 +128,15 @@ export async function generateMetadata(
 
 export default function SharedGridPage() {
   // Client-side state definitions
-  const [spotifyLinks, setSpotifyLinks] = useState<{[albumKey: string]: string | null}>({});
-  const [logoColorStates, setLogoColorStates] = useState<{[albumKey: string]: 'light' | 'dark'}>({});
-  const [spotifyCueVisible, setSpotifyCueVisible] = useState<{[albumKey: string]: boolean}>({});
+  const [spotifyLinks, setSpotifyLinks] = useState<{
+    [albumKey: string]: string | null;
+  }>({});
+  const [logoColorStates, setLogoColorStates] = useState<{
+    [albumKey: string]: 'light' | 'dark';
+  }>({});
+  const [spotifyCueVisible, setSpotifyCueVisible] = useState<{
+    [albumKey: string]: boolean;
+  }>({});
 
   // Function to determine logo background type based on image brightness
   const getLogoBackgroundColorType = (
@@ -180,11 +195,8 @@ export default function SharedGridPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [spotifyLinks, setSpotifyLinks] = useState<SpotifyLinks>({});
-  const [logoColorStates, setLogoColorStates] = useState<LogoColorStates>({});
-  const [spotifyCueVisible, setSpotifyCueVisible] = useState<SpotifyCueVisible>(
-    {}
-  );
+  // Duplicated state declarations were removed.
+  // The correct ones using inline types are kept above.
   const [_loadingSpotifyLinks, setLoadingSpotifyLinks] = useState(false);
 
   useEffect(() => {
