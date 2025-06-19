@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileImage } from 'lucide-react'; // Removed Download
+import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 const timeRanges = {
@@ -71,6 +71,8 @@ export default function Home() {
   const [spotifyCueVisible, setSpotifyCueVisible] = useState<
     Record<string, boolean>
   >({});
+  const [sharedId, setSharedId] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Load username from localStorage on component mount
   useEffect(() => {
@@ -90,6 +92,8 @@ export default function Home() {
     setLoading(true);
     setIsGridUpdating(true); // Set isGridUpdating to true
     setError('');
+    setSharedId(null); // Reset sharedId on new fetch
+    setShareCopied(false); // Reset share copied status
 
     try {
       const response = await fetch(
@@ -97,41 +101,64 @@ export default function Home() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch albums');
+        const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
+        throw new Error(errorData.message || 'Failed to fetch albums');
       }
 
-      // Assuming API returns data compatible with the updated local Album interface
-      // The actual type from API is MinimizedAlbum[]
-      const rawApiAlbums: Array<{
-        name: string;
-        artist: { name: string; mbid: string };
-        imageUrl: string;
-        mbid: string;
-        playcount: number;
-      }> = await response.json();
+      const responseData = await response.json();
 
-      const albumData: Album[] = rawApiAlbums.slice(0, 9).map((apiAlbum) => ({
-        name: apiAlbum.name,
-        artist: {
-          // Adjust artist mapping
-          name: apiAlbum.artist.name,
-          mbid: apiAlbum.artist.mbid,
-          url: '', // URL not provided by minimized API
-        },
-        imageUrl: apiAlbum.imageUrl,
-        mbid: apiAlbum.mbid,
-        playcount: Number(apiAlbum.playcount), // Ensure playcount is a number
-      }));
+      if (responseData && Array.isArray(responseData.albums)) {
+        const rawApiAlbums: Array<{
+          name: string;
+          artist: string; // In MinimizedAlbum, artist is a string
+          image: string; // In MinimizedAlbum, image is a string (URL)
+          // mbid may or may not be present, handle accordingly
+          mbid?: string;
+        }> = responseData.albums;
 
-      setAlbums(albumData);
+        const albumData: Album[] = rawApiAlbums.slice(0, 9).map((apiAlbum) => ({
+          name: apiAlbum.name,
+          artist: { // Adapt to local Album interface structure
+            name: apiAlbum.artist,
+            mbid: apiAlbum.mbid || '', // Use mbid if present, else empty string
+            url: '', // Not available from MinimizedAlbum
+          },
+          imageUrl: apiAlbum.image, // map 'image' to 'imageUrl'
+          mbid: apiAlbum.mbid || '', // Use mbid if present
+          playcount: 0, // playcount not in MinimizedAlbum, default to 0 or remove if not used
+        }));
+
+        setAlbums(albumData);
+
+        if (typeof responseData.sharedId === 'string') {
+          setSharedId(responseData.sharedId);
+        } else if (responseData.sharedId === null && responseData.error) {
+           setSharedId(null);
+           //setError('Fetched albums, but could not generate a shareable link. The grid is not shareable at the moment.');
+           console.warn('app/page.tsx: Fetched albums, but sharedId was null, Redis error likely occurred.');
+        } else {
+          setSharedId(null); // If sharedId is not a string and no specific error for it, just set to null
+        }
+
+        if (albumData.length === 0) {
+          setError('No albums found for this user and period.');
+        }
+
+      } else {
+        console.error('Invalid API response structure', responseData);
+        throw new Error('Invalid API response structure.');
+      }
+
       // Save username to localStorage after successful fetch
       localStorage.setItem('username', username);
       setIsGridUpdating(false); // Set isGridUpdating to false
-    } catch (err) {
+    } catch (err: any) {
       console.error('An error occurred: ', err);
       setError(
-        'Error fetching albums. Please check the username and try again.'
+        err.message || 'Error fetching albums. Please check the username and try again.'
       );
+      setSharedId(null); // Ensure sharedId is reset on error
+      setAlbums([]); // Clear albums on error
     } finally {
       setLoading(false);
       setIsGridUpdating(false); // Ensure isGridUpdating is reset
@@ -478,7 +505,22 @@ export default function Home() {
         {albums.length > 0 &&
           !showSpinner && ( // Also hide grid if spinner is shown
             <>
-              <div className="flex justify-end mb-4">
+              <div className="flex justify-end mb-4 space-x-2">
+                {sharedId && (
+                  <Button
+                    variant="outline"
+                    onClick={handleShareGrid}
+                    disabled={shareCopied}
+                    className="gap-2"
+                  >
+                    {shareCopied ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Share2 size={16} />
+                    )}
+                    {shareCopied ? 'Copied!' : 'Share Grid'}
+                  </Button>
+                )}
                 <Button onClick={handleToggleView} className="gap-2">
                   {isJpgView ? (
                     'Revert to Grid'
