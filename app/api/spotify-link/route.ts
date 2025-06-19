@@ -85,8 +85,7 @@ export async function GET(req: NextRequest) {
 
     logger.error(
       CTX,
-      `Error for ${artistName} - ${albumName}: ${detailedErrorMessage}`,
-      error // Log the original error object for more context if available
+      `Error for ${artistName} - ${albumName}: ${detailedErrorMessage}: ${error}`,
     );
 
     // For production, always use a generic message unless it's a specific case like auth
