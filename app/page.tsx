@@ -646,6 +646,12 @@ export default function Home() {
                                 {album.artist.name}
                               </a>
                             </p>
+                            <p
+                              className="text-sm text-muted-foreground truncate"
+                              title={`${album.playcount} listens`}
+                            >
+                              {album.playcount} listens
+                            </p>
                           </div>
                         </CardContent>
                       </Card>

@@ -57,6 +57,10 @@ jest.mock('lucide-react', () => ({
     <svg data-testid="chevron-up-icon" {...props} />
   ),
   Check: (props: IconProps) => <svg data-testid="check-icon" {...props} />,
+  FileImage: (props: IconProps) => (
+    <svg data-testid="file-image-icon" {...props} />
+  ),
+  Share2: (props: IconProps) => <svg data-testid="share2-icon" {...props} />,
 }));
 
 const mockLocalStorage = (() => {
@@ -191,7 +195,7 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     await act(async () => {
       resolveAlbumsFetch({
         ok: true,
-        json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }),
+        json: async () => ({ albums: mockApiAlbumsPayload, sharedId: 'test-share-id' }),
       });
       // Wait for all microtasks and state updates to process
       // This sequence helps ensure React processes state updates triggered by promises
@@ -219,6 +223,11 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     expect(initialAlbumImages.length).toBe(mockApiAlbumsPayload.length);
     initialAlbumImages.forEach((img) => {
       expect(img.className).toContain('image-fade-enter-active');
+    });
+
+    // Verify playcounts are displayed for initial load
+    mockApiAlbumsPayload.forEach(album => {
+      expect(screen.getByText(`${album.playcount} listens`)).toBeInTheDocument();
     });
 
     // === Subsequent Update (Click "Generate Grid" again) ===
@@ -251,7 +260,7 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     await act(async () => {
       resolveAlbumsFetch({
         ok: true,
-        json: async () => ({ topalbums: { album: mockApiAlbumsPayload } }), // can use different payload if needed
+        json: async () => ({ albums: mockApiAlbumsPayload, sharedId: 'test-share-id' }), // can use different payload if needed
       });
       await Promise.resolve();
       await Promise.resolve();
@@ -275,6 +284,11 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     expect(newAlbumImages.length).toBe(mockApiAlbumsPayload.length);
     newAlbumImages.forEach((img) => {
       expect(img.className).toContain('image-fade-enter-active');
+    });
+
+    // Verify playcounts are displayed for subsequent update
+    mockApiAlbumsPayload.forEach(album => {
+      expect(screen.getByText(`${album.playcount} listens`)).toBeInTheDocument();
     });
   });
 });
