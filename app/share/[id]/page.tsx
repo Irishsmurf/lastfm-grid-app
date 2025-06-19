@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
-import { ImageOff } from 'lucide-react'; // Removed ExternalLink
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
 import { logger } from '@/utils/logger';
 
