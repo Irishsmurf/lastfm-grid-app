@@ -22,6 +22,34 @@ export async function GET(req: NextRequest) {
     `Received request for username: ${username}, period: ${period}`
   );
 
+  // Validate username
+  if (username && (username.length < 2 || username.length > 50)) {
+    logger.warn(CTX, `Invalid username: ${username}`);
+    return NextResponse.json(
+      { message: 'Invalid username. Must be between 2 and 50 characters.' },
+      { status: 400 }
+    );
+  }
+
+  // Validate period
+  const validPeriods = [
+    'overall',
+    '7day',
+    '1month',
+    '3month',
+    '6month',
+    '12month',
+  ];
+  if (period && !validPeriods.includes(period)) {
+    logger.warn(CTX, `Invalid period: ${period}`);
+    return NextResponse.json({ message: 'Invalid period.' }, { status: 400 });
+  }
+
+  logger.info(
+    CTX,
+    `Username and period passed initial validation for username: ${username}, period: ${period}`
+  );
+
   if (!username || !period) {
     logger.warn(CTX, 'Missing username or period in request');
     return NextResponse.json(
@@ -30,7 +58,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const cacheKey = `lastfm:albums:${username}:${period}:minimized`; // Consider updating cache key
+  // Encode username and period for cache key security
+  const encodedUsername = encodeURIComponent(username);
+  const encodedPeriod = encodeURIComponent(period);
+  const cacheKey = `lastfm:albums:${encodedUsername}:${encodedPeriod}:minimized`;
   const cacheExpirySeconds = 3600; // 1 hour
   const notFoundCacheExpirySeconds = 600; // 10 minutes
 
@@ -107,10 +138,15 @@ export async function GET(req: NextRequest) {
         `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`
       );
       // Still return album data, but indicate sharing failed.
-      return NextResponse.json(
-        { albums: data, sharedId: null, error: 'Failed to save share data' },
-        { status: 200 }
-      );
+      const redisErrorResponse = {
+        albums: data,
+        sharedId: null,
+        error:
+          process.env.NODE_ENV === 'production'
+            ? 'Failed to save share data.'
+            : `Failed to save share data: ${redisError instanceof Error ? redisError.message : String(redisError)}`,
+      };
+      return NextResponse.json(redisErrorResponse, { status: 200 }); // Status 200 as per original, though 500 might be more appropriate.
     }
 
     return NextResponse.json(
@@ -118,13 +154,27 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    let errorMessage = 'An unexpected error occurred';
+    let detailedErrorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {
-      errorMessage = error.message;
+      detailedErrorMessage = error.message;
     }
-    logger.error(CTX, `Error for ${username}/${period}: ${errorMessage}`);
+    logger.error(
+      CTX,
+      `Error for ${username}/${period}: ${detailedErrorMessage}`
+    );
+
+    const responseMessage =
+      process.env.NODE_ENV === 'production'
+        ? 'An internal server error occurred.'
+        : 'Error fetching albums';
+
+    const errorDetail =
+      process.env.NODE_ENV === 'production'
+        ? undefined // Omit detailed error in production
+        : detailedErrorMessage;
+
     return NextResponse.json(
-      { message: 'Error fetching albums', error: errorMessage },
+      { message: responseMessage, error: errorDetail },
       { status: 500 }
     );
   }
