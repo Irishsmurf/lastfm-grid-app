@@ -71,13 +71,16 @@ export async function GET(req: NextRequest) {
       detailedErrorMessage = error.message;
       if (error.message.includes('Spotify access token')) {
         statusCode = 503; // Service Unavailable
-        clientResponseMessage = 'Error with Spotify authentication. Please try again later.';
+        clientResponseMessage =
+          'Error with Spotify authentication. Please try again later.';
       } else {
-        clientResponseMessage = 'An error occurred while processing your request for a Spotify link.';
+        clientResponseMessage =
+          'An error occurred while processing your request for a Spotify link.';
       }
     } else {
       detailedErrorMessage = String(error);
-      clientResponseMessage = 'An unexpected error occurred while processing your request.';
+      clientResponseMessage =
+        'An unexpected error occurred while processing your request.';
     }
 
     logger.error(
@@ -88,7 +91,8 @@ export async function GET(req: NextRequest) {
 
     // For production, always use a generic message unless it's a specific case like auth
     if (process.env.NODE_ENV === 'production') {
-      if (statusCode !== 503) { // If not the specific Spotify auth error
+      if (statusCode !== 503) {
+        // If not the specific Spotify auth error
         clientResponseMessage = 'An internal server error occurred.';
       }
       // Do not send detailed error message to client in production

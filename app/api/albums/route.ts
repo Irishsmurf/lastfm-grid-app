@@ -32,13 +32,17 @@ export async function GET(req: NextRequest) {
   }
 
   // Validate period
-  const validPeriods = ['overall', '7day', '1month', '3month', '6month', '12month'];
+  const validPeriods = [
+    'overall',
+    '7day',
+    '1month',
+    '3month',
+    '6month',
+    '12month',
+  ];
   if (period && !validPeriods.includes(period)) {
     logger.warn(CTX, `Invalid period: ${period}`);
-    return NextResponse.json(
-      { message: 'Invalid period.' },
-      { status: 400 }
-    );
+    return NextResponse.json({ message: 'Invalid period.' }, { status: 400 });
   }
 
   logger.info(
@@ -137,9 +141,10 @@ export async function GET(req: NextRequest) {
       const redisErrorResponse = {
         albums: data,
         sharedId: null,
-        error: process.env.NODE_ENV === 'production'
-               ? 'Failed to save share data.'
-               : `Failed to save share data: ${redisError instanceof Error ? redisError.message : String(redisError)}`,
+        error:
+          process.env.NODE_ENV === 'production'
+            ? 'Failed to save share data.'
+            : `Failed to save share data: ${redisError instanceof Error ? redisError.message : String(redisError)}`,
       };
       return NextResponse.json(redisErrorResponse, { status: 200 }); // Status 200 as per original, though 500 might be more appropriate.
     }
@@ -153,15 +158,20 @@ export async function GET(req: NextRequest) {
     if (error instanceof Error) {
       detailedErrorMessage = error.message;
     }
-    logger.error(CTX, `Error for ${username}/${period}: ${detailedErrorMessage}`);
+    logger.error(
+      CTX,
+      `Error for ${username}/${period}: ${detailedErrorMessage}`
+    );
 
-    const responseMessage = process.env.NODE_ENV === 'production'
-      ? 'An internal server error occurred.'
-      : 'Error fetching albums';
+    const responseMessage =
+      process.env.NODE_ENV === 'production'
+        ? 'An internal server error occurred.'
+        : 'Error fetching albums';
 
-    const errorDetail = process.env.NODE_ENV === 'production'
-      ? undefined // Omit detailed error in production
-      : detailedErrorMessage;
+    const errorDetail =
+      process.env.NODE_ENV === 'production'
+        ? undefined // Omit detailed error in production
+        : detailedErrorMessage;
 
     return NextResponse.json(
       { message: responseMessage, error: errorDetail },
