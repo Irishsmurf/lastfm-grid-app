@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchAlbum } from '@/lib/spotifyService'; // Corrected import path
 import { handleCaching } from '@/lib/cache';
+import { logger } from '@/utils/logger'; // Import logger
+
+const CTX = 'SpotifyLinkAPI'; // Context for logger
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -61,35 +64,44 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     let statusCode = 500;
-    let responseMessage = 'Internal Server Error while fetching Spotify link.';
-    let logErrorMessage = 'An unexpected error occurred.';
+    let clientResponseMessage: string;
+    let detailedErrorMessage = 'An unexpected error occurred.';
 
     if (error instanceof Error) {
-      logErrorMessage = error.message;
-      // Check for a specific error message or type that spotifyService might throw for auth issues
-      // For example, if spotifyService throws new Error('Failed to refresh Spotify access token')
+      detailedErrorMessage = error.message;
       if (error.message.includes('Spotify access token')) {
-        // Make this check more robust if needed
         statusCode = 503; // Service Unavailable
-        responseMessage =
-          'Error with Spotify authentication. Please try again later.';
+        clientResponseMessage = 'Error with Spotify authentication. Please try again later.';
       } else {
-        // For other errors, use a generic message for the client but log the specific one.
-        responseMessage =
-          'An error occurred while processing your request for a Spotify link.';
+        clientResponseMessage = 'An error occurred while processing your request for a Spotify link.';
       }
     } else {
-      logErrorMessage = String(error);
+      detailedErrorMessage = String(error);
+      clientResponseMessage = 'An unexpected error occurred while processing your request.';
     }
 
-    console.error(
-      `[API SPOTIFY-LINK ROUTE] Error for ${artistName} - ${albumName}: ${logErrorMessage}`,
-      error
+    logger.error(
+      CTX,
+      `Error for ${artistName} - ${albumName}: ${detailedErrorMessage}`,
+      error // Log the original error object for more context if available
     );
 
-    return NextResponse.json(
-      { message: responseMessage, error: logErrorMessage }, // Provide error detail in non-prod for easier debugging if desired
-      { status: statusCode }
-    );
+    // For production, always use a generic message unless it's a specific case like auth
+    if (process.env.NODE_ENV === 'production') {
+      if (statusCode !== 503) { // If not the specific Spotify auth error
+        clientResponseMessage = 'An internal server error occurred.';
+      }
+      // Do not send detailed error message to client in production
+      return NextResponse.json(
+        { message: clientResponseMessage },
+        { status: statusCode }
+      );
+    } else {
+      // In development/other, include more details
+      return NextResponse.json(
+        { message: clientResponseMessage, error: detailedErrorMessage },
+        { status: statusCode }
+      );
+    }
   }
 }
