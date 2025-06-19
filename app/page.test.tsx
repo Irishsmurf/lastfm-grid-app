@@ -195,7 +195,10 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     await act(async () => {
       resolveAlbumsFetch({
         ok: true,
-        json: async () => ({ albums: mockApiAlbumsPayload, sharedId: 'test-share-id' }),
+        json: async () => ({
+          albums: mockApiAlbumsPayload,
+          sharedId: 'test-share-id',
+        }),
       });
       // Wait for all microtasks and state updates to process
       // This sequence helps ensure React processes state updates triggered by promises
@@ -226,8 +229,10 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     });
 
     // Verify playcounts are displayed for initial load
-    mockApiAlbumsPayload.forEach(album => {
-      expect(screen.getByText(`${album.playcount} listens`)).toBeInTheDocument();
+    mockApiAlbumsPayload.forEach((album) => {
+      expect(
+        screen.getByText(`${album.playcount} listens`)
+      ).toBeInTheDocument();
     });
 
     // === Subsequent Update (Click "Generate Grid" again) ===
@@ -260,7 +265,10 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     await act(async () => {
       resolveAlbumsFetch({
         ok: true,
-        json: async () => ({ albums: mockApiAlbumsPayload, sharedId: 'test-share-id' }), // can use different payload if needed
+        json: async () => ({
+          albums: mockApiAlbumsPayload,
+          sharedId: 'test-share-id',
+        }), // can use different payload if needed
       });
       await Promise.resolve();
       await Promise.resolve();
@@ -287,8 +295,10 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     });
 
     // Verify playcounts are displayed for subsequent update
-    mockApiAlbumsPayload.forEach(album => {
-      expect(screen.getByText(`${album.playcount} listens`)).toBeInTheDocument();
+    mockApiAlbumsPayload.forEach((album) => {
+      expect(
+        screen.getByText(`${album.playcount} listens`)
+      ).toBeInTheDocument();
     });
   });
 });
