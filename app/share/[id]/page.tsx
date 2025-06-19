@@ -1,5 +1,4 @@
-'use client';
-
+import type { Metadata, ResolvingMetadata } from 'next';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
@@ -10,22 +9,120 @@ import { logger } from '@/utils/logger';
 
 const CTX = 'SharePage';
 
+type Props = {
+  params: { id: string };
+  // searchParams: { [key: string]: string | string[] | undefined }; // Not using searchParams for now
+};
+
+export async function generateMetadata(
+  { params }: Props,
+  parent: ResolvingMetadata // parent can be used to inherit parent metadata
+): Promise<Metadata> {
+  const id = params.id;
+  logger.info('generateMetadata', `Generating metadata for share ID: ${id}`);
+
+  try {
+    // Construct the full URL for fetching.
+    // IMPORTANT: This needs to be an absolute URL for server-side fetching.
+    const response = await fetch(`https://lastfm.paddez.com/api/share/${id}`);
+
+    if (!response.ok) {
+      logger.error('generateMetadata', `API error for ID ${id}: ${response.status}`);
+      // Consider logging response.text() if the error body is useful
+      // const errorBody = await response.text();
+      // logger.error('generateMetadata', `Error body for ID ${id}: ${errorBody}`);
+      return {
+        title: 'Error Generating Grid Preview',
+        description: 'Could not load the shared grid data due to a server error.',
+      };
+    }
+
+    const sharedData: SharedGridData = await response.json();
+
+    if (!sharedData || !sharedData.username) {
+      logger.warn('generateMetadata', `No data or username found for ID: ${id}`);
+      return {
+        title: 'Grid Not Found',
+        description: 'The requested shared grid could not be found or is empty.',
+        metadataBase: new URL('https://lastfm.paddez.com'),
+      };
+    }
+
+    const title = `${sharedData.username}'s Last.fm Grid for ${sharedData.period}`;
+    let description = `Check out ${sharedData.username}'s top albums for ${sharedData.period}.`;
+    if (sharedData.albums && sharedData.albums.length > 0) {
+      const artistNames = Array.from(
+        new Set(
+          sharedData.albums
+            .slice(0, 3)
+            .map((album) => album.artist.name)
+            .filter(Boolean) // Filter out any undefined or null artist names
+        )
+      ).join(', ');
+      if (artistNames) {
+        description += ` Featuring artists like ${artistNames}, and more.`;
+      }
+    }
+
+    const previousImages = (await parent).openGraph?.images || [];
+    const ogImageUrl = sharedData.albums?.[0]?.imageUrl
+      ? sharedData.albums[0].imageUrl
+      : previousImages[0]?.url || '/globe.svg'; // metadataBase handles relative path
+
+    return {
+      metadataBase: new URL('https://lastfm.paddez.com'),
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        images: [
+          {
+            url: ogImageUrl, // URL will be absolute due to metadataBase or if already absolute
+            width: sharedData.albums?.[0]?.imageUrl ? 300 : 512, // Assuming common square album art, or default for globe
+            height: sharedData.albums?.[0]?.imageUrl ? 300 : 512,
+            alt: `${sharedData.username}'s top album cover for ${sharedData.period}`,
+          },
+        ],
+        url: `https://lastfm.paddez.com/share/${id}`,
+        type: 'website',
+        siteName: 'LastFM Album Collage Generator',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [ogImageUrl], // URL will be absolute
+      },
+    };
+  } catch (error) {
+    logger.error(
+      'generateMetadata',
+      `Catch block error for ID ${id}: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return {
+      title: 'Error',
+      description: 'An unexpected error occurred while generating the grid preview.',
+      metadataBase: new URL('https://lastfm.paddez.com'),
+    };
+  }
+}
+
+// The 'use client' directive should be AFTER server-side code like generateMetadata
+'use client';
+
 // Removed unused Artist, AlbumImage, and Album interfaces.
 // MinimizedAlbum is used directly from SharedGridData.
 
-interface SpotifyLinks {
-  [albumKey: string]: string | null;
-}
-
-interface LogoColorStates {
-  [albumKey: string]: 'light' | 'dark';
-}
-
-interface SpotifyCueVisible {
-  [albumKey: string]: boolean;
-}
+// Removed unused SpotifyLinks, LogoColorStates, SpotifyCueVisible interfaces from here
+// as they are related to client-side logic.
 
 export default function SharedGridPage() {
+  // Client-side state definitions
+  const [spotifyLinks, setSpotifyLinks] = useState<{[albumKey: string]: string | null}>({});
+  const [logoColorStates, setLogoColorStates] = useState<{[albumKey: string]: 'light' | 'dark'}>({});
+  const [spotifyCueVisible, setSpotifyCueVisible] = useState<{[albumKey: string]: boolean}>({});
+
   // Function to determine logo background type based on image brightness
   const getLogoBackgroundColorType = (
     imageUrl: string,
