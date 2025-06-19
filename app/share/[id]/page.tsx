@@ -1,10 +1,129 @@
+import type { Metadata, ResolvingMetadata } from 'next';
+import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
+
+// Define Props type for generateMetadata
+type Props = {
+  params: { id: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+// Function to generate metadata
+export async function generateMetadata(
+  { params, searchParams }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const id = params.id;
+
+  // Construct the full URL for the API endpoint
+  // This code runs server-side, so we use environment variables
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000';
+  const apiUrl = `${baseUrl}/api/share/${id}`;
+
+  try {
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      // Log error and return default metadata if fetch is unsuccessful
+      console.error(`Error fetching shared data for ID ${id}: ${response.status}`);
+      return {
+        title: 'Shared Grid',
+        description: 'Could not load shared grid details.',
+        openGraph: {
+          title: 'Shared Grid',
+          description: 'Could not load shared grid details.',
+          images: [{ url: '/public/icons/icon-512x512.png', width: 512, height: 512 }],
+        },
+      };
+    }
+
+    const data: SharedGridData = await response.json();
+
+    if (!data || !data.username || !data.albums) {
+        // Log error and return default metadata if data is not as expected
+        console.error(`Incomplete data received for ID ${id}`);
+        return {
+            title: 'Shared Grid',
+            description: 'Shared grid data is incomplete.',
+            openGraph: {
+            title: 'Shared Grid',
+            description: 'Shared grid data is incomplete.',
+            images: [{ url: '/public/icons/icon-512x512.png', width: 512, height: 512 }],
+            },
+        };
+    }
+
+    const { username, period, createdAt, albums } = data;
+
+    // Format the date
+    const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    // Construct title and description
+    const title = `${username}'s Shared Grid`;
+    const description = `Check out ${username}'s album grid from ${period}. Generated on ${formattedDate}.`;
+
+    // Determine the imageUrl
+    let imageUrl = '/public/icons/icon-512x512.png'; // Default fallback image
+    let imageWidth = 512;
+    let imageHeight = 512;
+
+    if (albums.length > 0 && albums[0].imageUrl) {
+      imageUrl = albums[0].imageUrl;
+      // Note: We don't know the dimensions of album images, so we omit width/height
+      // or use placeholder/default values if required by OpenGraph standards.
+      // For now, we'll omit them for album images.
+      imageWidth = 0; // Or some default like 1200
+      imageHeight = 0; // Or some default like 630
+    }
+
+    const siteUrl = baseUrl; // Your domain
+
+    // Construct OpenGraph object
+    const openGraph = {
+      title: title,
+      description: description,
+      url: `${siteUrl}/share/${id}`,
+      images: [
+        {
+          url: imageUrl,
+          // Conditionally add width and height if they are known (i.e., for the default image)
+          ...(imageWidth && imageHeight ? { width: imageWidth, height: imageHeight } : {}),
+        },
+      ],
+    };
+
+    return {
+      title,
+      description,
+      openGraph,
+    };
+  } catch (error) {
+    console.error(`Failed to generate metadata for ID ${id}:`, error);
+    return {
+      title: 'Shared Grid',
+      description: 'An error occurred while loading shared grid details.',
+      openGraph: {
+        title: 'Shared Grid',
+        description: 'An error occurred while loading shared grid details.',
+        images: [{ url: '/public/icons/icon-512x512.png', width: 512, height: 512 }],
+      },
+    };
+  }
+}
+
+// Existing page component follows
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
-import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
+// SharedGridData and MinimizedAlbum are already imported at the top for generateMetadata
 import { logger } from '@/utils/logger';
 
 const CTX = 'SharePage';
