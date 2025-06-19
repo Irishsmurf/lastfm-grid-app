@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '../../../../lib/redis';
 import { SharedGridData } from '../../../../lib/types';
 
+interface Context {
+  params: Promise<{ id: string }>;
+}
+
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } } // Changed signature to use context
+  context: Context // Changed signature to use new Context interface
 ) {
-  const { id } = context.params; // Extract id from context.params
+  const { id } = await context.params; // Await context.params
 
   if (!id) {
     return NextResponse.json(

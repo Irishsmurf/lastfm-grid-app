@@ -86,14 +86,17 @@ export async function GET(req: NextRequest) {
       id: sharedId,
       username: username as string,
       period: period as string,
-      albums: data,
+      albums: data || [], // Ensure data is not null/undefined
       createdAt: new Date().toISOString(),
     };
 
     try {
-      await redis.set(`share:${sharedId}`, JSON.stringify(sharedGridData), {
-        ex: 2592000, // 30 days in seconds
-      });
+      await redis.set(
+        `share:${sharedId}`,
+        JSON.stringify(sharedGridData),
+        'EX',
+        2592000 // 30 days in seconds
+      );
       logger.info(
         CTX,
         `Successfully saved shared grid data to Redis for id: ${sharedId}`

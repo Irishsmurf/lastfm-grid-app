@@ -434,6 +434,26 @@ export default function Home() {
     return () => clearTimeout(timer); // Cleanup timer
   }, [isGridUpdating]);
 
+  const handleShareGrid = () => {
+    if (!sharedId) {
+      console.error('Share button clicked without a sharedId');
+      return;
+    }
+    const url = window.location.origin + '/share/' + sharedId;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setShareCopied(true);
+        setTimeout(() => {
+          setShareCopied(false);
+        }, 2000); // Reset after 2 seconds
+      })
+      .catch((err) => {
+        console.error('Failed to copy share link: ', err);
+        // Optionally, set an error state here to inform the user
+      });
+  };
+
   const handleToggleView = () => {
     if (isJpgView) {
       setIsJpgView(false);

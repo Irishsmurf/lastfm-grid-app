@@ -99,7 +99,7 @@ export default function SharedGridPage() {
         try {
           const response = await fetch(
             `/api/spotify-link?artistName=${encodeURIComponent(
-              album.artist
+              album.artist.name // Correctly pass artist name string
             )}&albumName=${encodeURIComponent(album.name)}`
           );
           if (!response.ok) {
@@ -114,7 +114,7 @@ export default function SharedGridPage() {
           const data = await response.json();
           newSpotifyLinks[albumKey] = data.spotifyUrl || null;
           newLogoColorStates[albumKey] = data.spotifyUrl ? 'green' : 'black';
-          logger.debug(CTX, `Spotify link for ${albumKey}: ${data.spotifyUrl}`);
+          logger.info(CTX, `Spotify link for ${albumKey}: ${data.spotifyUrl}`); // Changed debug to info
         } catch (e) {
           logger.error(
             CTX,
@@ -215,16 +215,16 @@ export default function SharedGridPage() {
                 </CardTitle>
                 <p
                   className="text-sm text-muted-foreground truncate"
-                  title={album.artist}
+                  title={album.artist.name} // Use artist name for title
                 >
-                  {album.artist}
+                  {album.artist.name} {/* Render artist name */}
                 </p>
               </CardHeader>
               <CardContent className="flex-grow flex flex-col items-center justify-center relative">
-                {album.image ? (
+                {album.imageUrl ? (
                   <Image
-                    src={album.image}
-                    alt={`${album.name} by ${album.artist}`}
+                    src={album.imageUrl}
+                    alt={`${album.name} by ${album.artist.name}`}
                     width={200}
                     height={200}
                     className="object-cover rounded-md"
