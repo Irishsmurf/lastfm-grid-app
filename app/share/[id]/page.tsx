@@ -146,7 +146,7 @@ export default function SharedGridPage() {
 
       // Initialize logoColorStates to 'dark' for all albums initially
       const initialLogoColorStates: LogoColorStates = {};
-      sharedData.albums.forEach(album => {
+      sharedData.albums.forEach((album) => {
         initialLogoColorStates[album.mbid] = 'dark';
       });
       setLogoColorStates(initialLogoColorStates);
@@ -170,7 +170,10 @@ export default function SharedGridPage() {
             const data = await response.json();
             newSpotifyLinks[albumKey] = data.spotifyUrl || null;
             // newLogoColorStates[albumKey] = data.spotifyUrl ? 'green' : 'black'; // Handled by getLogoBackgroundColorType
-            logger.info(CTX, `Spotify link for ${albumKey}: ${data.spotifyUrl}`);
+            logger.info(
+              CTX,
+              `Spotify link for ${albumKey}: ${data.spotifyUrl}`
+            );
           }
         } catch (e) {
           logger.error(
@@ -198,7 +201,10 @@ export default function SharedGridPage() {
           setSpotifyLinks(newSpotifyLinks);
           // setLogoColorStates is handled by getLogoBackgroundColorType
           setSpotifyCueVisible(newSpotifyCueVisible);
-          logger.info(CTX, 'Finished fetching all Spotify links and analyzing images.');
+          logger.info(
+            CTX,
+            'Finished fetching all Spotify links and analyzing images.'
+          );
         })
         .catch((e) => {
           logger.error(
@@ -257,81 +263,81 @@ export default function SharedGridPage() {
           </p>
         </header>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {sharedData.albums.map((album: MinimizedAlbum, index) => {
-          // const albumKey = `${album.artist}-${album.name}`; // Old key
-          const albumKey = album.mbid; // New key
-          // const spotifyUrl = spotifyLinks[albumKey]; // No longer needed directly here
-          // const logoColor = logoColorStates[albumKey] || 'black'; // Old logic
-          // const cueVisible = spotifyCueVisible[albumKey] || false; // Old logic
+          {sharedData.albums.map((album: MinimizedAlbum, index) => {
+            // const albumKey = `${album.artist}-${album.name}`; // Old key
+            const albumKey = album.mbid; // New key
+            // const spotifyUrl = spotifyLinks[albumKey]; // No longer needed directly here
+            // const logoColor = logoColorStates[albumKey] || 'black'; // Old logic
+            // const cueVisible = spotifyCueVisible[albumKey] || false; // Old logic
 
-          return (
-            <Card key={index} className="flex flex-col">
-              <CardContent className="p-4">
-                <div className="aspect-square relative group album-hover-container">
-                  {spotifyCueVisible[albumKey] && (
-                    <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
-                      <Image
-                        src="/spotify_icon.svg"
-                        alt="Spotify Playable Cue"
-                        width={24}
-                        height={24}
-                        className="w-6 h-6 opacity-75"
-                      />
-                    </div>
-                  )}
-                  <Image
-                    src={album.imageUrl || '/api/placeholder/300/300'}
-                    alt={`${album.name} by ${album.artist.name}`}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 300px"
-                    className={`object-cover ${spotifyLinks[albumKey] ? 'group-hover:opacity-70' : ''}`}
-                    priority={index < 9} // Prioritize loading for above-the-fold images
-                  />
-                  {spotifyLinks[albumKey] && (
-                    <a
-                      href={spotifyLinks[albumKey]!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoColorStates[albumKey] === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+            return (
+              <Card key={index} className="flex flex-col">
+                <CardContent className="p-4">
+                  <div className="aspect-square relative group album-hover-container">
+                    {spotifyCueVisible[albumKey] && (
+                      <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
+                        <Image
+                          src="/spotify_icon.svg"
+                          alt="Spotify Playable Cue"
+                          width={24}
+                          height={24}
+                          className="w-6 h-6 opacity-75"
+                        />
+                      </div>
+                    )}
+                    <Image
+                      src={album.imageUrl || '/api/placeholder/300/300'}
+                      alt={`${album.name} by ${album.artist.name}`}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 300px"
+                      className={`object-cover ${spotifyLinks[albumKey] ? 'group-hover:opacity-70' : ''}`}
+                      priority={index < 9} // Prioritize loading for above-the-fold images
+                    />
+                    {spotifyLinks[albumKey] && (
+                      <a
+                        href={spotifyLinks[albumKey]!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoColorStates[albumKey] === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+                      >
+                        <Image
+                          src="/spotify_icon.svg"
+                          alt="Play on Spotify"
+                          width={64}
+                          height={64}
+                          className="w-16 h-16"
+                        />
+                      </a>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <p className="font-semibold truncate" title={album.name}>
+                      <a
+                        href={`https://musicbrainz.org/release/${album.mbid}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {album.name}
+                      </a>
+                    </p>
+                    <p
+                      className="text-sm text-muted-foreground truncate"
+                      title={album.artist.name}
                     >
-                      <Image
-                        src="/spotify_icon.svg"
-                        alt="Play on Spotify"
-                        width={64}
-                        height={64}
-                        className="w-16 h-16"
-                      />
-                    </a>
-                  )}
-                </div>
-                <div className="mt-2">
-                  <p className="font-semibold truncate" title={album.name}>
-                    <a
-                      href={`https://musicbrainz.org/release/${album.mbid}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {album.name}
-                    </a>
-                  </p>
-                  <p
-                    className="text-sm text-muted-foreground truncate"
-                    title={album.artist.name}
-                  >
-                    <a
-                      href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {album.artist.name}
-                    </a>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                      <a
+                        href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {album.artist.name}
+                      </a>
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
