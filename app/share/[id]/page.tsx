@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Music, ImageOff } from 'lucide-react'; // Removed ExternalLink
+import { Card, CardContent } from '@/components/ui/card';
+import { ImageOff } from 'lucide-react'; // Removed ExternalLink
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
 import { logger } from '@/utils/logger';
 
@@ -89,7 +88,7 @@ export default function SharedGridPage() {
   const [spotifyCueVisible, setSpotifyCueVisible] = useState<SpotifyCueVisible>(
     {}
   );
-  const [loadingSpotifyLinks, setLoadingSpotifyLinks] = useState(false);
+  const [_loadingSpotifyLinks, setLoadingSpotifyLinks] = useState(false);
 
   useEffect(() => {
     if (id) {
