@@ -94,14 +94,26 @@ export async function GET(req: NextRequest) {
       await redis.set(`share:${sharedId}`, JSON.stringify(sharedGridData), {
         ex: 2592000, // 30 days in seconds
       });
-      logger.info(CTX, `Successfully saved shared grid data to Redis for id: ${sharedId}`);
+      logger.info(
+        CTX,
+        `Successfully saved shared grid data to Redis for id: ${sharedId}`
+      );
     } catch (redisError) {
-      logger.error(CTX, `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`);
+      logger.error(
+        CTX,
+        `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`
+      );
       // Still return album data, but indicate sharing failed.
-      return NextResponse.json({ albums: data, sharedId: null, error: "Failed to save share data" }, { status: 200 });
+      return NextResponse.json(
+        { albums: data, sharedId: null, error: 'Failed to save share data' },
+        { status: 200 }
+      );
     }
 
-    return NextResponse.json({ albums: data, sharedId: sharedId }, { status: 200 });
+    return NextResponse.json(
+      { albums: data, sharedId: sharedId },
+      { status: 200 }
+    );
   } catch (error) {
     let errorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {

@@ -3,36 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Music, ImageOff } from 'lucide-react';
+import { Music, ImageOff } from 'lucide-react'; // Removed ExternalLink
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
 import { logger } from '@/utils/logger';
 
 const CTX = 'SharePage';
 
-// Simplified local types for rendering, similar to app/page.tsx
-interface Artist {
-  name: string;
-  url?: string; // Last.fm URL
-}
-
-interface AlbumImage {
-  '#text': string;
-  size: string;
-}
-
-interface Album extends MinimizedAlbum {
-  // MinimizedAlbum already has name, artist (string), image (string)
-  // We might add other properties if needed for rendering based on app/page.tsx
-  // For now, MinimizedAlbum structure seems sufficient for basic display.
-  // If app/page.tsx uses a more detailed Album type for rendering, we might need to adjust.
-}
+// Removed unused Artist, AlbumImage, and Album interfaces.
+// MinimizedAlbum is used directly from SharedGridData.
 
 interface SpotifyLinks {
   [albumKey: string]: string | null;
@@ -56,9 +36,10 @@ export default function SharedGridPage() {
 
   const [spotifyLinks, setSpotifyLinks] = useState<SpotifyLinks>({});
   const [logoColorStates, setLogoColorStates] = useState<LogoColorStates>({});
-  const [spotifyCueVisible, setSpotifyCueVisible] = useState<SpotifyCueVisible>({});
+  const [spotifyCueVisible, setSpotifyCueVisible] = useState<SpotifyCueVisible>(
+    {}
+  );
   const [loadingSpotifyLinks, setLoadingSpotifyLinks] = useState(false);
-
 
   useEffect(() => {
     if (id) {
@@ -72,14 +53,24 @@ export default function SharedGridPage() {
               logger.warn(CTX, `Shared grid not found for ID: ${id}`);
               throw new Error('Shared grid not found');
             }
-            const errorData = await res.json().catch(() => ({ message: 'Failed to parse error response' }));
-            logger.error(CTX, `API error for ID ${id}: ${res.status} - ${errorData?.message || 'Unknown error'}`);
-            throw new Error(errorData.message || `Error fetching shared grid: ${res.status}`);
+            const errorData = await res
+              .json()
+              .catch(() => ({ message: 'Failed to parse error response' }));
+            logger.error(
+              CTX,
+              `API error for ID ${id}: ${res.status} - ${errorData?.message || 'Unknown error'}`
+            );
+            throw new Error(
+              errorData.message || `Error fetching shared grid: ${res.status}`
+            );
           }
           return res.json();
         })
         .then((data: SharedGridData) => {
-          logger.info(CTX, `Successfully fetched shared data for ID: ${id}, user: ${data.username}`);
+          logger.info(
+            CTX,
+            `Successfully fetched shared data for ID: ${id}, user: ${data.username}`
+          );
           setSharedData(data);
         })
         .catch((err) => {
@@ -94,7 +85,10 @@ export default function SharedGridPage() {
 
   useEffect(() => {
     if (sharedData?.albums && sharedData.albums.length > 0) {
-      logger.info(CTX, `Fetching Spotify links for ${sharedData.albums.length} albums, shared ID: ${id}`);
+      logger.info(
+        CTX,
+        `Fetching Spotify links for ${sharedData.albums.length} albums, shared ID: ${id}`
+      );
       setLoadingSpotifyLinks(true);
       const newSpotifyLinks: SpotifyLinks = {};
       const newLogoColorStates: LogoColorStates = {};
@@ -109,7 +103,10 @@ export default function SharedGridPage() {
             )}&albumName=${encodeURIComponent(album.name)}`
           );
           if (!response.ok) {
-            logger.warn(CTX, `Spotify link API error for ${albumKey}, status: ${response.status}`);
+            logger.warn(
+              CTX,
+              `Spotify link API error for ${albumKey}, status: ${response.status}`
+            );
             newSpotifyLinks[albumKey] = null;
             newLogoColorStates[albumKey] = 'black';
             return;
@@ -119,7 +116,10 @@ export default function SharedGridPage() {
           newLogoColorStates[albumKey] = data.spotifyUrl ? 'green' : 'black';
           logger.debug(CTX, `Spotify link for ${albumKey}: ${data.spotifyUrl}`);
         } catch (e) {
-          logger.error(CTX, `Error fetching Spotify link for ${albumKey}: ${e instanceof Error ? e.message : String(e)}`);
+          logger.error(
+            CTX,
+            `Error fetching Spotify link for ${albumKey}: ${e instanceof Error ? e.message : String(e)}`
+          );
           newSpotifyLinks[albumKey] = null;
           newLogoColorStates[albumKey] = 'black';
         }
@@ -131,17 +131,19 @@ export default function SharedGridPage() {
           setSpotifyLinks(newSpotifyLinks);
           setLogoColorStates(newLogoColorStates);
           setSpotifyCueVisible(newSpotifyCueVisible);
-          logger.info(CTX, "Finished fetching all Spotify links.");
+          logger.info(CTX, 'Finished fetching all Spotify links.');
         })
         .catch((e) => {
-            logger.error(CTX, `Error in Promise.all for Spotify links: ${e instanceof Error ? e.message : String(e)}`);
+          logger.error(
+            CTX,
+            `Error in Promise.all for Spotify links: ${e instanceof Error ? e.message : String(e)}`
+          );
         })
         .finally(() => {
           setLoadingSpotifyLinks(false);
         });
     }
   }, [sharedData, id]);
-
 
   if (loading) {
     return (
@@ -190,7 +192,7 @@ export default function SharedGridPage() {
       </header>
       <hr className="my-6" />
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {sharedData.albums.map((album, index) => {
+        {sharedData.albums.map((album: MinimizedAlbum, index) => {
           const albumKey = `${album.artist}-${album.name}`;
           const spotifyUrl = spotifyLinks[albumKey];
           const logoColor = logoColorStates[albumKey] || 'black';
@@ -211,7 +213,10 @@ export default function SharedGridPage() {
                 <CardTitle className="text-lg truncate" title={album.name}>
                   {album.name}
                 </CardTitle>
-                <p className="text-sm text-muted-foreground truncate" title={album.artist}>
+                <p
+                  className="text-sm text-muted-foreground truncate"
+                  title={album.artist}
+                >
                   {album.artist}
                 </p>
               </CardHeader>
@@ -248,24 +253,27 @@ export default function SharedGridPage() {
                     </Button>
                   </div>
                 )}
-                 {cueVisible && !spotifyUrl && !loadingSpotifyLinks && (
-                    <div className="absolute bottom-2 right-2" title="Not found on Spotify">
-                         <Button
-                            variant="outline"
-                            size="icon"
-                            disabled
-                            className="bg-white"
-                        >
-                            <Music size={20} color="grey" />
-                        </Button>
-                    </div>
+                {cueVisible && !spotifyUrl && !loadingSpotifyLinks && (
+                  <div
+                    className="absolute bottom-2 right-2"
+                    title="Not found on Spotify"
+                  >
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled
+                      className="bg-white"
+                    >
+                      <Music size={20} color="grey" />
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
           );
         })}
       </div>
-       <footer className="mt-8 text-center text-sm text-muted-foreground">
+      <footer className="mt-8 text-center text-sm text-muted-foreground">
         <p>
           Powered by Last.fm and Spotify. Grid shared via Album Grid Generator.
         </p>

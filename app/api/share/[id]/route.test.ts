@@ -11,7 +11,8 @@ jest.mock('../../../../lib/redis', () => ({
 }));
 
 describe('GET /api/share/[id]', () => {
-  const mockRequest = (id: string) => {
+  const mockRequest = (_id: string) => {
+    // id parameter prefixed with _ as it's not used
     return {
       nextUrl: { searchParams: new URLSearchParams() }, // Simplified mock
       // other properties as needed by NextRequest
@@ -71,7 +72,7 @@ describe('GET /api/share/[id]', () => {
     const body = await response.json();
     expect(response.status).toBe(400);
     expect(body).toEqual({ message: 'ID parameter is missing' });
-     // redis.get should not be called if id is missing
+    // redis.get should not be called if id is missing
     expect(redis.get).not.toHaveBeenCalled();
   });
 });

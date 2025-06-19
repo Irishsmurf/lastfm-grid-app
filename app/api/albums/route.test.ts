@@ -146,23 +146,27 @@ describe('GET /api/albums', () => {
       `${process.env.LASTFM_BASE_URL}?method=user.gettopalbums&user=${mockUsername}&period=${mockPeriod}&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=9`
     );
     // Album data saved to cache (handleCaching)
-    expect(redis.set).toHaveBeenCalledWith( // from handleCaching
+    expect(redis.set).toHaveBeenCalledWith(
+      // from handleCaching
       `lastfm:albums:${mockUsername}:${mockPeriod}:minimized`,
       JSON.stringify(expectedTransformedData), // Transformed data
       { ex: 3600 }
     );
 
     // Shared data saved to Redis
-    const expectedSharedGridData: Partial<SharedGridData> = { // Using Partial as createdAt is dynamic
-        id: mockSharedId,
-        username: mockUsername,
-        period: mockPeriod,
-        albums: expectedTransformedData,
+    const expectedSharedGridData: Partial<SharedGridData> = {
+      // Using Partial as createdAt is dynamic
+      id: mockSharedId,
+      username: mockUsername,
+      period: mockPeriod,
+      albums: expectedTransformedData,
     };
     expect(redis.set).toHaveBeenCalledWith(
-        `share:${mockSharedId}`,
-        expect.stringContaining(JSON.stringify(expectedSharedGridData).slice(0, -1)), // Check parts of the stringified object
-        { ex: 2592000 } // 30 days
+      `share:${mockSharedId}`,
+      expect.stringContaining(
+        JSON.stringify(expectedSharedGridData).slice(0, -1)
+      ), // Check parts of the stringified object
+      { ex: 2592000 } // 30 days
     );
 
     expect(response.status).toBe(200);
@@ -214,15 +218,17 @@ describe('GET /api/albums', () => {
 
     // Shared data should still be created and stored, even with empty albums
     const expectedSharedGridData: Partial<SharedGridData> = {
-        id: mockSharedId,
-        username: mockUsername,
-        period: mockPeriod,
-        albums: [], // Empty albums
+      id: mockSharedId,
+      username: mockUsername,
+      period: mockPeriod,
+      albums: [], // Empty albums
     };
     expect(redis.set).toHaveBeenCalledWith(
-        `share:${mockSharedId}`,
-        expect.stringContaining(JSON.stringify(expectedSharedGridData).slice(0, -1)),
-        { ex: 2592000 }
+      `share:${mockSharedId}`,
+      expect.stringContaining(
+        JSON.stringify(expectedSharedGridData).slice(0, -1)
+      ),
+      { ex: 2592000 }
     );
 
     expect(response.status).toBe(200);
@@ -233,36 +239,54 @@ describe('GET /api/albums', () => {
   it('should return albums and null sharedId if Redis SET fails for shared data', async () => {
     const mockUsername = 'redis-fail-user';
     const mockPeriod = '1month';
-    const mockLastFmAlbum = { // Copied from a previous test, adjust if needed
+    const mockLastFmAlbum = {
+      // Copied from a previous test, adjust if needed
       name: 'Fetched Album Redis Fail',
-      artist: { name: 'Test Artist RF', mbid: 'artist-mbid-rf', url: 'artist-url-rf' },
+      artist: {
+        name: 'Test Artist RF',
+        mbid: 'artist-mbid-rf',
+        url: 'artist-url-rf',
+      },
       image: [{ '#text': 'extralarge_rf.jpg', size: 'extralarge' }],
-      mbid: 'album-mbid-rf', playcount: '150', url: 'album-url-rf',
+      mbid: 'album-mbid-rf',
+      playcount: '150',
+      url: 'album-url-rf',
     };
     const mockLastFmData = { topalbums: { album: [mockLastFmAlbum] } };
-    const expectedTransformedData: MinimizedAlbum[] = [{
+    const expectedTransformedData: MinimizedAlbum[] = [
+      {
         name: 'Fetched Album Redis Fail',
         artist: 'Test Artist RF',
         image: 'extralarge_rf.jpg',
         mbid: 'album-mbid-rf',
-    }];
+      },
+    ];
     const mockSharedId = 'redis-fail-nanoid';
 
     (nanoid as jest.Mock).mockReturnValue(mockSharedId);
     (redis.get as jest.Mock).mockResolvedValue(null); // Cache miss for album data
-    mockFetch.mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(mockLastFmData) });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(mockLastFmData),
+    });
 
     // Simulate Redis failure for the shared data SET call
     (redis.set as jest.Mock)
-        .mockImplementationOnce((key: string, value: string, options: any) => { // First call for album cache
-            if (key.startsWith('lastfm:albums')) return Promise.resolve('OK');
-            return Promise.reject(new Error('Simulated Redis SET Error for share data')); // Fail for share data
-        })
-        .mockImplementationOnce((key: string, value: string, options: any) => { // Second call for share data (this will be the one that fails)
-             if (key.startsWith('share:')) return Promise.reject(new Error('Simulated Redis SET Error for share data'));
-             return Promise.resolve('OK'); // default for other calls
-        });
-
+      .mockImplementationOnce((key: string, _value: string, _options: any) => {
+        // First call for album cache
+        if (key.startsWith('lastfm:albums')) return Promise.resolve('OK');
+        return Promise.reject(
+          new Error('Simulated Redis SET Error for share data')
+        ); // Fail for share data
+      })
+      .mockImplementationOnce((key: string, _value: string, _options: any) => {
+        // Second call for share data (this will be the one that fails)
+        if (key.startsWith('share:'))
+          return Promise.reject(
+            new Error('Simulated Redis SET Error for share data')
+          );
+        return Promise.resolve('OK'); // default for other calls
+      });
 
     const req = createMockRequest(mockUsername, mockPeriod);
     const response = await GET(req);
@@ -271,7 +295,7 @@ describe('GET /api/albums', () => {
     expect(response.status).toBe(200);
     expect(responseBody.albums).toEqual(expectedTransformedData);
     expect(responseBody.sharedId).toBeNull();
-    expect(responseBody.error).toBe("Failed to save share data");
+    expect(responseBody.error).toBe('Failed to save share data');
 
     // Verify album cache was still attempted (and succeeded in this mock setup for the first call)
     expect(redis.set).toHaveBeenCalledWith(
@@ -281,9 +305,9 @@ describe('GET /api/albums', () => {
     );
     // Verify shared data set was attempted
     expect(redis.set).toHaveBeenCalledWith(
-        `share:${mockSharedId}`,
-        expect.any(String), // Value will be the stringified SharedGridData
-        { ex: 2592000 }
+      `share:${mockSharedId}`,
+      expect.any(String), // Value will be the stringified SharedGridData
+      { ex: 2592000 }
     );
   });
 
@@ -309,7 +333,7 @@ describe('GET /api/albums', () => {
 
     // Act
     const response = await GET(req);
-    const data = await response.json();
+    const _data = await response.json(); // Prefixed data as it's not used for assertions below directly
 
     // Assert
     expect(redis.get).toHaveBeenCalledWith(
@@ -341,7 +365,9 @@ describe('GET /api/albums', () => {
     expect(mockFetch).toHaveBeenCalled();
     // redis.set for album cache might be called or not depending on where the error is thrown in handleCaching
     // redis.set for sharedId should not be called if fetch fails early
-    const shareRedisCall = (redis.set as jest.Mock).mock.calls.find(call => call[0].startsWith('share:'));
+    const shareRedisCall = (redis.set as jest.Mock).mock.calls.find((call) =>
+      call[0].startsWith('share:')
+    );
     expect(shareRedisCall).toBeUndefined();
 
     expect(response.status).toBe(500);

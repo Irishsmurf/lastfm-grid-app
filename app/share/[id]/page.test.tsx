@@ -3,14 +3,16 @@ import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SharedGridPage from './page'; // Adjust path as necessary
 import { SharedGridData } from '@/lib/types'; // Adjust path
+import { useParams } from 'next/navigation'; // Re-added import for mocked version
 
 // Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useParams: jest.fn(),
-  useRouter: jest.fn(() => ({ push: jest.fn() })), // Mock useRouter if used for navigation
-  usePathname: jest.fn(),
-  useSearchParams: jest.fn(() => new URLSearchParams()),
-}));
+// jest.mock('next/navigation', () => ({
+//   useParams: jest.fn(),
+//   useRouter: jest.fn(() => ({ push: jest.fn() })), // Mock useRouter if used for navigation
+//   usePathname: jest.fn(),
+//   useSearchParams: jest.fn(() => new URLSearchParams()),
+// }));
+jest.mock('next/navigation');
 
 // Mock global fetch
 const mockFetch = jest.spyOn(global, 'fetch');
@@ -25,13 +27,13 @@ jest.mock('@/utils/logger', () => ({
   },
 }));
 
-
 describe('SharedGridPage', () => {
   const mockId = 'test-share-id';
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (require('next/navigation').useParams as jest.Mock).mockReturnValue({ id: mockId });
+    // useParams is imported and then asserted as jest.Mock for setup
+    (useParams as jest.Mock).mockReturnValue({ id: mockId });
   });
 
   it('should call fetch with the correct URL and display loading state initially', () => {
@@ -60,19 +62,29 @@ describe('SharedGridPage', () => {
     } as Response);
 
     // Mock fetch for spotify links (called due to albums being present)
-    mockFetch.mockResolvedValue({ // Default for subsequent spotify calls
-        ok: true,
-        json: async () => ({ spotifyUrl: null }),
+    mockFetch.mockResolvedValue({
+      // Default for subsequent spotify calls
+      ok: true,
+      json: async () => ({ spotifyUrl: null }),
     } as Response);
-
 
     render(<SharedGridPage />);
 
     // Wait for loading to disappear and data to appear
-    await waitFor(() => expect(screen.queryByText('Loading shared grid...')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Loading shared grid...')
+      ).not.toBeInTheDocument()
+    );
 
-    expect(screen.getByText(`Album Grid by ${mockSharedData.username}`)).toBeInTheDocument();
-    expect(screen.getByText((content) => content.includes(`Period: ${mockSharedData.period}`))).toBeInTheDocument();
+    expect(
+      screen.getByText(`Album Grid by ${mockSharedData.username}`)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText((content) =>
+        content.includes(`Period: ${mockSharedData.period}`)
+      )
+    ).toBeInTheDocument();
     expect(screen.getByText('Album 1')).toBeInTheDocument();
     expect(screen.getByText('Artist A')).toBeInTheDocument();
     expect(screen.getByText('Album 2')).toBeInTheDocument();
@@ -89,7 +101,9 @@ describe('SharedGridPage', () => {
     render(<SharedGridPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Error: Shared grid not found')).toBeInTheDocument();
+      expect(
+        screen.getByText('Error: Shared grid not found')
+      ).toBeInTheDocument();
     });
   });
 
@@ -103,7 +117,9 @@ describe('SharedGridPage', () => {
     render(<SharedGridPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Error: Internal Server Error')).toBeInTheDocument();
+      expect(
+        screen.getByText('Error: Internal Server Error')
+      ).toBeInTheDocument();
     });
   });
 
@@ -120,7 +136,7 @@ describe('SharedGridPage', () => {
   // Test for Spotify link fetching (basic call verification)
   it('should attempt to fetch Spotify links if shared data has albums', async () => {
     const mockAlbums = [
-        { name: 'Album X', artist: 'Artist X', image: 'imgX.jpg' },
+      { name: 'Album X', artist: 'Artist X', image: 'imgX.jpg' },
     ];
     const mockSharedDataWithAlbums: SharedGridData = {
       id: mockId,
@@ -130,7 +146,8 @@ describe('SharedGridPage', () => {
       createdAt: new Date().toISOString(),
     };
 
-    mockFetch.mockResolvedValueOnce({ // For initial /api/share/[id]
+    mockFetch.mockResolvedValueOnce({
+      // For initial /api/share/[id]
       ok: true,
       json: async () => mockSharedDataWithAlbums,
     } as Response);
@@ -141,7 +158,6 @@ describe('SharedGridPage', () => {
       json: async () => ({ spotifyUrl: 'spotify.com/albumX' }),
     } as Response);
 
-
     render(<SharedGridPage />);
 
     await waitFor(() => {
@@ -150,7 +166,8 @@ describe('SharedGridPage', () => {
 
     // Verify fetch was called for Spotify link
     // The first call is for sharedData, the second for the spotify link for 'Album X'
-    expect(mockFetch).toHaveBeenCalledWith(`/api/spotify-link?artistName=${encodeURIComponent('Artist X')}&albumName=${encodeURIComponent('Album X')}`);
+    expect(mockFetch).toHaveBeenCalledWith(
+      `/api/spotify-link?artistName=${encodeURIComponent('Artist X')}&albumName=${encodeURIComponent('Album X')}`
+    );
   });
-
 });

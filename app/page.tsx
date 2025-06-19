@@ -54,9 +54,7 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [jpgImageData, setJpgImageData] = useState<string>('');
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
-  const [imageLoadingStates, setImageLoadingStates] = useState<{
-    [key: number]: boolean;
-  }>({});
+  // Removed unused imageLoadingStates
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
     {}
   );
@@ -101,7 +99,9 @@ export default function Home() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ message: 'Failed to parse error response' }));
         throw new Error(errorData.message || 'Failed to fetch albums');
       }
 
@@ -118,7 +118,8 @@ export default function Home() {
 
         const albumData: Album[] = rawApiAlbums.slice(0, 9).map((apiAlbum) => ({
           name: apiAlbum.name,
-          artist: { // Adapt to local Album interface structure
+          artist: {
+            // Adapt to local Album interface structure
             name: apiAlbum.artist,
             mbid: apiAlbum.mbid || '', // Use mbid if present, else empty string
             url: '', // Not available from MinimizedAlbum
@@ -133,9 +134,11 @@ export default function Home() {
         if (typeof responseData.sharedId === 'string') {
           setSharedId(responseData.sharedId);
         } else if (responseData.sharedId === null && responseData.error) {
-           setSharedId(null);
-           //setError('Fetched albums, but could not generate a shareable link. The grid is not shareable at the moment.');
-           console.warn('app/page.tsx: Fetched albums, but sharedId was null, Redis error likely occurred.');
+          setSharedId(null);
+          //setError('Fetched albums, but could not generate a shareable link. The grid is not shareable at the moment.');
+          console.warn(
+            'app/page.tsx: Fetched albums, but sharedId was null, Redis error likely occurred.'
+          );
         } else {
           setSharedId(null); // If sharedId is not a string and no specific error for it, just set to null
         }
@@ -143,7 +146,6 @@ export default function Home() {
         if (albumData.length === 0) {
           setError('No albums found for this user and period.');
         }
-
       } else {
         console.error('Invalid API response structure', responseData);
         throw new Error('Invalid API response structure.');
@@ -152,11 +154,14 @@ export default function Home() {
       // Save username to localStorage after successful fetch
       localStorage.setItem('username', username);
       setIsGridUpdating(false); // Set isGridUpdating to false
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       console.error('An error occurred: ', err);
-      setError(
-        err.message || 'Error fetching albums. Please check the username and try again.'
-      );
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred. Please check the console.');
+        console.error('Unknown error details:', err);
+      }
       setSharedId(null); // Ensure sharedId is reset on error
       setAlbums([]); // Clear albums on error
     } finally {
@@ -247,7 +252,7 @@ export default function Home() {
   };
 
   const handleImageLoad = (index: number) => {
-    setImageLoadingStates((prev) => ({ ...prev, [index]: true }));
+    // setImageLoadingStates((prev) => ({ ...prev, [index]: true })); // imageLoadingStates was removed
     setFadeInStates((prev) => ({ ...prev, [index]: true }));
   };
 
@@ -413,7 +418,7 @@ export default function Home() {
         }
       }
     });
-  }, [albums]); // Dependency: albums array itself, spotifyCueVisible removed
+  }, [albums, spotifyCueVisible]); // Added spotifyCueVisible to dependency array
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
