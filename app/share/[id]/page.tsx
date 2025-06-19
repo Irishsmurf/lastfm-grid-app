@@ -12,8 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Music, ImageOff } from 'lucide-react';
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import { logger } from '@/utils/logger';
 
 const CTX = 'SharePage';
@@ -149,19 +147,6 @@ export default function SharedGridPage() {
     return (
       <div className="container mx-auto p-4 text-center">
         <p className="text-lg">Loading shared grid...</p>
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {Array.from({ length: 9 }).map((_, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent className="flex flex-col items-center justify-center">
-                <Skeleton className="h-40 w-40" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
     );
   }
@@ -203,7 +188,7 @@ export default function SharedGridPage() {
           Period: {sharedData.period} | Generated on: {formattedDate}
         </p>
       </header>
-      <Separator className="my-6" />
+      <hr className="my-6" />
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {sharedData.albums.map((album, index) => {
           const albumKey = `${album.artist}-${album.name}`;
@@ -262,11 +247,6 @@ export default function SharedGridPage() {
                       />
                     </Button>
                   </div>
-                )}
-                {cueVisible && !spotifyUrl && loadingSpotifyLinks && (
-                     <div className="absolute bottom-2 right-2">
-                        <Skeleton className="h-10 w-10 rounded-md" />
-                    </div>
                 )}
                  {cueVisible && !spotifyUrl && !loadingSpotifyLinks && (
                     <div className="absolute bottom-2 right-2" title="Not found on Spotify">
