@@ -6,6 +6,9 @@ import {
 } from '@/lib/minimizedLastfmService'; // Added
 import { handleCaching } from '@/lib/cache';
 import { logger } from '@/utils/logger';
+import { nanoid } from 'nanoid';
+import { SharedGridData } from '@/lib/types';
+import { redis } from '@/lib/redis';
 
 const CTX = 'AlbumsAPI';
 
@@ -77,7 +80,43 @@ export async function GET(req: NextRequest) {
       CTX,
       `Successfully fetched ${lastFmAlbumCount} albums for username: ${username}, period: ${period}`
     );
-    return NextResponse.json(data, { status: 200 });
+
+    const sharedId = nanoid();
+    const sharedGridData: SharedGridData = {
+      id: sharedId,
+      username: username as string,
+      period: period as string,
+      albums: data || [], // Ensure data is not null/undefined
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await redis.set(
+        `share:${sharedId}`,
+        JSON.stringify(sharedGridData),
+        'EX',
+        2592000 // 30 days in seconds
+      );
+      logger.info(
+        CTX,
+        `Successfully saved shared grid data to Redis for id: ${sharedId}`
+      );
+    } catch (redisError) {
+      logger.error(
+        CTX,
+        `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`
+      );
+      // Still return album data, but indicate sharing failed.
+      return NextResponse.json(
+        { albums: data, sharedId: null, error: 'Failed to save share data' },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json(
+      { albums: data, sharedId: sharedId },
+      { status: 200 }
+    );
   } catch (error) {
     let errorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {
