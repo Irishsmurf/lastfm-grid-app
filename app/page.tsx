@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
+import { FileImage, Share2, Check, Loader2 } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 
@@ -55,6 +55,7 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [jpgImageData, setJpgImageData] = useState<string>('');
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
+  const [isConvertingToJpg, setIsConvertingToJpg] = useState<boolean>(false);
   // Removed unused imageLoadingStates
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
     {}
@@ -451,12 +452,17 @@ export default function Home() {
       });
   };
 
-  const handleToggleView = () => {
+  const handleToggleView = async () => {
     if (isJpgView) {
       setIsJpgView(false);
       setJpgImageData('');
     } else {
-      generateImage();
+      setIsConvertingToJpg(true);
+      try {
+        await generateImage();
+      } finally {
+        setIsConvertingToJpg(false);
+      }
     }
   };
 
@@ -543,9 +549,18 @@ export default function Home() {
                     {shareCopied ? 'Copied!' : 'Share Grid'}
                   </Button>
                 )}
-                <Button onClick={handleToggleView} className="gap-2">
+                <Button
+                  onClick={handleToggleView}
+                  className="gap-2"
+                  disabled={isConvertingToJpg || (!isJpgView && albums.length !== 9)}
+                >
                   {isJpgView ? (
                     'Revert to Grid'
+                  ) : isConvertingToJpg ? (
+                    <>
+                      <Loader2 className="animate-spin" />
+                      Converting...
+                    </>
                   ) : (
                     <>
                       <FileImage size={16} />
