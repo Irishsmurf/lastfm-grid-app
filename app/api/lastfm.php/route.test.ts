@@ -7,7 +7,9 @@ import { NextRequest } from 'next/server';
 jest.mock('@/lib/lastfmService');
 jest.mock('sharp');
 
-const mockGetTopAlbums = getTopAlbums as jest.MockedFunction<typeof getTopAlbums>;
+const mockGetTopAlbums = getTopAlbums as jest.MockedFunction<
+  typeof getTopAlbums
+>;
 const mockSharp = sharp as jest.MockedFunction<any>; // Using 'any' for simplicity with sharp's chained API
 
 describe('GET /api/lastfm.php', () => {
@@ -27,10 +29,10 @@ describe('GET /api/lastfm.php', () => {
     mockSharp.mockReturnValue(mockSharpInstance);
     // Mock the create functionality if used for the initial canvas
     mockSharp.mockImplementation((options: any) => {
-        if (options && options.create) {
-            return mockSharpInstance;
-        }
-        return mockSharpInstance; // Default for sharp(buffer)
+      if (options && options.create) {
+        return mockSharpInstance;
+      }
+      return mockSharpInstance; // Default for sharp(buffer)
     });
   });
 
@@ -70,16 +72,25 @@ describe('GET /api/lastfm.php', () => {
     })
   ) as jest.Mock;
 
-
   test('should return a JPEG image for a valid request', async () => {
-    mockGetTopAlbums.mockResolvedValue({ topalbums: { album: mockAlbums, '@attr': {} as any } });
+    mockGetTopAlbums.mockResolvedValue({
+      topalbums: { album: mockAlbums, '@attr': {} as any },
+    });
 
-    const request = createMockRequest({ user: 'testuser', cols: '2', rows: '1', info: '1', playcount: '1' });
+    const request = createMockRequest({
+      user: 'testuser',
+      cols: '2',
+      rows: '1',
+      info: '1',
+      playcount: '1',
+    });
     const response = await GET(request);
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('image/jpeg');
-    expect(response.headers.get('Cache-Control')).toBe('public, s-maxage=86400, stale-while-revalidate');
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, s-maxage=86400, stale-while-revalidate'
+    );
 
     const imageBuffer = await response.arrayBuffer();
     expect(Buffer.from(imageBuffer).toString()).toBe('mock-image-data');
@@ -99,7 +110,9 @@ describe('GET /api/lastfm.php', () => {
   });
 
   test('should use default parameters if not provided', async () => {
-    mockGetTopAlbums.mockResolvedValue({ topalbums: { album: mockAlbums.slice(0,1), '@attr': {} as any } });
+    mockGetTopAlbums.mockResolvedValue({
+      topalbums: { album: mockAlbums.slice(0, 1), '@attr': {} as any },
+    });
 
     const request = createMockRequest({ user: 'testuser' });
     await GET(request);
@@ -119,15 +132,20 @@ describe('GET /api/lastfm.php', () => {
     // A simple check is if getTopAlbums is still called correctly.
 
     test('should handle info=0 and playcount=0', async () => {
-        mockGetTopAlbums.mockResolvedValue({ topalbums: { album: mockAlbums, '@attr': {} as any } });
-        const request = createMockRequest({ user: 'testuser', info: '0', playcount: '0' });
-        await GET(request);
-        expect(mockGetTopAlbums).toHaveBeenCalledWith('testuser', '7day', 9); // Default cols/rows
-        // Further tests would involve inspecting calls to sharp().composite related to text.
-        // The current sharp mock is a bit too high-level for that without more work on the mock itself.
+      mockGetTopAlbums.mockResolvedValue({
+        topalbums: { album: mockAlbums, '@attr': {} as any },
+      });
+      const request = createMockRequest({
+        user: 'testuser',
+        info: '0',
+        playcount: '0',
+      });
+      await GET(request);
+      expect(mockGetTopAlbums).toHaveBeenCalledWith('testuser', '7day', 9); // Default cols/rows
+      // Further tests would involve inspecting calls to sharp().composite related to text.
+      // The current sharp mock is a bit too high-level for that without more work on the mock itself.
     });
   });
-
 
   test('should return 500 if Last.fm service fails', async () => {
     mockGetTopAlbums.mockRejectedValue(new Error('Last.fm API error'));
@@ -141,7 +159,9 @@ describe('GET /api/lastfm.php', () => {
   });
 
   test('should return 404 if no albums are found', async () => {
-    mockGetTopAlbums.mockResolvedValue({ topalbums: { album: [], '@attr': {} as any } });
+    mockGetTopAlbums.mockResolvedValue({
+      topalbums: { album: [], '@attr': {} as any },
+    });
     const request = createMockRequest({ user: 'testuser' });
     const response = await GET(request);
     const json = await response.json();
@@ -151,8 +171,12 @@ describe('GET /api/lastfm.php', () => {
   });
 
   test('should return 500 if image generation (sharp) fails', async () => {
-    mockGetTopAlbums.mockResolvedValue({ topalbums: { album: mockAlbums, '@attr': {} as any } });
-    mockSharpInstance.toBuffer.mockRejectedValue(new Error('Sharp processing error'));
+    mockGetTopAlbums.mockResolvedValue({
+      topalbums: { album: mockAlbums, '@attr': {} as any },
+    });
+    mockSharpInstance.toBuffer.mockRejectedValue(
+      new Error('Sharp processing error')
+    );
 
     const request = createMockRequest({ user: 'testuser' });
     const response = await GET(request);
@@ -163,18 +187,24 @@ describe('GET /api/lastfm.php', () => {
   });
 
   test('should return 500 if fetching an album image fails', async () => {
-    mockGetTopAlbums.mockResolvedValue({ topalbums: { album: mockAlbums, '@attr': {} as any } });
-    (global.fetch as jest.Mock).mockImplementationOnce(() => // Fail only the first image fetch
-      Promise.resolve({
-        ok: false,
-        statusText: "Failed to fetch image"
-      })
-    ).mockImplementationOnce(() => // Subsequent fetches succeed
+    mockGetTopAlbums.mockResolvedValue({
+      topalbums: { album: mockAlbums, '@attr': {} as any },
+    });
+    (global.fetch as jest.Mock)
+      .mockImplementationOnce(() =>
+        // Fail only the first image fetch
         Promise.resolve({
-        ok: true,
-        buffer: () => Promise.resolve(Buffer.from('mock-album-art-data')),
+          ok: false,
+          statusText: 'Failed to fetch image',
         })
-    );
+      )
+      .mockImplementationOnce(() =>
+        // Subsequent fetches succeed
+        Promise.resolve({
+          ok: true,
+          buffer: () => Promise.resolve(Buffer.from('mock-album-art-data')),
+        })
+      );
 
     const request = createMockRequest({ user: 'testuser' });
     const response = await GET(request);
@@ -186,5 +216,4 @@ describe('GET /api/lastfm.php', () => {
     // which is beyond the scope of simple buffer content check ('mock-image-data').
     // The console.error within generateImageGrid would be called.
   });
-
 });
