@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
 import { logger } from '@/utils/logger';
+import SharePageSkeleton from '@/components/share-page-skeleton';
 
 const CTX = 'SharePage';
 
@@ -217,11 +218,7 @@ export default function SharedGridPage() {
   }, [sharedData, id]);
 
   if (loading) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <p className="text-lg">Loading shared grid...</p>
-      </div>
-    );
+    return <SharePageSkeleton />;
   }
 
   if (error) {
