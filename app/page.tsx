@@ -48,7 +48,7 @@ interface Artist {
 
 export default function Home() {
   const [username, setUsername] = useState('');
-  const [timeRange, setTimeRange] = useState('1month');
+  const [timeRange, setTimeRange] = useState('1month'); // Default before remote config loads
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,6 +79,41 @@ export default function Home() {
     if (storedUsername) {
       setUsername(storedUsername);
     }
+
+    // --- BEGIN REMOTE CONFIG INTEGRATION ---
+    // Placeholder for fetching remote config.
+    // In a real application, replace this with your actual remote config fetching logic.
+    const fetchRemoteConfigDefaultTimePeriod = async (): Promise<string | null> => {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 50)); // Simulating network delay
+      // Example: Fetch from a service or environment variable
+      // const remoteValue = await someRemoteConfigService.get('default_time_period');
+      // For demonstration, let's simulate it returning "3month" or null
+      const possibleValues = ["7day", "1month", "3month", "6month", "12month", "overall"];
+      const randomValue = possibleValues[Math.floor(Math.random() * (possibleValues.length + 1))]; // Include possibility of undefined/null
+
+      // console.log("Simulated remote config value for default_time_period:", randomValue);
+      if (randomValue && Object.keys(timeRanges).includes(randomValue)) {
+        return randomValue;
+      }
+      return null; // Return null if value is invalid or not found
+    };
+
+    const initializeTimeRange = async () => {
+      const remoteDefault = await fetchRemoteConfigDefaultTimePeriod();
+      if (remoteDefault) {
+        setTimeRange(remoteDefault);
+        // console.log(`Time range set from remote config: ${remoteDefault}`);
+      } else {
+        // console.log(`Remote config not found or invalid, using hardcoded default: 1month`);
+        // The default '1month' is already set by useState, so no explicit setTimeRange('1month') is needed here
+        // unless the initial useState default was different or also dynamic.
+      }
+    };
+
+    initializeTimeRange();
+    // --- END REMOTE CONFIG INTEGRATION ---
+
   }, []); // Empty dependency array ensures this runs only once on mount
 
   const fetchTopAlbums = async () => {
