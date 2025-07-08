@@ -84,6 +84,117 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 
 **Important:** Do not commit your `.env.local` file to version control. It should be listed in your `.gitignore` file (which is standard for Next.js projects).
 
+## Firebase Remote Config for Feature Flags
+
+This project is set up to use Firebase Remote Config to manage feature flags. This allows you to enable or disable features in the application remotely without deploying new code.
+
+### Firebase Setup
+
+1.  **Firebase Project:** Ensure you have a Firebase project set up. The Project ID for this application is `lastfm-grid` (or your specific project ID if you've changed it).
+2.  **Environment Variables for Firebase:** In addition to the existing variables, add your Firebase project's configuration to your `.env.local` file:
+    ```env
+    # ... existing variables
+    NEXT_PUBLIC_FIREBASE_API_KEY="your-api-key"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-auth-domain"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID="lastfm-grid" # Or your specific project ID
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-storage-bucket"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your-messaging-sender-id"
+    NEXT_PUBLIC_FIREBASE_APP_ID="your-app-id"
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="your-measurement-id" # Optional, if you use Analytics with Remote Config
+    ```
+    Replace `"your-..."` with your actual Firebase project credentials.
+3.  **Firebase Initialization:** The Firebase app and Remote Config are initialized in `lib/firebase.ts`. Default parameters and fetch intervals are also configured here.
+
+### Adding a New Feature Flag
+
+1.  **Define Parameter in Firebase Console:**
+    *   Go to your Firebase project console.
+    *   Navigate to "Remote Config" (usually under the "Engage" or "Build" section).
+    *   Click "Add parameter" or "Create configuration".
+    *   **Parameter name (key):** Use a descriptive name (e.g., `my_new_feature_enabled`).
+    *   **Data type:** Choose the appropriate type (e.g., Boolean, String, Number, JSON).
+    *   **Default value:** Set an initial server-side default value.
+    *   Publish the changes in the Firebase console.
+
+2.  **Set In-App Default Value (Recommended):**
+    *   Open `lib/firebase.ts`.
+    *   Add your new parameter key and its default client-side value to the `remoteConfig.defaultConfig` object. This ensures your app behaves predictably before fetching values from the Firebase backend or if the fetch fails.
+      ```typescript
+      // In lib/firebase.ts
+      remoteConfig.defaultConfig = {
+        show_footer_feature_text: false, // Example existing flag
+        my_new_feature_enabled: true,    // Your new flag
+        // ... other flags
+      };
+      ```
+
+3.  **Implement in a Client Component:**
+    *   Feature flags that affect the UI should typically be implemented in client components (`'use client';`).
+    *   Create or modify a component to use the flag. See `components/FooterFeatureText.tsx` for an example implementation. A general structure would be:
+      ```tsx
+      'use client';
+
+      import { useEffect, useState } from 'react';
+      import { remoteConfig } from '@/lib/firebase'; // Adjust path if necessary
+      import { fetchAndActivate, getValue } from 'firebase/remote-config';
+
+      const MyFeatureComponent = () => {
+        // Use the in-app default as the initial state
+        const initialValue = remoteConfig ? getValue(remoteConfig, 'my_new_feature_enabled').asBoolean() : false; // Or appropriate type
+        const [isFeatureEnabled, setIsFeatureEnabled] = useState(initialValue);
+        const [isLoading, setIsLoading] = useState(true);
+
+        useEffect(() => {
+          const activateRemoteConfig = async () => {
+            setIsLoading(true); // Set loading true at the start of fetch
+            try {
+              if (remoteConfig) {
+                await fetchAndActivate(remoteConfig);
+                const flagValue = getValue(remoteConfig, 'my_new_feature_enabled').asBoolean(); // Or .asString(), .asNumber()
+                setIsFeatureEnabled(flagValue);
+              }
+            } catch (error) {
+              console.error('Error fetching Remote Config for my_new_feature_enabled:', error);
+              // Fallback to the in-app default (already set in useState) or cached value
+            } finally {
+              setIsLoading(false);
+            }
+          };
+          // Only run activateRemoteConfig if remoteConfig is available.
+          // The initial state is already set from defaultConfig.
+          if (remoteConfig) {
+            activateRemoteConfig();
+          } else {
+            setIsLoading(false); // Not loading if remoteConfig isn't there
+          }
+        }, []); // Empty dependency array means this runs once on mount
+
+        if (isLoading && !remoteConfig?.defaultConfig?.['my_new_feature_enabled']) {
+          // Optional: show a loader only if not using an instant default
+          return <div>Loading feature status...</div>;
+        }
+
+        if (isFeatureEnabled) {
+          return <div>My New Feature is Here!</div>;
+        }
+
+        return <div>My New Feature is OFF.</div>; // Or null if nothing should be shown
+      };
+
+      export default MyFeatureComponent;
+      ```
+
+4.  **Use the Component:**
+    *   Import and use your new component where needed in your application pages or layouts.
+
+### Testing Feature Flags
+
+*   **Unit Tests:** Write Jest tests for your components that consume feature flags. Mock the Firebase SDK (`firebase/remote-config` and your `lib/firebase.ts`) to control the flag values during tests. See `components/FooterFeatureText.test.tsx` for an example.
+*   **Manual Testing:**
+    *   Run the app locally (`npm run dev`).
+    *   Toggle the parameter value in the Firebase Remote Config console and publish changes.
+    *   Observe the behavior in your app. Note the `minimumFetchIntervalMillis` setting in `lib/firebase.ts` which controls how often the client fetches updated values (10 seconds for development, 12 hours for production by default). Refreshing the page or waiting for the interval might be necessary.
+
 ## Code Overview & Architecture
 
 The backend logic for this application has been structured into a service-oriented architecture, primarily residing in the `lib/` directory. This approach promotes separation of concerns and makes the code more modular and testable.
