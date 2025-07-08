@@ -9,10 +9,14 @@ import { logger } from '@/utils/logger';
 import { nanoid } from 'nanoid';
 import { SharedGridData } from '@/lib/types';
 import { redis } from '@/lib/redis';
+import { initializeRemoteConfig, getRemoteConfigValue } from '@/lib/firebase'; // Added
 
 const CTX = 'AlbumsAPI';
 
 export async function GET(req: NextRequest) {
+  // Initialize Remote Config
+  await initializeRemoteConfig(); // Best practice: call this at app startup
+
   const { searchParams } = new URL(req.url);
   const username = searchParams.get('username');
   const period = searchParams.get('period');
@@ -122,11 +126,17 @@ export async function GET(req: NextRequest) {
     };
 
     try {
+      // Get shared_grid_expiry_days from Remote Config
+      const remoteConfigExpiryDays = getRemoteConfigValue('shared_grid_expiry_days').asNumber();
+      const defaultExpiryDays = 30;
+      const expiryDays = remoteConfigExpiryDays > 0 ? remoteConfigExpiryDays : defaultExpiryDays;
+      const expirySeconds = expiryDays * 24 * 60 * 60;
+
       await redis.set(
         `share:${sharedId}`,
         JSON.stringify(sharedGridData),
         'EX',
-        2592000 // 30 days in seconds
+        expirySeconds
       );
       logger.info(
         CTX,

@@ -40,6 +40,29 @@ if (process.env.NODE_ENV === 'development') {
 // Set default values (optional, but recommended)
 remoteConfig.defaultConfig = {
   show_footer_feature_text: false, // Default value for our example feature
+  shared_grid_expiry_days: 30, // Default expiry in days
+};
+
+// Helper function to get and use remote config values
+import { fetchAndActivate, getValue } from 'firebase/remote-config';
+
+// Call this function when your app starts to fetch and activate the latest config
+export const initializeRemoteConfig = async () => {
+  try {
+    await fetchAndActivate(remoteConfig);
+  } catch (error) {
+    console.error('Error initializing remote config:', error);
+    // Handle error appropriately, perhaps by using default values or retrying
+  }
+};
+
+// Generic function to get a config value by key
+// It's up to the caller to handle type conversion if needed, or we can add it here
+export const getRemoteConfigValue = (key: string) => {
+  const value = getValue(remoteConfig, key);
+  // getValue returns a RemoteConfigValue object. You need to convert it to the desired type.
+  // Example: value.asString(), value.asNumber(), value.asBoolean()
+  return value;
 };
 
 export { app, remoteConfig };
