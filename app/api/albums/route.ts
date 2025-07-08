@@ -66,8 +66,40 @@ export async function GET(req: NextRequest) {
   const encodedUsername = encodeURIComponent(username);
   const encodedPeriod = encodeURIComponent(period);
   const cacheKey = `lastfm:albums:${encodedUsername}:${encodedPeriod}:minimized`;
-  const cacheExpirySeconds = 3600; // 1 hour
-  const notFoundCacheExpirySeconds = 600; // 10 minutes
+
+  // Get cache expiry values from Remote Config
+  const defaultCacheExpirySeconds = 3600; // 1 hour
+  const defaultNotFoundCacheExpirySeconds = 600; // 10 minutes
+
+  let cacheExpirySeconds = defaultCacheExpirySeconds;
+  try {
+    const remoteCacheExpiry = getRemoteConfigValue(
+      'lastfm_cache_expiry_seconds'
+    ).asNumber();
+    if (remoteCacheExpiry > 0) {
+      cacheExpirySeconds = remoteCacheExpiry;
+    }
+  } catch (error) {
+    logger.warn(
+      CTX,
+      `Failed to get 'lastfm_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+
+  let notFoundCacheExpirySeconds = defaultNotFoundCacheExpirySeconds;
+  try {
+    const remoteNotFoundCacheExpiry = getRemoteConfigValue(
+      'not_found_cache_expiry_seconds'
+    ).asNumber();
+    if (remoteNotFoundCacheExpiry > 0) {
+      notFoundCacheExpirySeconds = remoteNotFoundCacheExpiry;
+    }
+  } catch (error) {
+    logger.warn(
+      CTX,
+      `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 
   const isResultNotFound = (data: MinimizedAlbum[]): boolean => {
     // Updated type and logic
