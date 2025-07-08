@@ -16,10 +16,7 @@ import {
 import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
-import {
-  initializeRemoteConfig,
-  getRemoteConfigValue,
-} from '@/lib/firebase';
+import { initializeRemoteConfig, getRemoteConfigValue } from '@/lib/firebase';
 
 const timeRanges = {
   '7day': 'Last Week',
@@ -89,9 +86,7 @@ export default function Home() {
   useEffect(() => {
     const fetchRemoteConfig = async () => {
       await initializeRemoteConfig(); // Ensure Remote Config is initialized
-      const remoteTimePeriodValue = getRemoteConfigValue(
-        'default_time_period'
-      );
+      const remoteTimePeriodValue = getRemoteConfigValue('default_time_period');
       const remoteTimePeriod = remoteTimePeriodValue.asString();
 
       // Validate that the fetched value is a valid key in timeRanges

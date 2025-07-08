@@ -46,6 +46,9 @@ remoteConfig.defaultConfig = {
   show_footer_feature_text: false, // Default value for our example feature
   shared_grid_expiry_days: 30, // Default expiry in days
   default_time_period: '1month', // Default time period
+  lastfm_cache_expiry_seconds: 3600, // Default cache expiry in seconds
+  not_found_cache_expiry_seconds: 86400, // Default not found cache expiry in seconds
+  spotify_cache_expiry_seconds: 3600, // Default Spotify cache expiry in seconds
 };
 
 // Call this function when your app starts to fetch and activate the latest config
