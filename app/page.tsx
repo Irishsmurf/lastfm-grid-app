@@ -85,12 +85,19 @@ export default function Home() {
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   const [ftueEnabled, setFtueEnabled] = useState(true); // Default to true as per spec
-  const [welcomeMessageVariant, setWelcomeMessageVariant] = useState("short_intro");
-  const [welcomeMessageTextShort, setWelcomeMessageTextShort] = useState("Welcome to Gridify! Generate your Last.fm album grid below.");
-  const [welcomeMessageTextDetailed, setWelcomeMessageTextDetailed] = useState("Get started with Gridify in 3 simple steps: 1. Enter your Last.fm username. 2. Choose a time period. 3. Click 'Generate Grid'!");
-  const [highlightInitialAction, setHighlightInitialAction] = useState("username_input");
+  const [welcomeMessageVariant, setWelcomeMessageVariant] =
+    useState('short_intro');
+  const [welcomeMessageTextShort, setWelcomeMessageTextShort] = useState(
+    'Welcome to Gridify! Generate your Last.fm album grid below.'
+  );
+  const [welcomeMessageTextDetailed, setWelcomeMessageTextDetailed] = useState(
+    "Get started with Gridify in 3 simple steps: 1. Enter your Last.fm username. 2. Choose a time period. 3. Click 'Generate Grid'!"
+  );
+  const [highlightInitialAction, setHighlightInitialAction] =
+    useState('username_input');
   const [prefillExampleUsername, setPrefillExampleUsername] = useState(false);
-  const [exampleUsernameValue, setExampleUsernameValue] = useState("musiclover123");
+  const [exampleUsernameValue, setExampleUsernameValue] =
+    useState('musiclover123');
 
   // Combined useEffect for localStorage and FTUE logic
   useEffect(() => {
@@ -109,18 +116,31 @@ export default function Home() {
 
     // FTUE Logic - Fetch and Apply Remote Config if it's a first-time user
     // This relies on Firebase app being initialized and Remote Config fetched by layout.tsx via lib/firebase.ts
-    if (!hasVisitedBefore) { // Only run FTUE Remote Config value retrieval for actual first-time users in this session
+    if (!hasVisitedBefore) {
+      // Only run FTUE Remote Config value retrieval for actual first-time users in this session
       try {
         // Use getRemoteConfigValue from lib/firebase.ts
         setFtueEnabled(getRemoteConfigValue('ftue_enabled').asBoolean());
-        setWelcomeMessageVariant(getRemoteConfigValue('welcome_message_variant').asString());
-        setWelcomeMessageTextShort(getRemoteConfigValue('welcome_message_text_short').asString());
-        setWelcomeMessageTextDetailed(getRemoteConfigValue('welcome_message_text_detailed').asString());
-        setHighlightInitialAction(getRemoteConfigValue('highlight_initial_action').asString());
+        setWelcomeMessageVariant(
+          getRemoteConfigValue('welcome_message_variant').asString()
+        );
+        setWelcomeMessageTextShort(
+          getRemoteConfigValue('welcome_message_text_short').asString()
+        );
+        setWelcomeMessageTextDetailed(
+          getRemoteConfigValue('welcome_message_text_detailed').asString()
+        );
+        setHighlightInitialAction(
+          getRemoteConfigValue('highlight_initial_action').asString()
+        );
 
-        const shouldPrefill = getRemoteConfigValue('prefill_example_username').asBoolean();
+        const shouldPrefill = getRemoteConfigValue(
+          'prefill_example_username'
+        ).asBoolean();
         setPrefillExampleUsername(shouldPrefill);
-        const exampleUser = getRemoteConfigValue('example_username_value').asString();
+        const exampleUser = getRemoteConfigValue(
+          'example_username_value'
+        ).asString();
         setExampleUsernameValue(exampleUser);
 
         if (shouldPrefill && !storedUsername && exampleUser) {
@@ -128,10 +148,14 @@ export default function Home() {
           // Do NOT save this example username to localStorage immediately,
           // let the normal flow save it if the user proceeds.
         }
-        console.log('FTUE: Remote config values applied for first-time user using lib/firebase.');
-
+        console.log(
+          'FTUE: Remote config values applied for first-time user using lib/firebase.'
+        );
       } catch (error) {
-        console.error("FTUE: Error getting remote config values for FTUE using lib/firebase:", error);
+        console.error(
+          'FTUE: Error getting remote config values for FTUE using lib/firebase:',
+          error
+        );
         // Defaults set in useState will be used, which should align with those in lib/firebase.ts defaultRemoteConfig
       }
     }
@@ -147,15 +171,17 @@ export default function Home() {
         // We can directly try to get the value.
         // If `initializeRemoteConfig` in lib also ensures defaults are loaded synchronously before fetch, this is fine.
         // Otherwise, if there's a slight delay, it might pick up the lib's internal default.
-        const remoteTimePeriodValue = getRemoteConfigValue('default_time_period');
+        const remoteTimePeriodValue = getRemoteConfigValue(
+          'default_time_period'
+        );
         let remoteTimePeriod = remoteTimePeriodValue.asString();
 
         // Fallback if the value from remote config is empty or somehow not yet available
         if (!remoteTimePeriod && defaultRemoteConfig.default_time_period) {
-            remoteTimePeriod = defaultRemoteConfig.default_time_period;
-            console.warn(
-              `'default_time_period' was empty from Remote Config, using in-lib default: '${remoteTimePeriod}'.`
-            );
+          remoteTimePeriod = defaultRemoteConfig.default_time_period;
+          console.warn(
+            `'default_time_period' was empty from Remote Config, using in-lib default: '${remoteTimePeriod}'.`
+          );
         }
 
         if (remoteTimePeriod && remoteTimePeriod in timeRanges) {
@@ -168,14 +194,16 @@ export default function Home() {
           );
         }
       } catch (error) {
-        console.error("Error fetching default time period from Remote Config (using lib):", error);
+        console.error(
+          'Error fetching default time period from Remote Config (using lib):',
+          error
+        );
         setTimeRange(defaultRemoteConfig.default_time_period || '1month'); // Fallback on error
       }
     };
 
     fetchDefaultTimePeriod();
   }, []);
-
 
   const fetchTopAlbums = async () => {
     setIsJpgView(false); // Add this line
@@ -560,12 +588,14 @@ export default function Home() {
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* FTUE Welcome Message */}
-        {isFirstTimeUser && ftueEnabled && welcomeMessageVariant !== "none" && (
+        {isFirstTimeUser && ftueEnabled && welcomeMessageVariant !== 'none' && (
           <Card className="mb-8 bg-secondary/50 border-primary/50">
             <CardContent className="pt-6">
               <p className="text-center text-lg">
-                {welcomeMessageVariant === "short_intro" && welcomeMessageTextShort}
-                {welcomeMessageVariant === "detailed_guide" && welcomeMessageTextDetailed}
+                {welcomeMessageVariant === 'short_intro' &&
+                  welcomeMessageTextShort}
+                {welcomeMessageVariant === 'detailed_guide' &&
+                  welcomeMessageTextDetailed}
               </p>
             </CardContent>
           </Card>
@@ -580,8 +610,11 @@ export default function Home() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className={cn(
-                  "flex-1",
-                  isFirstTimeUser && ftueEnabled && highlightInitialAction === "username_input" && "animate-pulse border-2 border-blue-500 ring-2 ring-blue-300"
+                  'flex-1',
+                  isFirstTimeUser &&
+                    ftueEnabled &&
+                    highlightInitialAction === 'username_input' &&
+                    'animate-pulse border-2 border-blue-500 ring-2 ring-blue-300'
                 )}
               />
               <Select value={timeRange} onValueChange={setTimeRange}>
@@ -600,8 +633,11 @@ export default function Home() {
                 onClick={fetchTopAlbums}
                 disabled={loading}
                 className={cn(
-                  "w-full md:w-auto",
-                  isFirstTimeUser && ftueEnabled && highlightInitialAction === "generate_button" && "animate-pulse border-2 border-blue-500 ring-2 ring-blue-300"
+                  'w-full md:w-auto',
+                  isFirstTimeUser &&
+                    ftueEnabled &&
+                    highlightInitialAction === 'generate_button' &&
+                    'animate-pulse border-2 border-blue-500 ring-2 ring-blue-300'
                 )}
               >
                 {loading ? 'Loading...' : 'Generate Grid'}
