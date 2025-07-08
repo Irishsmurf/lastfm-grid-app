@@ -3,9 +3,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
+// Removed direct Firebase SDK imports for FTUE: getRemoteConfig, getValue, getApp
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils'; // Added for conditional classnames
 import {
   Select,
   SelectContent,
@@ -17,10 +19,10 @@ import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import {
-  initializeRemoteConfig,
-  getRemoteConfigValue,
-  defaultRemoteConfig,
-} from '@/lib/firebase';
+  initializeRemoteConfig, // Keep for default_time_period, or evaluate if layout handles all init
+  getRemoteConfigValue, // This will be used for FTUE and default_time_period
+  defaultRemoteConfig, // Keep for default_time_period's fallback
+} from '@/lib/firebase'; // Updated path if necessary, assuming it's correct
 
 const timeRanges = {
   '7day': 'Last Week',
@@ -80,35 +82,100 @@ export default function Home() {
   const [sharedId, setSharedId] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
 
-  // Load username from localStorage on component mount
+  // FTUE States
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
+  const [ftueEnabled, setFtueEnabled] = useState(true); // Default to true as per spec
+  const [welcomeMessageVariant, setWelcomeMessageVariant] = useState("short_intro");
+  const [welcomeMessageTextShort, setWelcomeMessageTextShort] = useState("Welcome to Gridify! Generate your Last.fm album grid below.");
+  const [welcomeMessageTextDetailed, setWelcomeMessageTextDetailed] = useState("Get started with Gridify in 3 simple steps: 1. Enter your Last.fm username. 2. Choose a time period. 3. Click 'Generate Grid'!");
+  const [highlightInitialAction, setHighlightInitialAction] = useState("username_input");
+  const [prefillExampleUsername, setPrefillExampleUsername] = useState(false);
+  const [exampleUsernameValue, setExampleUsernameValue] = useState("musiclover123");
+
+  // Combined useEffect for localStorage and FTUE logic
   useEffect(() => {
+    // First-time user check (runs only on client)
+    const hasVisitedBefore = localStorage.getItem('has_visited_before');
+    if (!hasVisitedBefore) {
+      localStorage.setItem('has_visited_before', 'true');
+      setIsFirstTimeUser(true);
+    }
+
+    // Load username from localStorage
     const storedUsername = localStorage.getItem('username');
     if (storedUsername) {
       setUsername(storedUsername);
     }
-  }, []); // Empty dependency array ensures this runs only once on mount
 
-  // Fetch Remote Config value for default time period on component mount
+    // FTUE Logic - Fetch and Apply Remote Config if it's a first-time user
+    // This relies on Firebase app being initialized and Remote Config fetched by layout.tsx via lib/firebase.ts
+    if (!hasVisitedBefore) { // Only run FTUE Remote Config value retrieval for actual first-time users in this session
+      try {
+        // Use getRemoteConfigValue from lib/firebase.ts
+        setFtueEnabled(getRemoteConfigValue('ftue_enabled').asBoolean());
+        setWelcomeMessageVariant(getRemoteConfigValue('welcome_message_variant').asString());
+        setWelcomeMessageTextShort(getRemoteConfigValue('welcome_message_text_short').asString());
+        setWelcomeMessageTextDetailed(getRemoteConfigValue('welcome_message_text_detailed').asString());
+        setHighlightInitialAction(getRemoteConfigValue('highlight_initial_action').asString());
+
+        const shouldPrefill = getRemoteConfigValue('prefill_example_username').asBoolean();
+        setPrefillExampleUsername(shouldPrefill);
+        const exampleUser = getRemoteConfigValue('example_username_value').asString();
+        setExampleUsernameValue(exampleUser);
+
+        if (shouldPrefill && !storedUsername && exampleUser) {
+          setUsername(exampleUser);
+          // Do NOT save this example username to localStorage immediately,
+          // let the normal flow save it if the user proceeds.
+        }
+        console.log('FTUE: Remote config values applied for first-time user using lib/firebase.');
+
+      } catch (error) {
+        console.error("FTUE: Error getting remote config values for FTUE using lib/firebase:", error);
+        // Defaults set in useState will be used, which should align with those in lib/firebase.ts defaultRemoteConfig
+      }
+    }
+  }, []); // Empty dependency array: runs once on mount
+
+  // Separate useEffect for existing remote config logic (default_time_period)
+  // This ensures it runs independently of FTUE logic.
   useEffect(() => {
-    const fetchRemoteConfig = async () => {
-      await initializeRemoteConfig(); // Ensure Remote Config is initialized
-      const remoteTimePeriodValue = getRemoteConfigValue('default_time_period');
-      const remoteTimePeriod = remoteTimePeriodValue.asString();
+    const fetchDefaultTimePeriod = async () => {
+      try {
+        // initializeRemoteConfig from lib/firebase is now called in layout.tsx.
+        // So, it should have already fetched and activated by the time this component mounts.
+        // We can directly try to get the value.
+        // If `initializeRemoteConfig` in lib also ensures defaults are loaded synchronously before fetch, this is fine.
+        // Otherwise, if there's a slight delay, it might pick up the lib's internal default.
+        const remoteTimePeriodValue = getRemoteConfigValue('default_time_period');
+        let remoteTimePeriod = remoteTimePeriodValue.asString();
 
-      // Validate that the fetched value is a valid key in timeRanges
-      if (remoteTimePeriod && remoteTimePeriod in timeRanges) {
-        setTimeRange(remoteTimePeriod);
-      } else {
-        // Fallback to '1month' if the value is invalid or not found
-        setTimeRange('1month');
-        console.warn(
-          `Invalid or missing 'default_time_period' in Remote Config: '${remoteTimePeriod}'. Using default '1month'.`
-        );
+        // Fallback if the value from remote config is empty or somehow not yet available
+        if (!remoteTimePeriod && defaultRemoteConfig.default_time_period) {
+            remoteTimePeriod = defaultRemoteConfig.default_time_period;
+            console.warn(
+              `'default_time_period' was empty from Remote Config, using in-lib default: '${remoteTimePeriod}'.`
+            );
+        }
+
+        if (remoteTimePeriod && remoteTimePeriod in timeRanges) {
+          setTimeRange(remoteTimePeriod);
+        } else {
+          // Fallback to a hardcoded '1month' if even the lib default is invalid or not in timeRanges
+          setTimeRange('1month');
+          console.warn(
+            `Invalid or missing 'default_time_period' in Remote Config: '${remoteTimePeriod}'. Using hardcoded default '1month'.`
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching default time period from Remote Config (using lib):", error);
+        setTimeRange(defaultRemoteConfig.default_time_period || '1month'); // Fallback on error
       }
     };
 
-    fetchRemoteConfig();
-  }, []); // Empty dependency array ensures this runs only once on mount
+    fetchDefaultTimePeriod();
+  }, []);
+
 
   const fetchTopAlbums = async () => {
     setIsJpgView(false); // Add this line
@@ -492,6 +559,18 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
+        {/* FTUE Welcome Message */}
+        {isFirstTimeUser && ftueEnabled && welcomeMessageVariant !== "none" && (
+          <Card className="mb-8 bg-secondary/50 border-primary/50">
+            <CardContent className="pt-6">
+              <p className="text-center text-lg">
+                {welcomeMessageVariant === "short_intro" && welcomeMessageTextShort}
+                {welcomeMessageVariant === "detailed_guide" && welcomeMessageTextDetailed}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="mb-8">
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -500,7 +579,10 @@ export default function Home() {
                 placeholder="LastFM Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="flex-1"
+                className={cn(
+                  "flex-1",
+                  isFirstTimeUser && ftueEnabled && highlightInitialAction === "username_input" && "animate-pulse border-2 border-blue-500 ring-2 ring-blue-300"
+                )}
               />
               <Select value={timeRange} onValueChange={setTimeRange}>
                 <SelectTrigger className="w-full md:w-[180px]">
@@ -517,7 +599,10 @@ export default function Home() {
               <Button
                 onClick={fetchTopAlbums}
                 disabled={loading}
-                className="w-full md:w-auto"
+                className={cn(
+                  "w-full md:w-auto",
+                  isFirstTimeUser && ftueEnabled && highlightInitialAction === "generate_button" && "animate-pulse border-2 border-blue-500 ring-2 ring-blue-300"
+                )}
               >
                 {loading ? 'Loading...' : 'Generate Grid'}
               </Button>

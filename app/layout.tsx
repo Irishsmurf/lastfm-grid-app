@@ -4,6 +4,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from '@/components/theme-provider';
 import FooterFeatureText from '@/components/FooterFeatureText'; // Assuming path
+import { useEffect } from 'react'; // Added
+import { initializeRemoteConfig } from '@/lib/firebase'; // Updated Firebase import
 
 import './globals.css';
 
@@ -43,6 +45,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Initialize Remote Config using the centralized function from lib/firebase.ts
+      // This will also handle fetching and activating, and setting defaults defined in the lib.
+      initializeRemoteConfig().catch(error => {
+        console.error("Failed to initialize Remote Config from layout:", error);
+      });
+    }
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
