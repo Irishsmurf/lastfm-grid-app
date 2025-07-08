@@ -16,6 +16,7 @@ import {
 import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
+import { initializeRemoteConfig, getRemoteConfigValue } from '@/lib/firebase';
 
 const timeRanges = {
   '7day': 'Last Week',
@@ -48,7 +49,7 @@ interface Artist {
 
 export default function Home() {
   const [username, setUsername] = useState('');
-  const [timeRange, setTimeRange] = useState('1month');
+  const [timeRange, setTimeRange] = useState('1month'); // Default will be overridden by Remote Config
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,6 +80,28 @@ export default function Home() {
     if (storedUsername) {
       setUsername(storedUsername);
     }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Fetch Remote Config value for default time period on component mount
+  useEffect(() => {
+    const fetchRemoteConfig = async () => {
+      await initializeRemoteConfig(); // Ensure Remote Config is initialized
+      const remoteTimePeriodValue = getRemoteConfigValue('default_time_period');
+      const remoteTimePeriod = remoteTimePeriodValue.asString();
+
+      // Validate that the fetched value is a valid key in timeRanges
+      if (remoteTimePeriod && remoteTimePeriod in timeRanges) {
+        setTimeRange(remoteTimePeriod);
+      } else {
+        // Fallback to '1month' if the value is invalid or not found
+        setTimeRange('1month');
+        console.warn(
+          `Invalid or missing 'default_time_period' in Remote Config: '${remoteTimePeriod}'. Using default '1month'.`
+        );
+      }
+    };
+
+    fetchRemoteConfig();
   }, []); // Empty dependency array ensures this runs only once on mount
 
   const fetchTopAlbums = async () => {
