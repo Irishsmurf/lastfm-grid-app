@@ -3,6 +3,7 @@ import { Inter, Montserrat } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from '@/components/theme-provider';
+import FooterFeatureText from '@/components/FooterFeatureText'; // Assuming path
 
 import './globals.css';
 
@@ -79,6 +80,7 @@ export default function RootLayout({
           <SpeedInsights />
           <Analytics />
           <footer>
+            <FooterFeatureText />
             <a href="/about" style={{ marginRight: '10px' }}>
               About
             </a>

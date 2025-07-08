@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
+import Image from 'next/image';
 import { ImageProps } from 'next/image';
 
 // Mock Next.js Image component
@@ -28,8 +29,7 @@ jest.mock('next/image', () => ({
   default: (props: MockImageProps) => {
     const { src, alt, width, height, className } = props;
     return (
-      // Removed unused eslint-disable-next-line comment
-      <img
+      <Image
         src={src as string}
         alt={alt}
         width={width as number}
