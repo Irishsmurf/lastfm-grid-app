@@ -4,9 +4,9 @@ import {
   getRemoteConfig,
   fetchAndActivate,
   getValue,
-  getAllValues, // Import getAllValues
+  getAll,
 } from 'firebase/remote-config';
-import { logger } from '../utils/logger'; // Import the logger
+import { logger } from '../utils/logger';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -53,41 +53,51 @@ export const defaultRemoteConfig = {
   spotify_cache_expiry_seconds: 3600, // Default Spotify cache expiry in seconds
 };
 remoteConfig.defaultConfig = defaultRemoteConfig;
+
 // Call this function when your app starts to fetch and activate the latest config
 export const initializeRemoteConfig = async () => {
-  logger.info('RemoteConfig', 'Attempting to fetch and activate Remote Config...');
+  logger.info('RemoteConfig', 'Initializing Remote Config...');
   try {
     await fetchAndActivate(remoteConfig);
-    logger.info('RemoteConfig', 'Successfully fetched and activated Remote Config.');
+    logger.info(
+      'RemoteConfig',
+      'Successfully fetched and activated Remote Config.'
+    );
 
-    const allConfigValues = getAllValues(remoteConfig);
+    const allConfigValues = getAll(remoteConfig);
     const loadedValues: Record<string, string | number | boolean> = {};
     for (const key in allConfigValues) {
       // Attempt to infer type based on default values, otherwise default to string
-      if (typeof defaultRemoteConfig[key as keyof typeof defaultRemoteConfig] === 'boolean') {
+      if (
+        typeof defaultRemoteConfig[key as keyof typeof defaultRemoteConfig] ===
+        'boolean'
+      ) {
         loadedValues[key] = allConfigValues[key].asBoolean();
-      } else if (typeof defaultRemoteConfig[key as keyof typeof defaultRemoteConfig] === 'number') {
+      } else if (
+        typeof defaultRemoteConfig[key as keyof typeof defaultRemoteConfig] ===
+        'number'
+      ) {
         loadedValues[key] = allConfigValues[key].asNumber();
       } else {
         loadedValues[key] = allConfigValues[key].asString();
       }
     }
-    logger.info('RemoteConfig', `Loaded values: ${JSON.stringify(loadedValues)}`);
-
+    logger.info(
+      'RemoteConfig',
+      `Loaded values: ${JSON.stringify(loadedValues)}`
+    );
   } catch (error) {
-    logger.error('RemoteConfig', `Error initializing Remote Config: ${error instanceof Error ? error.message : String(error)}`);
-    // console.error is still useful for visibility during development if logger is not set up for console output
+    logger.error(
+      'RemoteConfig',
+      `Error initializing Remote Config: ${error instanceof Error ? error.message : String(error)}`
+    );
     console.error('Error initializing remote config:', error);
-    // Handle error appropriately, perhaps by using default values or retrying
   }
 };
 
-// Generic function to get a config value by key
-// It's up to the caller to handle type conversion if needed, or we can add it here
 export const getRemoteConfigValue = (key: string) => {
   const value = getValue(remoteConfig, key);
-  // getValue returns a RemoteConfigValue object. You need to convert it to the desired type.
-  // Example: value.asString(), value.asNumber(), value.asBoolean()
+
   return value;
 };
 
