@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchAlbum } from '@/lib/spotifyService'; // Corrected import path
 import { handleCaching } from '@/lib/cache';
 import { logger } from '@/utils/logger'; // Import logger
+import { initializeRemoteConfig, getRemoteConfigValue } from '@/lib/firebase'; // Added
 
 const CTX = 'SpotifyLinkAPI'; // Context for logger
 
 export async function GET(req: NextRequest) {
+  // Initialize Remote Config
+  await initializeRemoteConfig(); // Best practice: call this at app startup
+
   const { searchParams } = new URL(req.url);
   const albumName = searchParams.get('albumName');
   const artistName = searchParams.get('artistName');
@@ -25,8 +29,30 @@ export async function GET(req: NextRequest) {
   const safeAlbumName = encodeURIComponent(albumName);
   const cacheKey = `spotify:link:${safeArtistName}:${safeAlbumName}`;
 
-  const cacheExpirySeconds = 86400; // 24 hours
-  const notFoundCacheExpirySeconds = 3600; // 1 hour
+  // Get cache expiry values from Remote Config
+  const defaultCacheExpirySeconds = 86400; // 24 hours
+  const defaultNotFoundCacheExpirySeconds = 3600; // 1 hour
+
+  let cacheExpirySeconds = defaultCacheExpirySeconds;
+  try {
+    const remoteCacheExpiry = getRemoteConfigValue('spotify_cache_expiry_seconds').asNumber();
+    if (remoteCacheExpiry > 0) {
+      cacheExpirySeconds = remoteCacheExpiry;
+    }
+  } catch (error) {
+    logger.warn(CTX, `Failed to get 'spotify_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  let notFoundCacheExpirySeconds = defaultNotFoundCacheExpirySeconds;
+  try {
+    const remoteNotFoundCacheExpiry = getRemoteConfigValue('not_found_cache_expiry_seconds').asNumber();
+    if (remoteNotFoundCacheExpiry > 0) {
+      notFoundCacheExpirySeconds = remoteNotFoundCacheExpiry;
+    }
+  } catch (error) {
+    logger.warn(CTX, `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
   const notFoundRedisPlaceholder = 'SPOTIFY_NOT_FOUND'; // Specific placeholder
 
   // Define how to check if the fetched data means "not found"
