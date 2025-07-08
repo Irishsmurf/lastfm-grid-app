@@ -127,9 +127,12 @@ export async function GET(req: NextRequest) {
 
     try {
       // Get shared_grid_expiry_days from Remote Config
-      const remoteConfigExpiryDays = getRemoteConfigValue('shared_grid_expiry_days').asNumber();
+      const remoteConfigExpiryDays = getRemoteConfigValue(
+        'shared_grid_expiry_days'
+      ).asNumber();
       const defaultExpiryDays = 30;
-      const expiryDays = remoteConfigExpiryDays > 0 ? remoteConfigExpiryDays : defaultExpiryDays;
+      const expiryDays =
+        remoteConfigExpiryDays > 0 ? remoteConfigExpiryDays : defaultExpiryDays;
       const expirySeconds = expiryDays * 24 * 60 * 60;
 
       await redis.set(
