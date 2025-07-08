@@ -4,6 +4,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from '@/components/theme-provider';
 import FooterFeatureText from '@/components/FooterFeatureText'; // Assuming path
+// Removed useEffect and initializeRemoteConfig imports from here
+import RemoteConfigInitializer from '@/components/RemoteConfigInitializer'; // Added import for the new component
 
 import './globals.css';
 
@@ -43,6 +45,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Removed useEffect for Firebase Init from here
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -76,6 +79,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+          <RemoteConfigInitializer /> {/* Added RemoteConfigInitializer */}
           {children}
           <SpeedInsights />
           <Analytics />
