@@ -2,8 +2,6 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getRemoteConfig } from 'firebase/remote-config';
 
-// Your web app's Firebase configuration
-// IMPORTANT: Replace with your actual Firebase project configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -16,10 +14,17 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
+try {
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();
+  }
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+  throw new Error(
+    'Failed to initialize Firebase app. Please check your configuration.'
+  );
 }
 
 const remoteConfig = getRemoteConfig(app);
