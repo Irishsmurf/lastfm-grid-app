@@ -73,22 +73,32 @@ export async function GET(req: NextRequest) {
 
   let cacheExpirySeconds = defaultCacheExpirySeconds;
   try {
-    const remoteCacheExpiry = getRemoteConfigValue('lastfm_cache_expiry_seconds').asNumber();
+    const remoteCacheExpiry = getRemoteConfigValue(
+      'lastfm_cache_expiry_seconds'
+    ).asNumber();
     if (remoteCacheExpiry > 0) {
       cacheExpirySeconds = remoteCacheExpiry;
     }
   } catch (error) {
-    logger.warn(CTX, `Failed to get 'lastfm_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`);
+    logger.warn(
+      CTX,
+      `Failed to get 'lastfm_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 
   let notFoundCacheExpirySeconds = defaultNotFoundCacheExpirySeconds;
   try {
-    const remoteNotFoundCacheExpiry = getRemoteConfigValue('not_found_cache_expiry_seconds').asNumber();
+    const remoteNotFoundCacheExpiry = getRemoteConfigValue(
+      'not_found_cache_expiry_seconds'
+    ).asNumber();
     if (remoteNotFoundCacheExpiry > 0) {
       notFoundCacheExpirySeconds = remoteNotFoundCacheExpiry;
     }
   } catch (error) {
-    logger.warn(CTX, `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`);
+    logger.warn(
+      CTX,
+      `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 
   const isResultNotFound = (data: MinimizedAlbum[]): boolean => {
