@@ -1,6 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getRemoteConfig } from 'firebase/remote-config';
+import { getRemoteConfig, fetchAndActivate, getValue } from 'firebase/remote-config';
+
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -42,9 +43,6 @@ remoteConfig.defaultConfig = {
   show_footer_feature_text: false, // Default value for our example feature
   shared_grid_expiry_days: 30, // Default expiry in days
 };
-
-// Helper function to get and use remote config values
-import { fetchAndActivate, getValue } from 'firebase/remote-config';
 
 // Call this function when your app starts to fetch and activate the latest config
 export const initializeRemoteConfig = async () => {
