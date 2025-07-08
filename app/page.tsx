@@ -16,7 +16,11 @@ import {
 import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
-import { initializeRemoteConfig, getRemoteConfigValue, defaultRemoteConfig } from '@/lib/firebase';
+import {
+  initializeRemoteConfig,
+  getRemoteConfigValue,
+  defaultRemoteConfig,
+} from '@/lib/firebase';
 
 const timeRanges = {
   '7day': 'Last Week',
@@ -49,7 +53,9 @@ interface Artist {
 
 export default function Home() {
   const [username, setUsername] = useState('');
-  const [timeRange, setTimeRange] = useState(defaultRemoteConfig.default_time_period);
+  const [timeRange, setTimeRange] = useState(
+    defaultRemoteConfig.default_time_period
+  );
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
