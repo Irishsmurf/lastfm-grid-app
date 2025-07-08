@@ -1,7 +1,10 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getRemoteConfig, fetchAndActivate, getValue } from 'firebase/remote-config';
-
+import {
+  getRemoteConfig,
+  fetchAndActivate,
+  getValue,
+} from 'firebase/remote-config';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
