@@ -32,7 +32,9 @@ describe('FooterFeatureText Component', () => {
 
     render(<FooterFeatureText />);
     // Expect nothing to be rendered initially or a specific loader if implemented
-    expect(screen.queryByText(/Experimental Feature Active!/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Experimental Feature Active!/)
+    ).not.toBeInTheDocument();
   });
 
   test('renders the feature text when the flag is true', async () => {

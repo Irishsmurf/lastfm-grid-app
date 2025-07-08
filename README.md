@@ -108,92 +108,105 @@ This project is set up to use Firebase Remote Config to manage feature flags. Th
 ### Adding a New Feature Flag
 
 1.  **Define Parameter in Firebase Console:**
-    *   Go to your Firebase project console.
-    *   Navigate to "Remote Config" (usually under the "Engage" or "Build" section).
-    *   Click "Add parameter" or "Create configuration".
-    *   **Parameter name (key):** Use a descriptive name (e.g., `my_new_feature_enabled`).
-    *   **Data type:** Choose the appropriate type (e.g., Boolean, String, Number, JSON).
-    *   **Default value:** Set an initial server-side default value.
-    *   Publish the changes in the Firebase console.
+    - Go to your Firebase project console.
+    - Navigate to "Remote Config" (usually under the "Engage" or "Build" section).
+    - Click "Add parameter" or "Create configuration".
+    - **Parameter name (key):** Use a descriptive name (e.g., `my_new_feature_enabled`).
+    - **Data type:** Choose the appropriate type (e.g., Boolean, String, Number, JSON).
+    - **Default value:** Set an initial server-side default value.
+    - Publish the changes in the Firebase console.
 
 2.  **Set In-App Default Value (Recommended):**
-    *   Open `lib/firebase.ts`.
-    *   Add your new parameter key and its default client-side value to the `remoteConfig.defaultConfig` object. This ensures your app behaves predictably before fetching values from the Firebase backend or if the fetch fails.
-      ```typescript
-      // In lib/firebase.ts
-      remoteConfig.defaultConfig = {
-        show_footer_feature_text: false, // Example existing flag
-        my_new_feature_enabled: true,    // Your new flag
-        // ... other flags
-      };
-      ```
+    - Open `lib/firebase.ts`.
+    - Add your new parameter key and its default client-side value to the `remoteConfig.defaultConfig` object. This ensures your app behaves predictably before fetching values from the Firebase backend or if the fetch fails.
+
+    ```typescript
+    // In lib/firebase.ts
+    remoteConfig.defaultConfig = {
+      show_footer_feature_text: false, // Example existing flag
+      my_new_feature_enabled: true, // Your new flag
+      // ... other flags
+    };
+    ```
 
 3.  **Implement in a Client Component:**
-    *   Feature flags that affect the UI should typically be implemented in client components (`'use client';`).
-    *   Create or modify a component to use the flag. See `components/FooterFeatureText.tsx` for an example implementation. A general structure would be:
-      ```tsx
-      'use client';
+    - Feature flags that affect the UI should typically be implemented in client components (`'use client';`).
+    - Create or modify a component to use the flag. See `components/FooterFeatureText.tsx` for an example implementation. A general structure would be:
 
-      import { useEffect, useState } from 'react';
-      import { remoteConfig } from '@/lib/firebase'; // Adjust path if necessary
-      import { fetchAndActivate, getValue } from 'firebase/remote-config';
+    ```tsx
+    'use client';
 
-      const MyFeatureComponent = () => {
-        // Use the in-app default as the initial state
-        const initialValue = remoteConfig ? getValue(remoteConfig, 'my_new_feature_enabled').asBoolean() : false; // Or appropriate type
-        const [isFeatureEnabled, setIsFeatureEnabled] = useState(initialValue);
-        const [isLoading, setIsLoading] = useState(true);
+    import { useEffect, useState } from 'react';
+    import { remoteConfig } from '@/lib/firebase'; // Adjust path if necessary
+    import { fetchAndActivate, getValue } from 'firebase/remote-config';
 
-        useEffect(() => {
-          const activateRemoteConfig = async () => {
-            setIsLoading(true); // Set loading true at the start of fetch
-            try {
-              if (remoteConfig) {
-                await fetchAndActivate(remoteConfig);
-                const flagValue = getValue(remoteConfig, 'my_new_feature_enabled').asBoolean(); // Or .asString(), .asNumber()
-                setIsFeatureEnabled(flagValue);
-              }
-            } catch (error) {
-              console.error('Error fetching Remote Config for my_new_feature_enabled:', error);
-              // Fallback to the in-app default (already set in useState) or cached value
-            } finally {
-              setIsLoading(false);
+    const MyFeatureComponent = () => {
+      // Use the in-app default as the initial state
+      const initialValue = remoteConfig
+        ? getValue(remoteConfig, 'my_new_feature_enabled').asBoolean()
+        : false; // Or appropriate type
+      const [isFeatureEnabled, setIsFeatureEnabled] = useState(initialValue);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        const activateRemoteConfig = async () => {
+          setIsLoading(true); // Set loading true at the start of fetch
+          try {
+            if (remoteConfig) {
+              await fetchAndActivate(remoteConfig);
+              const flagValue = getValue(
+                remoteConfig,
+                'my_new_feature_enabled'
+              ).asBoolean(); // Or .asString(), .asNumber()
+              setIsFeatureEnabled(flagValue);
             }
-          };
-          // Only run activateRemoteConfig if remoteConfig is available.
-          // The initial state is already set from defaultConfig.
-          if (remoteConfig) {
-            activateRemoteConfig();
-          } else {
-            setIsLoading(false); // Not loading if remoteConfig isn't there
+          } catch (error) {
+            console.error(
+              'Error fetching Remote Config for my_new_feature_enabled:',
+              error
+            );
+            // Fallback to the in-app default (already set in useState) or cached value
+          } finally {
+            setIsLoading(false);
           }
-        }, []); // Empty dependency array means this runs once on mount
-
-        if (isLoading && !remoteConfig?.defaultConfig?.['my_new_feature_enabled']) {
-          // Optional: show a loader only if not using an instant default
-          return <div>Loading feature status...</div>;
+        };
+        // Only run activateRemoteConfig if remoteConfig is available.
+        // The initial state is already set from defaultConfig.
+        if (remoteConfig) {
+          activateRemoteConfig();
+        } else {
+          setIsLoading(false); // Not loading if remoteConfig isn't there
         }
+      }, []); // Empty dependency array means this runs once on mount
 
-        if (isFeatureEnabled) {
-          return <div>My New Feature is Here!</div>;
-        }
+      if (
+        isLoading &&
+        !remoteConfig?.defaultConfig?.['my_new_feature_enabled']
+      ) {
+        // Optional: show a loader only if not using an instant default
+        return <div>Loading feature status...</div>;
+      }
 
-        return <div>My New Feature is OFF.</div>; // Or null if nothing should be shown
-      };
+      if (isFeatureEnabled) {
+        return <div>My New Feature is Here!</div>;
+      }
 
-      export default MyFeatureComponent;
-      ```
+      return <div>My New Feature is OFF.</div>; // Or null if nothing should be shown
+    };
+
+    export default MyFeatureComponent;
+    ```
 
 4.  **Use the Component:**
-    *   Import and use your new component where needed in your application pages or layouts.
+    - Import and use your new component where needed in your application pages or layouts.
 
 ### Testing Feature Flags
 
-*   **Unit Tests:** Write Jest tests for your components that consume feature flags. Mock the Firebase SDK (`firebase/remote-config` and your `lib/firebase.ts`) to control the flag values during tests. See `components/FooterFeatureText.test.tsx` for an example.
-*   **Manual Testing:**
-    *   Run the app locally (`npm run dev`).
-    *   Toggle the parameter value in the Firebase Remote Config console and publish changes.
-    *   Observe the behavior in your app. Note the `minimumFetchIntervalMillis` setting in `lib/firebase.ts` which controls how often the client fetches updated values (10 seconds for development, 12 hours for production by default). Refreshing the page or waiting for the interval might be necessary.
+- **Unit Tests:** Write Jest tests for your components that consume feature flags. Mock the Firebase SDK (`firebase/remote-config` and your `lib/firebase.ts`) to control the flag values during tests. See `components/FooterFeatureText.test.tsx` for an example.
+- **Manual Testing:**
+  - Run the app locally (`npm run dev`).
+  - Toggle the parameter value in the Firebase Remote Config console and publish changes.
+  - Observe the behavior in your app. Note the `minimumFetchIntervalMillis` setting in `lib/firebase.ts` which controls how often the client fetches updated values (10 seconds for development, 12 hours for production by default). Refreshing the page or waiting for the interval might be necessary.
 
 ## Code Overview & Architecture
 
