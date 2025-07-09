@@ -5,7 +5,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from '@/components/theme-provider';
 import FooterFeatureText from '@/components/FooterFeatureText'; // Assuming path
 // Removed useEffect and initializeRemoteConfig imports from here
-import RemoteConfigInitializer from '@/components/RemoteConfigInitializer'; // Added import for the new component
+import { RemoteConfigProvider } from '@/lib/remoteConfigContext';
 
 import './globals.css';
 
@@ -79,8 +79,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-          <RemoteConfigInitializer /> {/* Added RemoteConfigInitializer */}
-          {children}
+          <RemoteConfigProvider>{children}</RemoteConfigProvider>
           <SpeedInsights />
           <Analytics />
           <footer>
