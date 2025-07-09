@@ -19,7 +19,6 @@ import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import {
-  initializeRemoteConfig, // Keep for default_time_period, or evaluate if layout handles all init
   getRemoteConfigValue, // This will be used for FTUE and default_time_period
   defaultRemoteConfig, // Keep for default_time_period's fallback
 } from '@/lib/firebase'; // Updated path if necessary, assuming it's correct
@@ -95,8 +94,8 @@ export default function Home() {
   );
   const [highlightInitialAction, setHighlightInitialAction] =
     useState('username_input');
-  const [prefillExampleUsername, setPrefillExampleUsername] = useState(false);
-  const [exampleUsernameValue, setExampleUsernameValue] =
+  const [_prefillExampleUsername, setPrefillExampleUsername] = useState(false);
+  const [_exampleUsernameValue, setExampleUsernameValue] =
     useState('musiclover123');
 
   // Combined useEffect for localStorage and FTUE logic

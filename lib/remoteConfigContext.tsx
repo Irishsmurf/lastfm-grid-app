@@ -1,6 +1,12 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
 import { remoteConfig } from './firebase';
 import { fetchAndActivate, getAll } from 'firebase/remote-config';
 
@@ -13,48 +19,56 @@ export type AppConfig = {
   // Add other config keys here
 };
 
-// Create the context
-const RemoteConfigContext = createContext<AppConfig | null>(null);
+// Define a default value for the config. This is crucial for the initial server render.
+const defaultConfig: AppConfig = {
+  footer_feature_text: {
+    enabled: false,
+    text: '',
+  },
+};
+
+// Create the context with the default value. This prevents the build error.
+const RemoteConfigContext = createContext<AppConfig>(defaultConfig);
 
 // Create the provider component
-export function RemoteConfigProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [config, setConfig] = useState<AppConfig | null>(null);
+export function RemoteConfigProvider({ children }: { children: ReactNode }) {
+  const [config, setConfig] = useState<AppConfig>(defaultConfig);
 
   useEffect(() => {
-    // This function fetches, activates, and parses the config
     const initializeConfig = async () => {
-      await fetchAndActivate(remoteConfig);
-
-      // Get all values and parse them
-      const allValues = getAll(remoteConfig);
-      const newConfig: Partial<AppConfig> = {};
+      // It's good practice to set default values on the remote config instance itself
+      remoteConfig.defaultConfig = {
+        footer_feature_text: JSON.stringify(defaultConfig.footer_feature_text),
+      };
 
       try {
-        const footerFeature = JSON.parse(
-          allValues.footer_feature_text.asString()
-        );
-        newConfig.footer_feature_text = footerFeature;
-      } catch (e) {
-        console.error("Failed to parse 'footer_feature_text'", e);
+        await fetchAndActivate(remoteConfig);
+
+        const allValues = getAll(remoteConfig);
+        const newConfig: Partial<AppConfig> = {};
+
+        // Safely parse the value
+        try {
+          const footerFeature = JSON.parse(
+            allValues.footer_feature_text.asString()
+          );
+          newConfig.footer_feature_text = footerFeature;
+        } catch (e) {
+          console.error(
+            "Failed to parse 'footer_feature_text', using default.",
+            e
+          );
+          newConfig.footer_feature_text = defaultConfig.footer_feature_text;
+        }
+
+        setConfig(newConfig as AppConfig);
+      } catch (error) {
+        console.error('Failed to fetch remote config, using default.', error);
       }
-
-      // ... parse other values
-
-      setConfig(newConfig as AppConfig);
     };
 
     initializeConfig();
   }, []);
-
-  // We render children only after the config has been loaded to avoid flicker
-  if (!config) {
-    // Or you could return a global loading spinner here
-    return null;
-  }
 
   return (
     <RemoteConfigContext.Provider value={config}>
@@ -63,13 +77,7 @@ export function RemoteConfigProvider({
   );
 }
 
-// Create a custom hook for easy access to the config
+// Update the hook. It no longer needs to throw an error because a default value is always available.
 export const useRemoteConfig = () => {
-  const context = useContext(RemoteConfigContext);
-  if (!context) {
-    throw new Error(
-      'useRemoteConfig must be used within a RemoteConfigProvider'
-    );
-  }
-  return context;
+  return useContext(RemoteConfigContext);
 };

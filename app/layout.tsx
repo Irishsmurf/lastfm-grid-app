@@ -5,7 +5,6 @@ import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from '@/components/theme-provider';
 import FooterFeatureText from '@/components/FooterFeatureText'; // Assuming path
 // Removed useEffect and initializeRemoteConfig imports from here
-import RemoteConfigInitializer from '@/components/RemoteConfigInitializer'; // Added import for the new component
 import { RemoteConfigProvider } from '@/lib/remoteConfigContext';
 
 import './globals.css';
