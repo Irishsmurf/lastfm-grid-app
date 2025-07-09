@@ -20,7 +20,8 @@ import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import {
   getRemoteConfigValue, // This will be used for FTUE and default_time_period
-  defaultRemoteConfig, // Keep for default_time_period's fallback
+  defaultRemoteConfig,
+  remoteConfig, // Keep for default_time_period's fallback
 } from '@/lib/firebase'; // Updated path if necessary, assuming it's correct
 
 const timeRanges = {
@@ -31,11 +32,6 @@ const timeRanges = {
   '12month': 'Last Year',
   overall: 'Overall',
 };
-
-// interface AlbumImage { // Removed
-//   size: string;
-//   '#text': string;
-// }
 
 interface Album {
   // This is the local interface in app/page.tsx
@@ -82,21 +78,30 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
 
   // FTUE States
-  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
-  const [ftueEnabled, setFtueEnabled] = useState(true); // Default to true as per spec
-  const [welcomeMessageVariant, setWelcomeMessageVariant] =
-    useState('short_intro');
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(
+    remoteConfig.defaultConfig.has_visited_before
+  );
+  const [ftueEnabled, setFtueEnabled] = useState(
+    remoteConfig.defaultConfig.ftue_enabled
+  ); // Default to true as per spec
+  const [welcomeMessageVariant, setWelcomeMessageVariant] = useState(
+    remoteConfig.defaultConfig.welcome_message_variant
+  );
   const [welcomeMessageTextShort, setWelcomeMessageTextShort] = useState(
-    'Welcome to Gridify! Generate your Last.fm album grid below.'
+    remoteConfig.defaultConfig.welcome_message_text_short
   );
   const [welcomeMessageTextDetailed, setWelcomeMessageTextDetailed] = useState(
-    "Get started with Gridify in 3 simple steps: 1. Enter your Last.fm username. 2. Choose a time period. 3. Click 'Generate Grid'!"
+    remoteConfig.defaultConfig.welcome_message_text_detailed
   );
-  const [highlightInitialAction, setHighlightInitialAction] =
-    useState('username_input');
-  const [_prefillExampleUsername, setPrefillExampleUsername] = useState(false);
-  const [_exampleUsernameValue, setExampleUsernameValue] =
-    useState('musiclover123');
+  const [highlightInitialAction, setHighlightInitialAction] = useState(
+    remoteConfig.defaultConfig.highlight_initial_action
+  );
+  const [_prefillExampleUsername, setPrefillExampleUsername] = useState(
+    remoteConfig.defaultConfig.prefill_example_username
+  );
+  const [_exampleUsernameValue, setExampleUsernameValue] = useState(
+    remoteConfig.defaultConfig.example_username_value
+  );
 
   // Combined useEffect for localStorage and FTUE logic
   useEffect(() => {
