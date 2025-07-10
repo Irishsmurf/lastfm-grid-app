@@ -5,55 +5,85 @@ import {
   collectDefaultMetrics,
 } from 'prom-client';
 
-// Use a global symbol to store the registry, ensuring it's a singleton
 const globalForRegistry = global as unknown as {
   registry: Registry | undefined;
+  apiRequestCounter: Counter | undefined;
+  apiRequestDuration: Histogram | undefined;
+  lastfmAlbumCount: Counter | undefined;
+  spotifyLinkCount: Counter | undefined;
 };
 
-// Create a new registry only if one doesn't already exist
-export const registry = globalForRegistry.registry || new Registry();
-
-// If we just created the registry, register the default metrics
-if (!globalForRegistry.registry) {
-  collectDefaultMetrics({ register: registry });
+function getOrCreateRegistry(): Registry {
+  if (globalForRegistry.registry) {
+    return globalForRegistry.registry;
+  }
+  const newRegistry = new Registry();
+  collectDefaultMetrics({ register: newRegistry });
+  globalForRegistry.registry = newRegistry;
+  return newRegistry;
 }
 
-// Store the registry in the global object so it can be reused
-globalForRegistry.registry = registry;
+export const registry = getOrCreateRegistry();
 
-export const apiRequestCounter =
-  (registry.getSingleMetric('api_requests_total') as Counter) ||
-  new Counter({
-    name: 'api_requests_total',
-    help: 'Total number of API requests',
-    labelNames: ['method', 'route', 'status_code'],
+function getOrCreateCounter(
+  name: string,
+  help: string,
+  labelNames: string[]
+): Counter {
+  const existingMetric = registry.getSingleMetric(name);
+  if (existingMetric) {
+    return existingMetric as Counter;
+  }
+  const newCounter = new Counter({
+    name,
+    help,
+    labelNames,
     registers: [registry],
   });
+  return newCounter;
+}
 
-export const apiRequestDuration =
-  (registry.getSingleMetric('api_request_duration_seconds') as Histogram) ||
-  new Histogram({
-    name: 'api_request_duration_seconds',
-    help: 'Duration of API requests in seconds',
-    labelNames: ['method', 'route'],
-    buckets: [0.1, 0.5, 1, 1.5, 2, 5],
+function getOrCreateHistogram(
+  name: string,
+  help: string,
+  labelNames: string[],
+  buckets: number[]
+): Histogram {
+  const existingMetric = registry.getSingleMetric(name);
+  if (existingMetric) {
+    return existingMetric as Histogram;
+  }
+  const newHistogram = new Histogram({
+    name,
+    help,
+    labelNames,
+    buckets,
     registers: [registry],
   });
+  return newHistogram;
+}
 
-export const lastfmAlbumCount =
-  (registry.getSingleMetric('lastfm_album_count') as Counter) ||
-  new Counter({
-    name: 'lastfm_album_count',
-    help: 'Number of albums returned from the Last.fm API',
-    labelNames: ['username', 'period'],
-    registers: [registry],
-  });
+export const apiRequestCounter = getOrCreateCounter(
+  'api_requests_total',
+  'Total number of API requests',
+  ['method', 'route', 'status_code']
+);
 
-export const spotifyLinkCount =
-  (registry.getSingleMetric('spotify_link_count') as Counter) ||
-  new Counter({
-    name: 'spotify_link_count',
-    help: 'Number of Spotify links found for albums',
-    labelNames: ['username', 'period'],
-    registers: [registry],
-  });
+export const apiRequestDuration = getOrCreateHistogram(
+  'api_request_duration_seconds',
+  'Duration of API requests in seconds',
+  ['method', 'route'],
+  [0.1, 0.5, 1, 1.5, 2, 5]
+);
+
+export const lastfmAlbumCount = getOrCreateCounter(
+  'lastfm_album_count',
+  'Number of albums returned from the Last.fm API',
+  ['username', 'period']
+);
+
+export const spotifyLinkCount = getOrCreateCounter(
+  'spotify_link_count',
+  'Number of Spotify links found for albums',
+  ['username', 'period']
+);
