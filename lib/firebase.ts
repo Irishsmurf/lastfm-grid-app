@@ -66,6 +66,14 @@ remoteConfig.defaultConfig = defaultRemoteConfig;
 
 // Call this function when your app starts to fetch and activate the latest config
 export const initializeRemoteConfig = async () => {
+  if (!remoteConfig) {
+    logger.info(
+      'RemoteConfig',
+      'Skipping initialization, remoteConfig is not set.'
+    );
+    return;
+  }
+
   logger.info('RemoteConfig', 'Initializing Remote Config...');
   try {
     await fetchAndActivate(remoteConfig);
@@ -106,9 +114,17 @@ export const initializeRemoteConfig = async () => {
 };
 
 export const getRemoteConfigValue = (key: string) => {
-  const value = getValue(remoteConfig, key);
-
-  return value;
+  if (!remoteConfig) {
+    const defaultValue =
+      defaultRemoteConfig[key as keyof typeof defaultRemoteConfig];
+    return {
+      asString: () => String(defaultValue),
+      asNumber: () => Number(defaultValue),
+      asBoolean: () => Boolean(defaultValue),
+      _source: 'default',
+    };
+  }
+  return getValue(remoteConfig, key);
 };
 
 export { app, remoteConfig };
