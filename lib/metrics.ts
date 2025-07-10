@@ -23,7 +23,7 @@ if (!globalForRegistry.registry) {
 globalForRegistry.registry = registry;
 
 export const apiRequestCounter =
-  registry.getSingleMetric('api_requests_total') ||
+  (registry.getSingleMetric('api_requests_total') as Counter) ||
   new Counter({
     name: 'api_requests_total',
     help: 'Total number of API requests',
@@ -32,7 +32,7 @@ export const apiRequestCounter =
   });
 
 export const apiRequestDuration =
-  registry.getSingleMetric('api_request_duration_seconds') ||
+  (registry.getSingleMetric('api_request_duration_seconds') as Histogram) ||
   new Histogram({
     name: 'api_request_duration_seconds',
     help: 'Duration of API requests in seconds',
@@ -42,7 +42,7 @@ export const apiRequestDuration =
   });
 
 export const lastfmAlbumCount =
-  registry.getSingleMetric('lastfm_album_count') ||
+  (registry.getSingleMetric('lastfm_album_count') as Counter) ||
   new Counter({
     name: 'lastfm_album_count',
     help: 'Number of albums returned from the Last.fm API',
@@ -51,7 +51,7 @@ export const lastfmAlbumCount =
   });
 
 export const spotifyLinkCount =
-  registry.getSingleMetric('spotify_link_count') ||
+  (registry.getSingleMetric('spotify_link_count') as Counter) ||
   new Counter({
     name: 'spotify_link_count',
     help: 'Number of Spotify links found for albums',
