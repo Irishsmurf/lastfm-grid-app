@@ -10,10 +10,20 @@ import { nanoid } from 'nanoid';
 import { SharedGridData } from '@/lib/types';
 import { redis } from '@/lib/redis';
 import { initializeRemoteConfig, getRemoteConfigValue } from '@/lib/firebase'; // Added
+import {
+  apiRequestCounter,
+  apiRequestDuration,
+  lastfmAlbumCount,
+} from '@/lib/metrics';
 
 const CTX = 'AlbumsAPI';
 
 export async function GET(req: NextRequest) {
+  const end = apiRequestDuration.startTimer({
+    method: 'GET',
+    route: '/api/albums',
+  });
+
   // Initialize Remote Config
   await initializeRemoteConfig(); // Best practice: call this at app startup
 
@@ -137,6 +147,10 @@ export async function GET(req: NextRequest) {
     // or a fresh fetch that resulted in "not found".
     // The client should receive this structured response.
     const lastFmAlbumCount = data ? data.length : 0;
+    lastfmAlbumCount.inc(
+      { username: username as string, period: period as string },
+      lastFmAlbumCount
+    );
     // spotifyLinkCount cannot be determined here as MinimizedAlbum does not have spotifyUrl
 
     logger.info(
@@ -194,6 +208,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(redisErrorResponse, { status: 200 }); // Status 200 as per original, though 500 might be more appropriate.
     }
 
+    apiRequestCounter.inc({
+      method: 'GET',
+      route: '/api/albums',
+      status_code: '200',
+    });
+    end();
     return NextResponse.json(
       { albums: data, sharedId: sharedId },
       { status: 200 }
@@ -218,6 +238,12 @@ export async function GET(req: NextRequest) {
         ? undefined // Omit detailed error in production
         : detailedErrorMessage;
 
+    apiRequestCounter.inc({
+      method: 'GET',
+      route: '/api/albums',
+      status_code: '500',
+    });
+    end();
     return NextResponse.json(
       { message: responseMessage, error: errorDetail },
       { status: 500 }
