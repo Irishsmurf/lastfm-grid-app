@@ -1,3 +1,5 @@
+import pino from 'pino';
+
 // Define an enum for log levels for stricter type checking
 enum LogLevel {
   INFO = 'INFO',
@@ -13,10 +15,36 @@ interface Logger {
   error: (context: string, message: string) => void;
 }
 
+const pinoLogger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  formatters: {
+    level: (label) => {
+      return { level: label };
+    },
+  },
+});
+
 export const logger: Logger = {
-  log: (level: LogLevel, context: string, message: string): void => {
-    const timestamp = new Date().toISOString();
-    console.log(`[${level}] [${timestamp}] [${context}] ${message}`);
+  log: (
+    level: LogLevel,
+    context: string,
+    message: string,
+    data: object = {}
+  ): void => {
+    switch (level) {
+      case LogLevel.INFO:
+        pinoLogger.info({ context, ...data }, message);
+        break;
+      case LogLevel.WARN:
+        pinoLogger.warn({ context, ...data }, message);
+        break;
+      case LogLevel.ERROR:
+        pinoLogger.error({ context, ...data }, message);
+        break;
+      default:
+        pinoLogger.info({ context, ...data }, message);
+        break;
+    }
   },
   info: (context: string, message: string): void => {
     logger.log(LogLevel.INFO, context, message);
