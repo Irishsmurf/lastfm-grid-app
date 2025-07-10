@@ -1,4 +1,3 @@
-// lib/metrics.ts
 import {
   Registry,
   Counter,
