@@ -31,7 +31,20 @@ export const logger: Logger = {
     message: string,
     data: object = {}
   ): void => {
-    pinoLogger[level.toLowerCase()]({ context, ...data }, message);
+    switch (level) {
+      case LogLevel.INFO:
+        pinoLogger.info({ context, ...data }, message);
+        break;
+      case LogLevel.WARN:
+        pinoLogger.warn({ context, ...data }, message);
+        break;
+      case LogLevel.ERROR:
+        pinoLogger.error({ context, ...data }, message);
+        break;
+      default:
+        pinoLogger.info({ context, ...data }, message);
+        break;
+    }
   },
   info: (context: string, message: string): void => {
     logger.log(LogLevel.INFO, context, message);
