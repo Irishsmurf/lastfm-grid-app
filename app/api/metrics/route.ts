@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { registry } from '../../../lib/metrics';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const metrics = await registry.metrics();
   return new NextResponse(metrics, {
     status: 200,
