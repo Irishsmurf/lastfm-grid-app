@@ -1,6 +1,6 @@
 // app/api/metrics/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { registry } from '../../../lib/metrics';
+import { registry } from '@/lib/metrics';
 import { logger } from '@/utils/logger';
 const CTX = 'MetricsAPI';
 
