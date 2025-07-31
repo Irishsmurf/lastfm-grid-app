@@ -5,6 +5,7 @@ import {
   fetchAndActivate,
   getValue,
   getAll,
+  RemoteConfig,
 } from 'firebase/remote-config';
 import { logger } from '../utils/logger';
 
@@ -33,15 +34,9 @@ try {
   );
 }
 
-const remoteConfig = getRemoteConfig(app);
-
-// Set a minimum fetch interval for development (e.g., 10 seconds)
-// In production, this should be much higher (e.g., 12 hours = 43200000 ms)
-if (process.env.NODE_ENV === 'development') {
-  remoteConfig.settings.minimumFetchIntervalMillis = 10000; // 10 seconds
-} else {
-  remoteConfig.settings.minimumFetchIntervalMillis = 43200000; // 12 hours
-}
+// Conditionally initialize Remote Config only on the client
+const remoteConfig: RemoteConfig | null =
+  typeof window !== 'undefined' ? getRemoteConfig(app) : null;
 
 // Set default values (optional, but recommended)
 export const defaultRemoteConfig = {
@@ -62,14 +57,24 @@ export const defaultRemoteConfig = {
   prefill_example_username: false,
   example_username_value: 'musiclover123',
 };
-remoteConfig.defaultConfig = defaultRemoteConfig;
+
+if (remoteConfig) {
+  // Set a minimum fetch interval for development (e.g., 10 seconds)
+  // In production, this should be much higher (e.g., 12 hours = 43200000 ms)
+  if (process.env.NODE_ENV === 'development') {
+    remoteConfig.settings.minimumFetchIntervalMillis = 10000; // 10 seconds
+  } else {
+    remoteConfig.settings.minimumFetchIntervalMillis = 43200000; // 12 hours
+  }
+  remoteConfig.defaultConfig = defaultRemoteConfig;
+}
 
 // Call this function when your app starts to fetch and activate the latest config
 export const initializeRemoteConfig = async () => {
   if (!remoteConfig) {
     logger.info(
       'RemoteConfig',
-      'Skipping initialization, remoteConfig is not set.'
+      'Skipping initialization, remoteConfig is not available (likely server-side).'
     );
     return;
   }
@@ -107,7 +112,9 @@ export const initializeRemoteConfig = async () => {
   } catch (error) {
     logger.error(
       'RemoteConfig',
-      `Error initializing Remote Config: ${error instanceof Error ? error.message : String(error)}`
+      `Error initializing Remote Config: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
     console.error('Error initializing remote config:', error);
   }
