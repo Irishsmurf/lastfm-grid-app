@@ -41,7 +41,7 @@ export const logger: Logger = {
     } catch (error) {
       pinoLogger.error(
         { context: 'InfluxDB' },
-        `Failed to write log to InfluxDB: ${error.message}`
+        `Failed to write log to InfluxDB: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
