@@ -21,8 +21,10 @@ if (
   // Gracefully close the writer when the process exits
   process.on('beforeExit', async () => {
     try {
-      await writeApi.close();
-      console.log('InfluxDB writeApi closed.');
+      if (writeApi) {
+        await writeApi.close();
+        console.log('InfluxDB writeApi closed.');
+      }
     } catch (e) {
       console.error('Error closing InfluxDB writeApi', e);
     }
@@ -32,7 +34,7 @@ if (
 export const writePoint = (
   measurement: string,
   tags: { [key: string]: string },
-  fields: { [key: string]: any }
+  fields: { [key: string]: string | number | boolean }
 ) => {
   // Only write the point if the writeApi is initialized (i.e., on the server)
   if (!writeApi) {
