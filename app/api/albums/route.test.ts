@@ -114,10 +114,10 @@ describe('GET /api/albums', () => {
     const expectedTransformedData: MinimizedAlbum[] = [
       {
         name: 'Fetched Album',
-        artist: 'Test Artist', // MinimizedAlbum has artist as string
-        image: 'extralarge.jpg', // MinimizedAlbum has image as string
+        artist: { name: 'Test Artist', mbid: 'artist-mbid-fetch' }, // MinimizedAlbumArtist object
+        imageUrl: 'extralarge.jpg', // MinimizedAlbum has imageUrl as string
         mbid: 'album-mbid-fetch',
-        // playcount is not part of MinimizedAlbum from the transform in route
+        playcount: 0,
       },
     ];
     const mockSharedId = 'mock-nanoid';
@@ -256,9 +256,10 @@ describe('GET /api/albums', () => {
     const expectedTransformedData: MinimizedAlbum[] = [
       {
         name: 'Fetched Album Redis Fail',
-        artist: 'Test Artist RF',
-        image: 'extralarge_rf.jpg',
+        artist: { name: 'Test Artist RF', mbid: 'artist-mbid-rf' },
+        imageUrl: 'extralarge_rf.jpg',
         mbid: 'album-mbid-rf',
+        playcount: 0,
       },
     ];
     const mockSharedId = 'redis-fail-nanoid';
@@ -333,7 +334,7 @@ describe('GET /api/albums', () => {
 
     // Act
     const response = await GET(req);
-    const _data = await response.json(); // Prefixed data as it's not used for assertions below directly
+    const responseBody = await response.json();
 
     // Assert
     expect(redis.get).toHaveBeenCalledWith(

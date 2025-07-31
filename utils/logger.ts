@@ -1,4 +1,5 @@
 import pino from 'pino';
+import { writePoint } from '@/lib/influxdb';
 
 // Define an enum for log levels for stricter type checking
 enum LogLevel {
@@ -31,6 +32,19 @@ export const logger: Logger = {
     message: string,
     data: object = {}
   ): void => {
+    try {
+      writePoint(
+        'application_log',
+        { level: level.toLowerCase(), context },
+        { message, ...data }
+      );
+    } catch (error) {
+      pinoLogger.error(
+        { context: 'InfluxDB' },
+        `Failed to write log to InfluxDB: ${error.message}`
+      );
+    }
+
     switch (level) {
       case LogLevel.INFO:
         pinoLogger.info({ context, ...data }, message);
