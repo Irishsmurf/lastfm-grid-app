@@ -1,3 +1,4 @@
+// app/api/albums/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getTopAlbums } from '@/lib/lastfmService'; // Keep LastFmTopAlbumsResponse if still needed for raw fetch
 import {
@@ -15,6 +16,7 @@ import {
   apiRequestDuration,
   lastfmAlbumCount,
 } from '@/lib/metrics';
+import { writePoint } from '@/lib/influxdb';
 
 const CTX = 'AlbumsAPI';
 
@@ -92,7 +94,9 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     logger.warn(
       CTX,
-      `Failed to get 'lastfm_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to get 'lastfm_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 
@@ -107,7 +111,9 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     logger.warn(
       CTX,
-      `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 
@@ -146,20 +152,37 @@ export async function GET(req: NextRequest) {
     // If data matches notFoundReturnValue, it means it was either a cached "not found"
     // or a fresh fetch that resulted in "not found".
     // The client should receive this structured response.
-    const lastFmAlbumCount = data ? data.length : 0;
+    const albumCount = data ? data.length : 0;
+    const totalPlaycount = data
+      ? data.reduce((acc, album) => acc + album.playcount, 0)
+      : 0;
     lastfmAlbumCount.inc(
       { username: username as string, period: period as string },
-      lastFmAlbumCount
+      albumCount
     );
+
+    // Log to InfluxDB
+    writePoint(
+      'album_request',
+      {
+        user: username,
+        period: period,
+      },
+      {
+        album_count: albumCount,
+        total_playcount: totalPlaycount,
+      }
+    );
+
     // spotifyLinkCount cannot be determined here as MinimizedAlbum does not have spotifyUrl
 
     logger.info(
       CTX,
-      `Metrics for username: ${username}, period: ${period} - Last.fm albums: ${lastFmAlbumCount}`
+      `Metrics for username: ${username}, period: ${period} - Last.fm albums: ${albumCount}`
     );
     logger.info(
       CTX,
-      `Successfully fetched ${lastFmAlbumCount} albums for username: ${username}, period: ${period}`
+      `Successfully fetched ${albumCount} albums for username: ${username}, period: ${period}`
     );
 
     const sharedId = nanoid();
@@ -194,7 +217,9 @@ export async function GET(req: NextRequest) {
     } catch (redisError) {
       logger.error(
         CTX,
-        `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`
+        `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${
+          redisError instanceof Error ? redisError.message : String(redisError)
+        }`
       );
       // Still return album data, but indicate sharing failed.
       const redisErrorResponse = {
@@ -203,7 +228,11 @@ export async function GET(req: NextRequest) {
         error:
           process.env.NODE_ENV === 'production'
             ? 'Failed to save share data.'
-            : `Failed to save share data: ${redisError instanceof Error ? redisError.message : String(redisError)}`,
+            : `Failed to save share data: ${
+                redisError instanceof Error
+                  ? redisError.message
+                  : String(redisError)
+              }`,
       };
       return NextResponse.json(redisErrorResponse, { status: 200 }); // Status 200 as per original, though 500 might be more appropriate.
     }
