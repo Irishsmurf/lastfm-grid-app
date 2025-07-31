@@ -1,20 +1,44 @@
-import { InfluxDB, Point } from '@influxdata/influxdb-client';
+import { InfluxDB, Point, WriteApi } from '@influxdata/influxdb-client';
 
-const influxDB = new InfluxDB({
-  url: process.env.INFLUX_URL!,
-  token: process.env.INFLUX_TOKEN!,
-});
+let writeApi: WriteApi | undefined;
 
-const writeApi = influxDB.getWriteApi(
-  process.env.INFLUX_ORG!,
-  process.env.INFLUX_BUCKET!
-);
+// Check if we are on the server side and if the required env vars are present
+if (
+  typeof window === 'undefined' &&
+  process.env.INFLUX_URL &&
+  process.env.INFLUX_TOKEN
+) {
+  const influxDB = new InfluxDB({
+    url: process.env.INFLUX_URL,
+    token: process.env.INFLUX_TOKEN,
+  });
+
+  writeApi = influxDB.getWriteApi(
+    process.env.INFLUX_ORG!,
+    process.env.INFLUX_BUCKET!
+  );
+
+  // Gracefully close the writer when the process exits
+  process.on('beforeExit', async () => {
+    try {
+      await writeApi.close();
+      console.log('InfluxDB writeApi closed.');
+    } catch (e) {
+      console.error('Error closing InfluxDB writeApi', e);
+    }
+  });
+}
 
 export const writePoint = (
   measurement: string,
   tags: { [key: string]: string },
-  fields: { [key: string]: unknown }
+  fields: { [key: string]: any }
 ) => {
+  // Only write the point if the writeApi is initialized (i.e., on the server)
+  if (!writeApi) {
+    return;
+  }
+
   const point = new Point(measurement);
 
   for (const key in tags) {
@@ -26,7 +50,11 @@ export const writePoint = (
     if (typeof value === 'boolean') {
       point.booleanField(key, value);
     } else if (typeof value === 'number') {
-      point.floatField(key, value);
+      if (Number.isInteger(value)) {
+        point.intField(key, value);
+      } else {
+        point.floatField(key, value);
+      }
     } else {
       point.stringField(key, String(value));
     }
