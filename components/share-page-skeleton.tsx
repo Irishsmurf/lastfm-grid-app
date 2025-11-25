@@ -3,7 +3,10 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const SharePageSkeleton = () => {
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
+    <div
+      className="min-h-screen bg-background py-12 px-4"
+      data-testid="skeleton-container"
+    >
       <div className="max-w-4xl mx-auto">
         {/* Header Placeholder */}
         <header className="text-center mb-8 space-y-2">
