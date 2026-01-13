@@ -14,6 +14,7 @@ Creates a 3x3 grid of album art based on your Last.fm listening history for a se
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
+
 ### Prerequisites
 
 - Node.js (v18.x or later recommended)
