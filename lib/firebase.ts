@@ -5,6 +5,7 @@ import {
   fetchAndActivate,
   getValue,
   getAll,
+  isSupported,
 } from 'firebase/remote-config';
 import { logger } from '../utils/logger';
 
@@ -66,6 +67,13 @@ remoteConfig.defaultConfig = defaultRemoteConfig;
 
 // Call this function when your app starts to fetch and activate the latest config
 export const initializeRemoteConfig = async () => {
+  if ((await isSupported()) == false) {
+    logger.info(
+      'RemoteConfig',
+      'Remote Config is supported in this environment.'
+    );
+    return;
+  }
   if (!remoteConfig) {
     logger.info(
       'RemoteConfig',
