@@ -28,15 +28,12 @@ export const metadata: Metadata = {
     siteName: 'LastFM Album Collage Generator',
     title: 'LastFM Album Collage Generator',
     description: 'Generate an image of your top albums!',
-    url: '/',
-    images: [
-      {
-        url: '/globe.svg', // Path relative to the public directory
-        width: 800,
-        height: 600,
-        alt: 'LastFM Album Collage Generator',
-      },
-    ],
+    url: 'https://lastfm.paddez.com',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'LastFM Album Collage Generator',
+    description: 'Generate an image of your top albums!',
   },
 };
 
