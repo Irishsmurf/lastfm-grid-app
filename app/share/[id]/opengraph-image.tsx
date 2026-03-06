@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { redis } from '@/lib/redis';
 import type { SharedGridData } from '@/lib/types';
 
+export const runtime = 'nodejs';
 export const alt = 'LastFM Album Grid';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
@@ -164,7 +165,7 @@ export default async function Image({
               lineHeight: 1.2,
             }}
           >
-            {data.username}
+            {data.username}&apos;s album grid
           </div>
           <div
             style={{
@@ -200,11 +201,28 @@ export default async function Image({
           <div
             style={{
               marginTop: 'auto',
-              fontSize: 14,
-              color: '#555555',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
             }}
           >
-            lastfm.paddez.com
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: '#ffffff',
+              }}
+            >
+              Create yours at lastfm.paddez.com
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                color: '#888888',
+              }}
+            >
+              Free · No account required
+            </div>
           </div>
         </div>
       </div>
