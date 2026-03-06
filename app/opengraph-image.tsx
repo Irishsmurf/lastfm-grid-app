@@ -45,7 +45,7 @@ export default function Image() {
               textAlign: 'center',
             }}
           >
-            Generate an image of your top albums
+            Turn your Last.fm history into a shareable album art collage
           </div>
           <div
             style={{

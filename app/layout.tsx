@@ -19,21 +19,25 @@ const montserrat = Montserrat({
   subsets: ['latin'],
 });
 
+const SITE_TITLE = 'LastFM Album Collage Generator · Create Your Music Grid';
+const SITE_DESCRIPTION =
+  'Turn your Last.fm listening history into a shareable 3×3 album art collage. Pick a time period, generate your grid, and share your music taste with friends.';
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://lastfm.paddez.com'),
-  title: 'LastFM Album Collage Generator',
-  description: 'Generate an image of your top albums!',
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   openGraph: {
     type: 'website',
     siteName: 'LastFM Album Collage Generator',
-    title: 'LastFM Album Collage Generator',
-    description: 'Generate an image of your top albums!',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     url: 'https://lastfm.paddez.com',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LastFM Album Collage Generator',
-    description: 'Generate an image of your top albums!',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
 };
 
