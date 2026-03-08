@@ -25,6 +25,7 @@ Add meaningful OG metadata to two surfaces:
 Next.js 15 App Router supports [file-based OG image generation](https://nextjs.org/docs/app/api-reference/file-conventions/opengraph-image) using `ImageResponse` from `next/og`. Creating this file at the route segment level causes Next.js to automatically serve it at `/opengraph-image` and wire it into the `<meta>` tags.
 
 The image will be a static 1200×630 branded card:
+
 - App name: "LastFM Album Collage Generator"
 - Tagline: "Generate an image of your top albums"
 - Black background with white text (matches app theme)
@@ -38,6 +39,7 @@ The image will be a static 1200×630 branded card:
 #### Problem
 
 The share page must:
+
 1. Serve dynamic `<meta og:*>` tags per share ID (for crawlers/unfurlers)
 2. Render a dynamic OG image showing the 3×3 album grid
 
@@ -46,13 +48,16 @@ Both require server-side data access, but the current page is entirely client-re
 #### Solution: Server Component Wrapper + Client Component Split
 
 **`app/share/[id]/page.tsx`** — convert to a **server component**:
+
 - Exports `generateMetadata(props)` that fetches `SharedGridData` from Redis directly and returns per-share OG metadata
 - Renders `<SharePageClient id={id} />` for the interactive UI
 
 **`app/share/[id]/SharePageClient.tsx`** — new file:
+
 - Move the entire existing `'use client'` component here (no logic changes)
 
 **`app/share/[id]/opengraph-image.tsx`** — dynamic OG image:
+
 - Next.js calls this at build/request time with the route params
 - Fetches `SharedGridData` from Redis
 - Renders a 1200×630 `ImageResponse` layout:
@@ -68,14 +73,14 @@ Both `generateMetadata` and `opengraph-image.tsx` import `redis` from `lib/redis
 
 ## File Manifest
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `docs/open-graph.md` | Create | This planning document |
-| `app/opengraph-image.tsx` | Create | Static OG image for main page |
-| `app/layout.tsx` | Update | Remove hardcoded OG `images` array |
-| `app/share/[id]/SharePageClient.tsx` | Create | Client component (moved from page.tsx) |
-| `app/share/[id]/page.tsx` | Rewrite | Server component with `generateMetadata` |
-| `app/share/[id]/opengraph-image.tsx` | Create | Dynamic OG image for share pages |
+| File                                 | Action  | Purpose                                  |
+| ------------------------------------ | ------- | ---------------------------------------- |
+| `docs/open-graph.md`                 | Create  | This planning document                   |
+| `app/opengraph-image.tsx`            | Create  | Static OG image for main page            |
+| `app/layout.tsx`                     | Update  | Remove hardcoded OG `images` array       |
+| `app/share/[id]/SharePageClient.tsx` | Create  | Client component (moved from page.tsx)   |
+| `app/share/[id]/page.tsx`            | Rewrite | Server component with `generateMetadata` |
+| `app/share/[id]/opengraph-image.tsx` | Create  | Dynamic OG image for share pages         |
 
 ---
 
@@ -102,6 +107,7 @@ og:image       = /share/{id}/opengraph-image (auto-inferred)
 ```
 
 Period labels map the Last.fm API keys to human-readable strings:
+
 - `7day` → "Last Week"
 - `1month` → "Last Month"
 - `3month` → "Last 3 Months"

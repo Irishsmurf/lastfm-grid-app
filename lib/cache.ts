@@ -46,7 +46,10 @@ export async function handleCaching<T>({
 
     if (cachedDataString) {
       if (cachedDataString === notFoundRedisPlaceholder) {
-        logger.info('Cache', `Cache hit for NOT_FOUND placeholder: ${cacheKey}`);
+        logger.info(
+          'Cache',
+          `Cache hit for NOT_FOUND placeholder: ${cacheKey}`
+        );
         return notFoundValue;
       }
       try {
@@ -56,7 +59,8 @@ export async function handleCaching<T>({
       } catch (parseError) {
         logger.error(
           'Cache',
-          `Error parsing cached data for key ${cacheKey}: ${parseError}`
+          `Error parsing cached data for key ${cacheKey}:`,
+          { error: parseError }
         );
         // Proceed to fetch fresh data if parsing fails
       }
@@ -94,7 +98,9 @@ export async function handleCaching<T>({
       return freshData;
     }
   } catch (error) {
-    logger.error('Cache', `Error in handleCaching for key ${cacheKey}: ${error}`);
+    logger.error('Cache', `Error in handleCaching for key ${cacheKey}:`, {
+      error,
+    });
     // Depending on requirements, you might want to re-throw,
     // or return a default/fallback value, or the potentially stale notFoundValue.
     // For now, re-throwing to make the caller aware.

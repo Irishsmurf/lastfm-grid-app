@@ -19,9 +19,7 @@ const config: Config = {
       },
     ],
   },
-  transformIgnorePatterns: [
-    '/node_modules/(?!lucide-react)/',
-  ],
+  transformIgnorePatterns: ['/node_modules/(?!lucide-react)/'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 };
 
