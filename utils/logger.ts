@@ -9,10 +9,10 @@ enum LogLevel {
 
 // Define the interface for the logger
 interface Logger {
-  log: (level: LogLevel, context: string, message: string) => void;
-  info: (context: string, message: string) => void;
-  warn: (context: string, message: string) => void;
-  error: (context: string, message: string) => void;
+  log: (level: LogLevel, context: string, message: string, data?: object) => void;
+  info: (context: string, message: string, data?: object) => void;
+  warn: (context: string, message: string, data?: object) => void;
+  error: (context: string, message: string, data?: object) => void;
 }
 
 const pinoLogger = pino({
@@ -46,13 +46,13 @@ export const logger: Logger = {
         break;
     }
   },
-  info: (context: string, message: string): void => {
-    logger.log(LogLevel.INFO, context, message);
+  info: (context: string, message: string, data?: object): void => {
+    logger.log(LogLevel.INFO, context, message, data);
   },
-  warn: (context: string, message: string): void => {
-    logger.log(LogLevel.WARN, context, message);
+  warn: (context: string, message: string, data?: object): void => {
+    logger.log(LogLevel.WARN, context, message, data);
   },
-  error: (context: string, message: string): void => {
-    logger.log(LogLevel.ERROR, context, message);
+  error: (context: string, message: string, data?: object): void => {
+    logger.log(LogLevel.ERROR, context, message, data);
   },
 };
