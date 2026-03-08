@@ -1,4 +1,5 @@
 import { redis } from '@/lib/redis';
+import { logger } from '@/utils/logger';
 
 interface HandleCachingParams<T> {
   cacheKey: string;
@@ -45,22 +46,26 @@ export async function handleCaching<T>({
 
     if (cachedDataString) {
       if (cachedDataString === notFoundRedisPlaceholder) {
-        console.log(`Cache hit for NOT_FOUND placeholder: ${cacheKey}`);
+        logger.info(
+          'Cache',
+          `Cache hit for NOT_FOUND placeholder: ${cacheKey}`
+        );
         return notFoundValue;
       }
       try {
         const parsedData = JSON.parse(cachedDataString);
-        console.log(`Cache hit: ${cacheKey}`);
+        logger.info('Cache', `Cache hit: ${cacheKey}`);
         return parsedData as T;
       } catch (parseError) {
-        console.error(
+        logger.error(
+          'Cache',
           `Error parsing cached data for key ${cacheKey}:`,
-          parseError
+          { error: parseError }
         );
         // Proceed to fetch fresh data if parsing fails
       }
     }
-    console.log(`Cache miss: ${cacheKey}. Fetching fresh data.`);
+    logger.info('Cache', `Cache miss: ${cacheKey}. Fetching fresh data.`);
     const freshData = await fetchDataFunction();
 
     // Determine if the result is a "not found" scenario
@@ -71,7 +76,8 @@ export async function handleCaching<T>({
 
     if (isResultNotFound) {
       if (notFoundCacheExpirySeconds && notFoundRedisPlaceholder) {
-        console.log(
+        logger.info(
+          'Cache',
           `Caching NOT_FOUND placeholder for ${cacheKey} for ${notFoundCacheExpirySeconds}s`
         );
         await redis.setex(
@@ -84,14 +90,17 @@ export async function handleCaching<T>({
     } else {
       // Cache the "found" result
       const serializedData = JSON.stringify(freshData);
-      console.log(
+      logger.info(
+        'Cache',
         `Caching fresh data for ${cacheKey} for ${cacheExpirySeconds}s`
       );
       await redis.setex(cacheKey, cacheExpirySeconds, serializedData);
       return freshData;
     }
   } catch (error) {
-    console.error(`Error in handleCaching for key ${cacheKey}:`, error);
+    logger.error('Cache', `Error in handleCaching for key ${cacheKey}:`, {
+      error,
+    });
     // Depending on requirements, you might want to re-throw,
     // or return a default/fallback value, or the potentially stale notFoundValue.
     // For now, re-throwing to make the caller aware.

@@ -55,6 +55,7 @@ Tests use Jest + ts-jest + `@testing-library/react` with jsdom. Firebase and Red
 ### Environment Variables
 
 Required in `.env.local`:
+
 - `LASTFM_API_KEY`, `LASTFM_BASE_URL`
 - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`
 - `REDIS_URL`
