@@ -92,20 +92,20 @@ export const initializeRemoteConfig = async () => {
 
     const allConfigValues = getAll(remoteConfig);
     const loadedValues: Record<string, string | number | boolean> = {};
-    for (const key in allConfigValues) {
+
+    for (const [key, configValue] of Object.entries(allConfigValues)) {
+      const defaultValue = (defaultRemoteConfig as Record<string, unknown>)[
+        key
+      ];
+      const type = typeof defaultValue;
+
       // Attempt to infer type based on default values, otherwise default to string
-      if (
-        typeof defaultRemoteConfig[key as keyof typeof defaultRemoteConfig] ===
-        'boolean'
-      ) {
-        loadedValues[key] = allConfigValues[key].asBoolean();
-      } else if (
-        typeof defaultRemoteConfig[key as keyof typeof defaultRemoteConfig] ===
-        'number'
-      ) {
-        loadedValues[key] = allConfigValues[key].asNumber();
+      if (type === 'boolean') {
+        loadedValues[key] = configValue.asBoolean();
+      } else if (type === 'number') {
+        loadedValues[key] = configValue.asNumber();
       } else {
-        loadedValues[key] = allConfigValues[key].asString();
+        loadedValues[key] = configValue.asString();
       }
     }
     logger.info(
