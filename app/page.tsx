@@ -59,7 +59,6 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [jpgImageData, setJpgImageData] = useState<string>('');
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
-  // Removed unused imageLoadingStates
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
     {}
   );
@@ -377,7 +376,6 @@ export default function Home() {
   };
 
   const handleImageLoad = (index: number) => {
-    // setImageLoadingStates((prev) => ({ ...prev, [index]: true })); // imageLoadingStates was removed
     setFadeInStates((prev) => ({ ...prev, [index]: true }));
   };
 
