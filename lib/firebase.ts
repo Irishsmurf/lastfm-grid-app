@@ -92,10 +92,11 @@ export const initializeRemoteConfig = async () => {
 
     const allConfigValues = getAll(remoteConfig);
     const loadedValues: Record<string, string | number | boolean> = {};
-    for (const key in allConfigValues) {
-      const configValue = allConfigValues[key];
-      const defaultValue =
-        defaultRemoteConfig[key as keyof typeof defaultRemoteConfig];
+
+    for (const [key, configValue] of Object.entries(allConfigValues)) {
+      const defaultValue = (defaultRemoteConfig as Record<string, unknown>)[
+        key
+      ];
       const type = typeof defaultValue;
 
       // Attempt to infer type based on default values, otherwise default to string
