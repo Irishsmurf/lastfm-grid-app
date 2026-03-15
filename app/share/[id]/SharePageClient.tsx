@@ -141,38 +141,15 @@ export default function SharePageClient() {
       });
       setLogoColorStates(initialLogoColorStates);
 
-      const fetchPromises = sharedData.albums.map(async (album) => {
+      const albumsToFetch = sharedData.albums.map((album) => ({
+        name: album.name,
+        artistName: album.artist.name,
+        mbid: album.mbid,
+      }));
+
+      // 1. Decouple image analysis: Start it immediately for all albums
+      sharedData.albums.forEach((album) => {
         const albumKey = album.mbid;
-        try {
-          const response = await fetch(
-            `/api/spotify-link?artistName=${encodeURIComponent(
-              album.artist.name
-            )}&albumName=${encodeURIComponent(album.name)}`
-          );
-          if (!response.ok) {
-            logger.warn(
-              CTX,
-              `Spotify link API error for ${albumKey}, status: ${response.status}`
-            );
-            newSpotifyLinks[albumKey] = null;
-          } else {
-            const data = await response.json();
-            newSpotifyLinks[albumKey] = data.spotifyUrl || null;
-            logger.info(
-              CTX,
-              `Spotify link for ${albumKey}: ${data.spotifyUrl}`
-            );
-          }
-        } catch (e) {
-          logger.error(
-            CTX,
-            `Error fetching Spotify link for ${albumKey}: ${e instanceof Error ? e.message : String(e)}`
-          );
-          newSpotifyLinks[albumKey] = null;
-        }
-
-        newSpotifyCueVisible[albumKey] = !!newSpotifyLinks[albumKey];
-
         if (album.imageUrl) {
           getLogoBackgroundColorType(album.imageUrl, albumKey);
         } else {
@@ -180,14 +157,30 @@ export default function SharePageClient() {
         }
       });
 
-      Promise.all(fetchPromises)
-        .then(() => {
+      // 2. Fetch Spotify links in bulk
+      fetch('/api/spotify-links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ albums: albumsToFetch }),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Bulk Spotify links API error: ${response.status}`);
+          }
+          const results: Record<string, string | null> = await response.json();
+
+          sharedData.albums.forEach((album) => {
+            const albumKey = album.mbid;
+            const spotifyUrl = results[albumKey] || null;
+            newSpotifyLinks[albumKey] = spotifyUrl;
+            newSpotifyCueVisible[albumKey] = !!spotifyUrl;
+          });
+
           setSpotifyLinks(newSpotifyLinks);
           setSpotifyCueVisible(newSpotifyCueVisible);
-          logger.info(
-            CTX,
-            'Finished fetching all Spotify links and analyzing images.'
-          );
+          logger.info(CTX, 'Finished fetching bulk Spotify links.');
         })
         .catch((e) => {
           logger.error(

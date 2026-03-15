@@ -115,3 +115,127 @@ export async function searchAlbum(
     return { spotifyUrl: null };
   }
 }
+
+/**
+ * Bulk searches for albums on Spotify.
+ * Utilizes Redis MGET for efficient cache retrieval.
+ *
+ * @param {Array<{name: string, artistName: string, mbid: string}>} albums Array of albums to search.
+ * @returns {Promise<Record<string, string | null>>} A map of mbid to Spotify URL.
+ */
+export async function searchAlbumsBulk(
+  albums: { name: string; artistName: string; mbid: string }[]
+): Promise<Record<string, string | null>> {
+  const results: Record<string, string | null> = {};
+  if (albums.length === 0) return results;
+
+  const notFoundRedisPlaceholder = 'SPOTIFY_NOT_FOUND';
+  const defaultCacheExpiry = 86400; // 24 hours
+  const defaultNotFoundCacheExpiry = 3600; // 1 hour
+
+  // 1. Prepare cache keys
+  const cacheEntries = albums.map((album) => ({
+    mbid: album.mbid,
+    key: `spotify:link:${encodeURIComponent(album.artistName)}:${encodeURIComponent(album.name)}`,
+    album,
+  }));
+  const cacheKeys = cacheEntries.map((e) => e.key);
+
+  // 2. MGET from Redis
+  let cachedValues: (string | null)[] = [];
+  try {
+    cachedValues = await redis.mget(...cacheKeys);
+  } catch (error) {
+    logger.error(
+      CTX,
+      `Error during Redis MGET: ${error instanceof Error ? error.message : String(error)}`
+    );
+    cachedValues = new Array(cacheKeys.length).fill(null);
+  }
+
+  const missIndices: number[] = [];
+
+  cachedValues.forEach((val, index) => {
+    const { mbid } = cacheEntries[index];
+    if (val === null) {
+      missIndices.push(index);
+    } else if (val === notFoundRedisPlaceholder) {
+      results[mbid] = null;
+    } else {
+      try {
+        const parsed = JSON.parse(val);
+        results[mbid] = parsed.spotifyUrl || null;
+      } catch (e) {
+        // Fallback if not JSON or different structure
+        results[mbid] = val;
+      }
+    }
+  });
+
+  if (missIndices.length === 0) {
+    logger.info(CTX, `Bulk search: All ${albums.length} albums found in cache.`);
+    return results;
+  }
+
+  logger.info(
+    CTX,
+    `Bulk search: Cache miss for ${missIndices.length}/${albums.length} albums, fetching from Spotify...`
+  );
+
+  // 3. Fetch misses
+  try {
+    await getAccessToken();
+  } catch (e) {
+    logger.error(CTX, `Failed to get access token for bulk search: ${e}`);
+    missIndices.forEach((index) => {
+      results[cacheEntries[index].mbid] = null;
+    });
+    return results;
+  }
+
+  const spotifyApi = getSpotifyApiInstance();
+
+  const fetchPromises = missIndices.map(async (index) => {
+    const { album, key, mbid } = cacheEntries[index];
+    try {
+      logger.info(
+        CTX,
+        `Bulk Search: Fetching fresh for ${album.name} by ${album.artistName}`
+      );
+      const query = `album:${album.name} artist:${album.artistName}`;
+      const response = await spotifyApi.searchAlbums(query, { limit: 1 });
+
+      let spotifyUrl: string | null = null;
+      if (response.body.albums && response.body.albums.items.length > 0) {
+        spotifyUrl = response.body.albums.items[0].external_urls.spotify;
+      }
+
+      results[mbid] = spotifyUrl;
+
+      // Cache the result
+      if (spotifyUrl) {
+        await redis.setex(
+          key,
+          defaultCacheExpiry,
+          JSON.stringify({ spotifyUrl })
+        );
+      } else {
+        await redis.setex(
+          key,
+          defaultNotFoundCacheExpiry,
+          notFoundRedisPlaceholder
+        );
+      }
+    } catch (error) {
+      logger.error(
+        CTX,
+        `Error searching for album ${album.name} in bulk: ${error instanceof Error ? error.message : String(error)}`
+      );
+      results[mbid] = null;
+    }
+  });
+
+  await Promise.all(fetchPromises);
+
+  return results;
+}
