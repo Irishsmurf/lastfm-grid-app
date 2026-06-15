@@ -7,6 +7,10 @@ export const alt = 'LastFM Album Grid';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
+const BRAND_RED = '#d51007';
+const BRAND_DARK = '#0a0a0a';
+const BRAND_SURFACE = '#1a1a1a';
+
 const PERIOD_LABELS: Record<string, string> = {
   '7day': 'Last Week',
   '1month': 'Last Month',
@@ -46,7 +50,7 @@ export default async function Image({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#000000',
+            backgroundColor: BRAND_DARK,
             fontFamily: 'sans-serif',
           }}
         >
@@ -55,6 +59,18 @@ export default async function Image({
           </div>
           <div style={{ fontSize: 28, color: '#aaaaaa', marginTop: 16 }}>
             Generate an image of your top albums
+          </div>
+          <div
+            style={{
+              marginTop: 24,
+              fontSize: 18,
+              color: BRAND_RED,
+              fontWeight: 600,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+            }}
+          >
+            lastfm.paddez.com
           </div>
         </div>
       ),
@@ -94,7 +110,7 @@ export default async function Image({
           height: '100%',
           display: 'flex',
           flexDirection: 'row',
-          backgroundColor: '#0a0a0a',
+          backgroundColor: BRAND_DARK,
           fontFamily: 'sans-serif',
         }}
       >
@@ -116,7 +132,7 @@ export default async function Image({
                 style={{
                   width: CELL,
                   height: CELL,
-                  backgroundColor: '#1a1a1a',
+                  backgroundColor: BRAND_SURFACE,
                   display: 'flex',
                   overflow: 'hidden',
                 }}
@@ -149,7 +165,7 @@ export default async function Image({
           <div
             style={{
               fontSize: 18,
-              color: '#d51007',
+              color: BRAND_RED,
               fontWeight: 600,
               letterSpacing: 2,
               textTransform: 'uppercase',
