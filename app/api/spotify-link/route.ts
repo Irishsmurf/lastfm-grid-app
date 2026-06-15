@@ -74,11 +74,10 @@ export async function GET(req: NextRequest) {
 
   // Define the function that fetches fresh data
   const fetchDataFunction = async () => {
-    console.log(
+    logger.info(
+      CTX,
       `Fetching fresh Spotify link for album: ${albumName}, artist: ${artistName}`
     );
-    // The searchAlbum function from spotifyService should handle its own errors,
-    // potentially throwing specific errors for auth failures.
     return searchAlbum(albumName, artistName);
   };
 
