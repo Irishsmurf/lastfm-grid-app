@@ -27,8 +27,11 @@ async function refreshSpotifyToken(): Promise<string> {
     throw new Error(`Spotify token request failed: ${res.status}`);
   }
   const data = await res.json();
-  const accessToken: string = data.access_token;
-  const expiresIn: number = data.expires_in;
+  const accessToken = data?.access_token;
+  const expiresIn = data?.expires_in;
+  if (typeof accessToken !== 'string' || typeof expiresIn !== 'number') {
+    throw new Error('Invalid token response structure from Spotify');
+  }
   await redis.setex(
     SPOTIFY_ACCESS_TOKEN_REDIS_KEY,
     expiresIn - 300,
@@ -72,8 +75,8 @@ export async function searchAlbum(
       return { spotifyUrl: null };
     }
     const data = await res.json();
-    if (data.albums?.items?.length > 0) {
-      const spotifyUrl: string = data.albums.items[0].external_urls.spotify;
+    const spotifyUrl = data.albums?.items?.[0]?.external_urls?.spotify;
+    if (spotifyUrl) {
       logger.info(
         CTX,
         `Found Spotify URL for ${albumName} by ${artistName}: ${spotifyUrl}`
