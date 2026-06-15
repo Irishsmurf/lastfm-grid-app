@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '../../../../lib/redis';
 import { SharedGridData } from '../../../../lib/types';
+import { logger } from '../../../../utils/logger';
+
+const CTX = 'ShareAPI';
 
 interface Context {
   params: Promise<{ id: string }>;
@@ -32,7 +35,10 @@ export async function GET(
       );
     }
   } catch (error) {
-    console.error('Error retrieving shared grid:', error);
+    logger.error(
+      CTX,
+      `Error retrieving shared grid: ${error instanceof Error ? error.message : String(error)}`
+    );
     return NextResponse.json(
       { message: 'Error retrieving shared grid' },
       { status: 500 }
