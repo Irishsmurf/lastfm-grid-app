@@ -772,6 +772,17 @@ export default function Home() {
                                 />
                               </a>
                             )}
+                            <div className="absolute bottom-0 inset-x-0 bg-black/70 px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">
+                              <p className="text-white text-xs font-semibold truncate">
+                                {album.name}
+                              </p>
+                              <p className="text-white/80 text-xs truncate">
+                                {album.artist.name}
+                              </p>
+                              <p className="text-white/70 text-xs">
+                                {album.playcount.toLocaleString()} plays
+                              </p>
+                            </div>
                           </div>
                           <div className="mt-2">
                             <p
