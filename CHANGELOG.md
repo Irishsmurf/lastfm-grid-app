@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-06-15
+
+### Added
+- Gallery-first album grid: Card wrappers removed, images tile at `gap-1.5` forming a true mosaic with compact 11px metadata below each cell
+- Album cell hover animation: `scale(1.03)` lift with box-shadow, respects `prefers-reduced-motion`
+- Page hero on home and share pages: Montserrat Black uppercase heading with "Collage" in brand-red, tagline in tracked caps
+- Form redesigned as an editorial strip between horizontal rules; Enter key triggers generate
+- Results context bar showing `username · period` above the grid with inline Share and Convert-to-JPG actions
+- `font-montserrat` added to Tailwind `fontFamily` extension making it a proper utility class
+
+### Changed
+- Generate Grid button uses `bg-brand-red hover:bg-brand-red-dark text-white` (was shadcn `--primary` near-black)
+- FTUE highlight ring/border uses `border-brand-red ring-brand-red/30` (was `border-blue-500 ring-blue-300`)
+- Error text uses `text-brand-red` throughout (was `text-red-500 dark:text-red-400`)
+- Footer links updated from `text-blue-600 dark:text-blue-400` to `text-brand-red dark:text-brand-red-light`
+- Loading spinner `borderLeftColor` set to brand-red `#d51007` (was `var(--foreground)`)
+- "Copied!" checkmark uses `text-brand-success` on both home and share pages
+- Share page redesigned to match home page gallery grid style
+- JPG watermark renders `lastfm.paddez.com` domain in brand-red beside the username label
+
+### Technical
+- PWA `theme-color` and `msapplication-TileColor` updated to `#d51007`
+- `tailwind.config.ts` extended with `fontFamily.montserrat` for proper Tailwind class support
+
 ## [1.6.0] — 2026-06-15
 
 ### Added
