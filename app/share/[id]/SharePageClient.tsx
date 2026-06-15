@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Share2, Check } from 'lucide-react';
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
 import { logger } from '@/utils/logger';
 import SharePageSkeleton from '@/components/share-page-skeleton';
@@ -82,6 +84,22 @@ export default function SharePageClient() {
     {}
   );
   const [_loadingSpotifyLinks, setLoadingSpotifyLinks] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard
+      .writeText(window.location.href)
+      .then(() => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      })
+      .catch((err) => {
+        logger.error(
+          CTX,
+          `Failed to copy share link: ${err instanceof Error ? err.message : String(err)}`
+        );
+      });
+  };
 
   useEffect(() => {
     if (id) {
@@ -236,10 +254,25 @@ export default function SharePageClient() {
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <header>
-          <p className="text-center text-sm text-muted-foreground mb-8">
+          <p className="text-center text-sm text-muted-foreground mb-4">
             Album Grid by {sharedData.username} - Period: {sharedData.period} |
             Generated on: {formattedDate}
           </p>
+          <div className="flex justify-center mb-8">
+            <Button
+              variant="outline"
+              onClick={handleCopyLink}
+              disabled={linkCopied}
+              className="gap-2"
+            >
+              {linkCopied ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Share2 size={16} />
+              )}
+              {linkCopied ? 'Copied!' : 'Copy link'}
+            </Button>
+          </div>
         </header>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {sharedData.albums.map((album: MinimizedAlbum, index) => {
