@@ -9,7 +9,12 @@ enum LogLevel {
 
 // Define the interface for the logger
 interface Logger {
-  log: (level: LogLevel, context: string, message: string, data?: object) => void;
+  log: (
+    level: LogLevel,
+    context: string,
+    message: string,
+    data?: object
+  ) => void;
   info: (context: string, message: string, data?: object) => void;
   warn: (context: string, message: string, data?: object) => void;
   error: (context: string, message: string, data?: object) => void;

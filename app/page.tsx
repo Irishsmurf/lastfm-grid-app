@@ -355,14 +355,19 @@ export default function Home() {
       // Add watermark
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
-      ctx.fillStyle = '#000000';
       ctx.font = '16px Inter';
+      const labelText = `${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]} · `;
+      const domainText = 'lastfm.paddez.com';
+      const totalWidth = ctx.measureText(labelText + domainText).width;
+      const labelWidth = ctx.measureText(labelText).width;
+      const baseX = canvas.width / 2 - totalWidth / 2;
+      const baseY = canvas.height - 10;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(labelText, baseX, baseY);
+      ctx.fillStyle = '#d51007';
+      ctx.fillText(domainText, baseX + labelWidth, baseY);
       ctx.textAlign = 'center';
-      ctx.fillText(
-        `${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`,
-        canvas.width / 2,
-        canvas.height - 10
-      );
 
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
       setJpgImageData(imageURL);
@@ -587,6 +592,20 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
+        {/* Page header */}
+        <header className="flex flex-col items-center mb-8 gap-3">
+          <Image
+            src="/logo.svg"
+            alt="LastFM Album Collage logo"
+            width={64}
+            height={64}
+            priority
+          />
+          <h1 className="text-3xl font-bold font-montserrat text-center">
+            LastFM Album Collage
+          </h1>
+        </header>
+
         {/* FTUE Welcome Message */}
         {isFirstTimeUser && ftueEnabled && welcomeMessageVariant !== 'none' && (
           <Card className="mb-8 bg-secondary/50 border-primary/50">
@@ -614,7 +633,7 @@ export default function Home() {
                   isFirstTimeUser &&
                     ftueEnabled &&
                     highlightInitialAction === 'username_input' &&
-                    'animate-pulse border-2 border-blue-500 ring-2 ring-blue-300'
+                    'animate-pulse border-2 border-brand-red ring-2 ring-brand-red/30'
                 )}
               />
               <Select value={timeRange} onValueChange={setTimeRange}>
@@ -646,20 +665,18 @@ export default function Home() {
                 onClick={fetchTopAlbums}
                 disabled={loading}
                 className={cn(
-                  'w-full md:w-auto',
+                  'w-full md:w-auto bg-brand-red hover:bg-brand-red-dark text-white',
                   isFirstTimeUser &&
                     ftueEnabled &&
                     highlightInitialAction === 'generate_button' &&
-                    'animate-pulse border-2 border-blue-500 ring-2 ring-blue-300'
+                    'animate-pulse border-2 border-brand-red ring-2 ring-brand-red/30'
                 )}
               >
                 {loading ? 'Loading...' : 'Generate Grid'}
               </Button>
               <ThemeToggleButton />
             </div>
-            {error && (
-              <p className="text-red-500 dark:text-red-400 mt-2">{error}</p>
-            )}
+            {error && <p className="text-brand-red mt-2">{error}</p>}
           </CardContent>
         </Card>
 
@@ -680,7 +697,7 @@ export default function Home() {
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                borderLeftColor: 'var(--foreground)', // Use theme color
+                borderLeftColor: '#d51007',
                 animation: 'spin 1s ease infinite',
               }}
             ></div>
@@ -699,7 +716,7 @@ export default function Home() {
                     className="gap-2"
                   >
                     {shareCopied ? (
-                      <Check className="h-4 w-4 text-green-500" />
+                      <Check className="h-4 w-4 text-brand-success" />
                     ) : (
                       <Share2 size={16} />
                     )}

@@ -87,8 +87,8 @@ footer {
 }
 
 footer a {
-  @apply text-sm text-blue-600 no-underline; /* text-sm is approx 0.9rem, standard link blue */
-  @apply dark:text-blue-400; /* Lighter blue for dark mode */
+  @apply text-sm text-brand-red no-underline;
+  @apply dark:text-brand-red-light;
   display: inline-block; /* Ensure padding and border apply correctly */
   padding: 8px 12px;
   border: 1px solid hsl(var(--border));
@@ -97,7 +97,7 @@ footer a {
 }
 
 footer a:hover {
-  @apply dark:text-blue-300; /* Slightly lighten text on hover for dark mode if needed */
+  @apply dark:text-brand-red-light;
   background-color: hsl(var(--accent));
   text-decoration: none; /* Ensure no underline on hover */
 }

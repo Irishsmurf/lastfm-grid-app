@@ -254,6 +254,18 @@ export default function SharePageClient() {
     <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <header>
+          <div className="flex flex-col items-center mb-6 gap-3">
+            <Image
+              src="/logo.svg"
+              alt="LastFM Album Collage logo"
+              width={64}
+              height={64}
+              priority
+            />
+            <h1 className="text-3xl font-bold font-montserrat text-center">
+              LastFM Album Collage
+            </h1>
+          </div>
           <p className="text-center text-sm text-muted-foreground mb-4">
             Album Grid by {sharedData.username} - Period: {sharedData.period} |
             Generated on: {formattedDate}
@@ -266,7 +278,7 @@ export default function SharePageClient() {
               className="gap-2"
             >
               {linkCopied ? (
-                <Check className="h-4 w-4 text-green-500" />
+                <Check className="h-4 w-4 text-brand-success" />
               ) : (
                 <Share2 size={16} />
               )}

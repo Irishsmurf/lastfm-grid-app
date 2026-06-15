@@ -33,7 +33,6 @@ if (typeof global.MessagePort === 'undefined') {
 
 // 4. Web Fetch API globals required by next/server (depends on items 1-3 above)
 if (typeof global.Request === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { Request, Response, Headers, FormData } = require('undici');
   global.Request = Request;
   global.Response = Response;
