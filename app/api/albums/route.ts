@@ -9,7 +9,7 @@ import { logger } from '@/utils/logger';
 import { nanoid } from 'nanoid';
 import { SharedGridData } from '@/lib/types';
 import { redis } from '@/lib/redis';
-import { initializeRemoteConfig, getRemoteConfigValue } from '@/lib/firebase'; // Added
+import { getRemoteConfigValue } from '@/lib/firebase';
 import {
   apiRequestCounter,
   apiRequestDuration,
@@ -23,9 +23,6 @@ export async function GET(req: NextRequest) {
     method: 'GET',
     route: '/api/albums',
   });
-
-  // Initialize Remote Config
-  await initializeRemoteConfig(); // Best practice: call this at app startup
 
   const { searchParams } = new URL(req.url);
   const username = searchParams.get('username');
