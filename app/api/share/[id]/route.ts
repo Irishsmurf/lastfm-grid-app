@@ -35,7 +35,10 @@ export async function GET(
       );
     }
   } catch (error) {
-    logger.error(CTX, `Error retrieving shared grid: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      CTX,
+      `Error retrieving shared grid: ${error instanceof Error ? error.message : String(error)}`
+    );
     return NextResponse.json(
       { message: 'Error retrieving shared grid' },
       { status: 500 }
