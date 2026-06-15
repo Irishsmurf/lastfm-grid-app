@@ -29,7 +29,12 @@ export default function Image() {
       >
         {/* Brand logo grid */}
         <div
-          style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            flexShrink: 0,
+          }}
         >
           {[0, 1, 2].map((row) => (
             <div key={row} style={{ display: 'flex', gap: 8 }}>
@@ -42,7 +47,9 @@ export default function Image() {
                       width: 80,
                       height: 80,
                       borderRadius: 8,
-                      backgroundColor: ACCENT_CELLS.has(idx) ? BRAND_RED : BRAND_SURFACE,
+                      backgroundColor: ACCENT_CELLS.has(idx)
+                        ? BRAND_RED
+                        : BRAND_SURFACE,
                     }}
                   />
                 );
@@ -54,7 +61,12 @@ export default function Image() {
         {/* Text */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div
-            style={{ fontSize: 56, fontWeight: 700, color: '#ffffff', lineHeight: 1.1 }}
+            style={{
+              fontSize: 56,
+              fontWeight: 700,
+              color: '#ffffff',
+              lineHeight: 1.1,
+            }}
           >
             LastFM Album Collage
           </div>
