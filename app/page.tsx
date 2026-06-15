@@ -21,7 +21,6 @@ import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import Mi
 import {
   getRemoteConfigValue, // This will be used for FTUE and default_time_period
   defaultRemoteConfig,
-  remoteConfig, // Keep for default_time_period's fallback
 } from '@/lib/firebase'; // Updated path if necessary, assuming it's correct
 
 const timeRanges = {
@@ -77,29 +76,27 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
 
   // FTUE States
-  const [isFirstTimeUser, setIsFirstTimeUser] = useState(
-    remoteConfig.defaultConfig.has_visited_before
-  );
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   const [ftueEnabled, setFtueEnabled] = useState(
-    remoteConfig.defaultConfig.ftue_enabled
+    defaultRemoteConfig.ftue_enabled
   ); // Default to true as per spec
   const [welcomeMessageVariant, setWelcomeMessageVariant] = useState(
-    remoteConfig.defaultConfig.welcome_message_variant
+    defaultRemoteConfig.welcome_message_variant
   );
   const [welcomeMessageTextShort, setWelcomeMessageTextShort] = useState(
-    remoteConfig.defaultConfig.welcome_message_text_short
+    defaultRemoteConfig.welcome_message_text_short
   );
   const [welcomeMessageTextDetailed, setWelcomeMessageTextDetailed] = useState(
-    remoteConfig.defaultConfig.welcome_message_text_detailed
+    defaultRemoteConfig.welcome_message_text_detailed
   );
   const [highlightInitialAction, setHighlightInitialAction] = useState(
-    remoteConfig.defaultConfig.highlight_initial_action
+    defaultRemoteConfig.highlight_initial_action
   );
   const [_prefillExampleUsername, setPrefillExampleUsername] = useState(
-    remoteConfig.defaultConfig.prefill_example_username
+    defaultRemoteConfig.prefill_example_username
   );
   const [_exampleUsernameValue, setExampleUsernameValue] = useState(
-    remoteConfig.defaultConfig.example_username_value
+    defaultRemoteConfig.example_username_value
   );
 
   // Combined useEffect for localStorage and FTUE logic

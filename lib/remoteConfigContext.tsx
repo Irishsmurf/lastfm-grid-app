@@ -36,7 +36,8 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initializeConfig = async () => {
-      // It's good practice to set default values on the remote config instance itself
+      if (!remoteConfig) return;
+
       remoteConfig.defaultConfig = {
         footer_feature_text: JSON.stringify(defaultConfig.footer_feature_text),
       };
