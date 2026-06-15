@@ -676,7 +676,7 @@ export default function Home() {
               </Button>
               <ThemeToggleButton />
             </div>
-            {error && <p className="text-brand-red mt-2">{error}</p>}
+            {error && <p className="text-brand-red dark:text-brand-red-light mt-2">{error}</p>}
           </CardContent>
         </Card>
 
