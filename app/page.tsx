@@ -75,6 +75,7 @@ export default function Home() {
   >({});
   const [sharedId, setSharedId] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
 
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(
@@ -223,7 +224,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        `/api/albums?username=${encodeURIComponent(username)}&period=${timeRange}`
+        `/api/albums?username=${encodeURIComponent(username)}&period=${timeRange}&limit=${gridSize}`
       );
 
       if (!response.ok) {
@@ -239,7 +240,7 @@ export default function Home() {
         // responseData.albums is MinimizedAlbum[]
         // MinimizedAlbum has: name: string, artist: { name: string, mbid: string }, imageUrl: string, mbid: string, playcount: number
         const albumData: Album[] = responseData.albums
-          .slice(0, 9)
+          .slice(0, gridSize)
           .map((apiAlbum: MinimizedAlbum) => ({
             // Changed any to MinimizedAlbum
             name: apiAlbum.name,
@@ -295,25 +296,24 @@ export default function Home() {
   };
 
   const generateImage = async () => {
-    if (!canvasRef.current || albums.length !== 9) return;
+    if (!canvasRef.current || albums.length === 0) return;
+
+    const cols = Math.round(Math.sqrt(albums.length));
+    const cellSize = 900 / cols;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
     canvas.width = 900;
     canvas.height = 900;
 
-    // Clear canvas
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Modified loadImage function
     const loadImage = (url: string): Promise<HTMLImageElement> => {
       return new Promise((resolve, reject) => {
         if (!url) {
-          // Handle empty URL case
           reject(new Error('No image URL provided'));
           return;
         }
@@ -322,7 +322,6 @@ export default function Home() {
         img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
         img.onerror = () => {
-          // Create a fallback for failed images
           const fallbackImg = document.createElement('img');
           fallbackImg.src = '/api/placeholder/300/300';
           fallbackImg.onload = () => resolve(fallbackImg);
@@ -334,23 +333,25 @@ export default function Home() {
     };
 
     try {
-      // Create 3x3 grid
-      for (let i = 0; i < 9; i++) {
-        const x = (i % 3) * 300;
-        const y = Math.floor(i / 3) * 300;
+      for (let i = 0; i < albums.length; i++) {
+        const x = (i % cols) * cellSize;
+        const y = Math.floor(i / cols) * cellSize;
 
         try {
-          const img = await loadImage(albums[i].imageUrl); // Updated image access
-          ctx.drawImage(img, x, y, 300, 300);
+          const img = await loadImage(albums[i].imageUrl);
+          ctx.drawImage(img, x, y, cellSize, cellSize);
         } catch (error) {
           console.log('Image failed to load: ', error);
-          // If image fails to load, draw a placeholder rectangle
           ctx.fillStyle = '#f0f0f0';
-          ctx.fillRect(x, y, 300, 300);
+          ctx.fillRect(x, y, cellSize, cellSize);
           ctx.fillStyle = '#666666';
           ctx.font = '14px Inter';
           ctx.textAlign = 'center';
-          ctx.fillText('Image not available', x + 150, y + 150);
+          ctx.fillText(
+            'Image not available',
+            x + cellSize / 2,
+            y + cellSize / 2
+          );
         }
       }
 
@@ -631,6 +632,19 @@ export default function Home() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select
+                value={String(gridSize)}
+                onValueChange={(v) => setGridSize(Number(v) as 9 | 16 | 25)}
+              >
+                <SelectTrigger className="w-full md:w-[120px]">
+                  <SelectValue placeholder="Grid size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="9">3×3</SelectItem>
+                  <SelectItem value="16">4×4</SelectItem>
+                  <SelectItem value="25">5×5</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 onClick={fetchTopAlbums}
                 disabled={loading}
@@ -719,7 +733,10 @@ export default function Home() {
               ) : (
                 <div
                   data-testid="album-grid-container"
-                  className={`grid grid-cols-3 gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
+                  className={`grid gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.round(Math.sqrt(albums.length))}, minmax(0, 1fr))`,
+                  }}
                 >
                   {albums.map((album, index) => {
                     const currentSpotifyUrl = album.mbid

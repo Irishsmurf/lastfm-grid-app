@@ -27,10 +27,22 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const username = searchParams.get('username');
   const period = searchParams.get('period');
+  const limitParam = searchParams.get('limit');
+
+  const validLimits = [9, 16, 25];
+  const limit = limitParam ? parseInt(limitParam, 10) : 9;
+
+  if (limitParam && !validLimits.includes(limit)) {
+    logger.warn(CTX, `Invalid limit: ${limitParam}`);
+    return NextResponse.json(
+      { message: 'Invalid limit. Must be 9, 16, or 25.' },
+      { status: 400 }
+    );
+  }
 
   logger.info(
     CTX,
-    `Received request for username: ${username}, period: ${period}`
+    `Received request for username: ${username}, period: ${period}, limit: ${limit}`
   );
 
   // Validate username
@@ -72,7 +84,7 @@ export async function GET(req: NextRequest) {
   // Encode username and period for cache key security
   const encodedUsername = encodeURIComponent(username);
   const encodedPeriod = encodeURIComponent(period);
-  const cacheKey = `lastfm:albums:${encodedUsername}:${encodedPeriod}:minimized`;
+  const cacheKey = `lastfm:albums:${encodedUsername}:${encodedPeriod}:${limit}:minimized`;
 
   // Get cache expiry values from Remote Config
   const defaultCacheExpirySeconds = 3600; // 1 hour
@@ -124,8 +136,8 @@ export async function GET(req: NextRequest) {
     // The getTopAlbums function itself handles Last.fm API errors (like invalid user)
     // and should return a structure that isNotFound can evaluate.
     // Default limit is 9 in getTopAlbums, can be passed if made dynamic here.
-    const rawTopAlbums = await getTopAlbums(username, period);
-    return transformLastFmResponse(rawTopAlbums); // Added transformation
+    const rawTopAlbums = await getTopAlbums(username, period, limit);
+    return transformLastFmResponse(rawTopAlbums);
   };
 
   try {
