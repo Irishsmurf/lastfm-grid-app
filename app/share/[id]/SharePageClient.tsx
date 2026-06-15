@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Share2, Check } from 'lucide-react';
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
@@ -251,110 +250,119 @@ export default function SharePageClient() {
   );
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
+    <div className="min-h-screen bg-background pb-16 px-4">
       <div className="max-w-4xl mx-auto">
-        <header>
-          <div className="flex flex-col items-center mb-6 gap-3">
+        {/* Hero */}
+        <header className="pt-10 pb-0 text-center">
+          <div className="flex justify-center mb-5">
             <Image
               src="/logo.svg"
               alt="LastFM Album Collage logo"
-              width={64}
-              height={64}
+              width={72}
+              height={72}
               priority
             />
-            <h1 className="text-3xl font-bold font-montserrat text-center">
-              LastFM Album Collage
-            </h1>
           </div>
-          <p className="text-center text-sm text-muted-foreground mb-4">
-            Album Grid by {sharedData.username} - Period: {sharedData.period} |
-            Generated on: {formattedDate}
-          </p>
-          <div className="flex justify-center mb-8">
+          <h1 className="font-montserrat font-black uppercase tracking-tight leading-none text-5xl sm:text-6xl lg:text-[5.5rem]">
+            LastFM Album <span className="text-brand-red">Collage</span>
+          </h1>
+        </header>
+
+        {/* Grid metadata + copy action */}
+        <div className="border-y border-border mt-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Album Grid by {sharedData.username} - Period: {sharedData.period}{' '}
+              | Generated on: {formattedDate}
+            </p>
             <Button
               variant="outline"
+              size="sm"
               onClick={handleCopyLink}
               disabled={linkCopied}
-              className="gap-2"
+              className="gap-2 h-8 text-xs self-start sm:self-auto shrink-0"
             >
               {linkCopied ? (
-                <Check className="h-4 w-4 text-brand-success" />
+                <Check className="h-3 w-3 text-brand-success" />
               ) : (
-                <Share2 size={16} />
+                <Share2 size={13} />
               )}
               {linkCopied ? 'Copied!' : 'Copy link'}
             </Button>
           </div>
-        </header>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        </div>
+
+        {/* Album grid — tight mosaic, no card wrappers */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-6">
           {sharedData.albums.map((album: MinimizedAlbum, index) => {
             const albumKey = album.mbid;
 
             return (
-              <Card key={index} className="flex flex-col">
-                <CardContent className="p-4">
-                  <div className="aspect-square relative group album-hover-container">
-                    {spotifyCueVisible[albumKey] && (
-                      <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
-                        <Image
-                          src="/spotify_icon.svg"
-                          alt="Spotify Playable Cue"
-                          width={24}
-                          height={24}
-                          className="w-6 h-6 opacity-75"
-                        />
-                      </div>
-                    )}
-                    <Image
-                      src={album.imageUrl || '/api/placeholder/300/300'}
-                      alt={`${album.name} by ${album.artist.name}`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 300px"
-                      className={`object-cover ${spotifyLinks[albumKey] ? 'group-hover:opacity-70' : ''}`}
-                      priority={index < 9}
-                    />
-                    {spotifyLinks[albumKey] && (
-                      <a
-                        href={spotifyLinks[albumKey]!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoColorStates[albumKey] === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
-                      >
-                        <Image
-                          src="/spotify_icon.svg"
-                          alt="Play on Spotify"
-                          width={64}
-                          height={64}
-                          className="w-16 h-16"
-                        />
-                      </a>
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <p className="font-semibold truncate" title={album.name}>
-                      <a
-                        href={`https://musicbrainz.org/release/${album.mbid}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {album.name}
-                      </a>
-                    </p>
-                    <p
-                      className="text-sm text-muted-foreground truncate"
-                      title={album.artist.name}
+              <div key={index} className="album-grid-cell flex flex-col">
+                <div className="aspect-square relative group album-hover-container overflow-hidden">
+                  {spotifyCueVisible[albumKey] && (
+                    <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
+                      <Image
+                        src="/spotify_icon.svg"
+                        alt="Spotify Playable Cue"
+                        width={24}
+                        height={24}
+                        className="w-6 h-6 opacity-75"
+                      />
+                    </div>
+                  )}
+                  <Image
+                    src={album.imageUrl || '/api/placeholder/300/300'}
+                    alt={`${album.name} by ${album.artist.name}`}
+                    fill
+                    sizes="(max-width: 640px) 50vw, 33vw"
+                    className={`object-cover ${spotifyLinks[albumKey] ? 'group-hover:opacity-70' : ''}`}
+                    priority={index < 9}
+                  />
+                  {spotifyLinks[albumKey] && (
+                    <a
+                      href={spotifyLinks[albumKey]!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoColorStates[albumKey] === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
                     >
-                      <a
-                        href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {album.artist.name}
-                      </a>
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                      <Image
+                        src="/spotify_icon.svg"
+                        alt="Play on Spotify"
+                        width={64}
+                        height={64}
+                        className="w-16 h-16"
+                      />
+                    </a>
+                  )}
+                </div>
+                <div className="pt-1.5 pb-1 min-w-0">
+                  <p
+                    className="text-[11px] font-semibold truncate leading-tight"
+                    title={album.name}
+                  >
+                    <a
+                      href={`https://musicbrainz.org/release/${album.mbid}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {album.name}
+                    </a>
+                  </p>
+                  <p
+                    className="text-[11px] text-muted-foreground truncate leading-tight"
+                    title={album.artist.name}
+                  >
+                    <a
+                      href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {album.artist.name}
+                    </a>
+                  </p>
+                </div>
+              </div>
             );
           })}
         </div>
