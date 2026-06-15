@@ -34,14 +34,14 @@ try {
   );
 }
 
-const remoteConfig = getRemoteConfig(app);
+// Only initialize Remote Config in browser environments — the SDK requires
+// browser APIs (IndexedDB, fetch) and will throw in Node.js server contexts.
+const remoteConfig =
+  typeof window !== 'undefined' ? getRemoteConfig(app) : null;
 
-// Set a minimum fetch interval for development (e.g., 10 seconds)
-// In production, this should be much higher (e.g., 12 hours = 43200000 ms)
-if (process.env.NODE_ENV === 'development') {
-  remoteConfig.settings.minimumFetchIntervalMillis = 10000; // 10 seconds
-} else {
-  remoteConfig.settings.minimumFetchIntervalMillis = 43200000; // 12 hours
+if (remoteConfig) {
+  remoteConfig.settings.minimumFetchIntervalMillis =
+    process.env.NODE_ENV === 'development' ? 10000 : 43200000;
 }
 
 // Set default values (optional, but recommended)
@@ -63,7 +63,9 @@ export const defaultRemoteConfig = {
   prefill_example_username: false,
   example_username_value: 'musiclover123',
 };
-remoteConfig.defaultConfig = defaultRemoteConfig;
+if (remoteConfig) {
+  remoteConfig.defaultConfig = defaultRemoteConfig;
+}
 
 // Call this function when your app starts to fetch and activate the latest config
 export const initializeRemoteConfig = async () => {

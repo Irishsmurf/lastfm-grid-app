@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchAlbum } from '@/lib/spotifyService'; // Corrected import path
 import { handleCaching } from '@/lib/cache';
 import { logger } from '@/utils/logger'; // Import logger
-import { initializeRemoteConfig, getRemoteConfigValue } from '@/lib/firebase'; // Added
+import { getRemoteConfigValue } from '@/lib/firebase';
 
 const CTX = 'SpotifyLinkAPI'; // Context for logger
 
 export async function GET(req: NextRequest) {
-  // Initialize Remote Config
-  await initializeRemoteConfig(); // Best practice: call this at app startup
-
   const { searchParams } = new URL(req.url);
   const albumName = searchParams.get('albumName');
   const artistName = searchParams.get('artistName');
