@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#0f0f0f"/>
+
+  <!-- 3×3 album grid cells -->
+  <!-- Row 1 -->
+  <rect x="64"  y="64"  width="114" height="114" rx="8" fill="#1a1a1a"/>
+  <rect x="199" y="64"  width="114" height="114" rx="8" fill="#1a1a1a"/>
+  <rect x="334" y="64"  width="114" height="114" rx="8" fill="#d51007"/>
+
+  <!-- Row 2 -->
+  <rect x="64"  y="199" width="114" height="114" rx="8" fill="#1a1a1a"/>
+  <rect x="199" y="199" width="114" height="114" rx="8" fill="#d51007"/>
+  <rect x="334" y="199" width="114" height="114" rx="8" fill="#1a1a1a"/>
+
+  <!-- Row 3 -->
+  <rect x="64"  y="334" width="114" height="114" rx="8" fill="#d51007"/>
+  <rect x="199" y="334" width="114" height="114" rx="8" fill="#1a1a1a"/>
+  <rect x="334" y="334" width="114" height="114" rx="8" fill="#1a1a1a"/>
+</svg>
