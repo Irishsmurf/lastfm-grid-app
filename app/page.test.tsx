@@ -9,35 +9,48 @@ import {
 } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
-import Image from 'next/image';
-import { ImageProps } from 'next/image';
 
-// Mock Next.js Image component
-interface MockImageProps extends Omit<ImageProps, 'src'> {
-  src: string;
-  alt: string;
-  width?: number | `${number}` | undefined;
-  height?: number | `${number}` | undefined;
-  className?: string;
-  fill?: boolean;
-  sizes?: string;
-  onLoad?: () => void;
-}
+jest.mock('@/lib/firebase', () => ({
+  getRemoteConfigValue: jest.fn((key: string) => ({
+    asString: () => {
+      if (key === 'default_time_period') return '1month';
+      if (key === 'welcome_message_variant') return 'none';
+      if (key === 'welcome_message_text_short') return '';
+      if (key === 'welcome_message_text_detailed') return '';
+      if (key === 'highlight_initial_action') return 'none';
+      if (key === 'example_username_value') return '';
+      return '';
+    },
+    asBoolean: () => false,
+    asNumber: () => 0,
+  })),
+  defaultRemoteConfig: {
+    ftue_enabled: false,
+    welcome_message_variant: 'none',
+    welcome_message_text_short: '',
+    welcome_message_text_detailed: '',
+    highlight_initial_action: 'none',
+    prefill_example_username: false,
+    example_username_value: '',
+    default_time_period: '1month',
+  },
+  remoteConfig: null,
+}));
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: (props: MockImageProps) => {
-    const { src, alt, width, height, className } = props;
-    return (
-      <Image
-        src={src as string}
-        alt={alt}
-        width={width as number}
-        height={height as number}
-        className={className}
-      />
-    );
-  },
+  default: ({
+    src,
+    alt,
+    className,
+  }: {
+    src: string;
+    alt: string;
+    className?: string;
+  }) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} className={className} />
+  ),
 }));
 
 // Mock ThemeToggleButton
@@ -88,20 +101,11 @@ HTMLCanvasElement.prototype.toDataURL = jest.fn(
   () => 'data:image/jpeg;base64,mocked_image_data'
 );
 
-interface MockLastFmImage {
-  '#text': string;
-  size: string;
-}
-interface MockArtist {
-  name: string;
-  mbid: string;
-  url: string;
-}
-type MockLastFmImageList = MockLastFmImage[];
+// MinimizedAlbum shape — matches what the /api/albums endpoint returns
 interface MockAlbum {
   name: string;
-  artist: MockArtist;
-  image: MockLastFmImageList;
+  artist: { name: string; mbid: string };
+  imageUrl: string;
   mbid: string;
   playcount: number;
 }
@@ -111,14 +115,8 @@ const mockApiAlbumsPayload: MockAlbum[] = Array.from({ length: 9 }, (_, i) => ({
   artist: {
     name: `Artist ${String.fromCharCode(65 + i)}`,
     mbid: `artist-${i}-mbid`,
-    url: `http://artist.${i}`,
   },
-  image: [
-    { '#text': '', size: 'small' },
-    { '#text': '', size: 'medium' },
-    { '#text': '', size: 'large' },
-    { '#text': `http://example.com/image${i + 1}.jpg`, size: 'extralarge' },
-  ],
+  imageUrl: `http://example.com/image${i + 1}.jpg`,
   mbid: `album-${i + 1}-mbid`,
   playcount: 100 - i * 10,
 }));
@@ -231,7 +229,7 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     // Verify playcounts are displayed for initial load
     mockApiAlbumsPayload.forEach((album) => {
       expect(
-        screen.getByText(`${album.playcount} listens`)
+        screen.getByText(`${album.playcount.toLocaleString()} plays`)
       ).toBeInTheDocument();
     });
 
@@ -297,7 +295,7 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     // Verify playcounts are displayed for subsequent update
     mockApiAlbumsPayload.forEach((album) => {
       expect(
-        screen.getByText(`${album.playcount} listens`)
+        screen.getByText(`${album.playcount.toLocaleString()} plays`)
       ).toBeInTheDocument();
     });
   });

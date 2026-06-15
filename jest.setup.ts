@@ -1,33 +1,44 @@
 // jest.setup.ts
 import { TextEncoder, TextDecoder } from 'util';
 
-// Polyfill TextEncoder and TextDecoder if they are not available globally
+// --- Polyfills must be installed in dependency order before requiring undici ---
+
+// 1. TextEncoder / TextDecoder (undici needs these)
 if (typeof global.TextEncoder === 'undefined') {
-  global.TextEncoder = TextEncoder as any; // Cast to any to bypass type mismatch
+  global.TextEncoder = TextEncoder as any;
 }
 if (typeof global.TextDecoder === 'undefined') {
-  global.TextDecoder = TextDecoder as any; // Cast to any to bypass type mismatch
+  global.TextDecoder = TextDecoder as any;
 }
 
-// Polyfill ReadableStream if not available
+// 2. ReadableStream (undici needs this)
 if (typeof global.ReadableStream === 'undefined') {
   try {
     const { ReadableStream } = require('stream/web');
     global.ReadableStream = ReadableStream as any;
   } catch (e) {
-    console.error('Failed to polyfill ReadableStream from stream/web:', e);
-    // Fallback or further error handling if needed
+    console.error('Failed to polyfill ReadableStream:', e);
   }
 }
 
-// Polyfill MessagePort if not available
+// 3. MessagePort (undici needs this)
 if (typeof global.MessagePort === 'undefined') {
   try {
     const { MessagePort } = require('worker_threads');
     global.MessagePort = MessagePort as any;
   } catch (e) {
-    console.error('Failed to polyfill MessagePort from worker_threads:', e);
+    console.error('Failed to polyfill MessagePort:', e);
   }
+}
+
+// 4. Web Fetch API globals required by next/server (depends on items 1-3 above)
+if (typeof global.Request === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { Request, Response, Headers, FormData } = require('undici');
+  global.Request = Request;
+  global.Response = Response;
+  global.Headers = Headers;
+  global.FormData = FormData;
 }
 
 // Initialize global controls for Spotify mocks
