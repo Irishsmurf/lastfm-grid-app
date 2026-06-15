@@ -62,6 +62,8 @@ export async function handleCaching<T>({
           `Error parsing cached data for key ${cacheKey}:`,
           { error: parseError }
         );
+        logger.warn('Cache', `Evicting corrupted cache entry for key: ${cacheKey}`);
+        await redis.del(cacheKey);
         // Proceed to fetch fresh data if parsing fails
       }
     }
