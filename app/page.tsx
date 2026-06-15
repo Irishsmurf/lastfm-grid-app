@@ -4,7 +4,6 @@
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 // Removed direct Firebase SDK imports for FTUE: getRemoteConfig, getValue, getApp
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils'; // Added for conditional classnames
@@ -355,14 +354,19 @@ export default function Home() {
       // Add watermark
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
-      ctx.fillStyle = '#000000';
       ctx.font = '16px Inter';
+      const labelText = `${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]} · `;
+      const domainText = 'lastfm.paddez.com';
+      const totalWidth = ctx.measureText(labelText + domainText).width;
+      const labelWidth = ctx.measureText(labelText).width;
+      const baseX = canvas.width / 2 - totalWidth / 2;
+      const baseY = canvas.height - 10;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(labelText, baseX, baseY);
+      ctx.fillStyle = '#d51007';
+      ctx.fillText(domainText, baseX + labelWidth, baseY);
       ctx.textAlign = 'center';
-      ctx.fillText(
-        `${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]}`,
-        canvas.width / 2,
-        canvas.height - 10
-      );
 
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
       setJpgImageData(imageURL);
@@ -585,83 +589,98 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
+    <div className="min-h-screen bg-background pb-16 px-4">
       <div className="max-w-4xl mx-auto">
+        {/* Hero */}
+        <header className="pt-10 pb-0 text-center">
+          <div className="flex justify-center mb-5">
+            <Image
+              src="/logo.svg"
+              alt="LastFM Album Collage logo"
+              width={72}
+              height={72}
+              priority
+            />
+          </div>
+          <h1 className="font-montserrat font-black uppercase tracking-tight leading-none text-5xl sm:text-6xl lg:text-[5.5rem]">
+            LastFM Album <span className="text-brand-red">Collage</span>
+          </h1>
+          <p className="mt-4 text-xs tracking-[0.18em] uppercase text-muted-foreground font-medium">
+            Your listening history · your art
+          </p>
+        </header>
+
         {/* FTUE Welcome Message */}
         {isFirstTimeUser && ftueEnabled && welcomeMessageVariant !== 'none' && (
-          <Card className="mb-8 bg-secondary/50 border-primary/50">
-            <CardContent className="pt-6">
-              <p className="text-center text-lg">
-                {welcomeMessageVariant === 'short_intro' &&
-                  welcomeMessageTextShort}
-                {welcomeMessageVariant === 'detailed_guide' &&
-                  welcomeMessageTextDetailed}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="mt-6 rounded border border-border bg-secondary/50 px-5 py-4">
+            <p className="text-center text-sm">
+              {welcomeMessageVariant === 'short_intro' &&
+                welcomeMessageTextShort}
+              {welcomeMessageVariant === 'detailed_guide' &&
+                welcomeMessageTextDetailed}
+            </p>
+          </div>
         )}
 
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              <Input
-                type="text"
-                placeholder="LastFM Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={cn(
-                  'flex-1',
-                  isFirstTimeUser &&
-                    ftueEnabled &&
-                    highlightInitialAction === 'username_input' &&
-                    'animate-pulse border-2 border-blue-500 ring-2 ring-blue-300'
-                )}
-              />
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Select time range" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(timeRanges).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={String(gridSize)}
-                onValueChange={(v) => setGridSize(Number(v) as 9 | 16 | 25)}
-              >
-                <SelectTrigger className="w-full md:w-[120px]">
-                  <SelectValue placeholder="Grid size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="9">3×3</SelectItem>
-                  <SelectItem value="16">4×4</SelectItem>
-                  <SelectItem value="25">5×5</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={fetchTopAlbums}
-                disabled={loading}
-                className={cn(
-                  'w-full md:w-auto',
-                  isFirstTimeUser &&
-                    ftueEnabled &&
-                    highlightInitialAction === 'generate_button' &&
-                    'animate-pulse border-2 border-blue-500 ring-2 ring-blue-300'
-                )}
-              >
-                {loading ? 'Loading...' : 'Generate Grid'}
-              </Button>
-              <ThemeToggleButton />
-            </div>
-            {error && (
-              <p className="text-red-500 dark:text-red-400 mt-2">{error}</p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Form strip — editorial band between horizontal rules */}
+        <div className="border-y border-border mt-8 py-5">
+          <div className="flex flex-col md:flex-row gap-3 items-center">
+            <Input
+              type="text"
+              placeholder="LastFM Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchTopAlbums()}
+              className={cn(
+                'flex-1 h-10',
+                isFirstTimeUser &&
+                  ftueEnabled &&
+                  highlightInitialAction === 'username_input' &&
+                  'animate-pulse border-2 border-brand-red ring-2 ring-brand-red/30'
+              )}
+            />
+            <Select value={timeRange} onValueChange={setTimeRange}>
+              <SelectTrigger className="w-full md:w-[175px] h-10">
+                <SelectValue placeholder="Select time range" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(timeRanges).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(gridSize)}
+              onValueChange={(v) => setGridSize(Number(v) as 9 | 16 | 25)}
+            >
+              <SelectTrigger className="w-full md:w-[105px] h-10">
+                <SelectValue placeholder="Grid size" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="9">3×3</SelectItem>
+                <SelectItem value="16">4×4</SelectItem>
+                <SelectItem value="25">5×5</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={fetchTopAlbums}
+              disabled={loading}
+              className={cn(
+                'w-full md:w-auto h-10 px-6 font-semibold bg-brand-red hover:bg-brand-red-dark text-white',
+                isFirstTimeUser &&
+                  ftueEnabled &&
+                  highlightInitialAction === 'generate_button' &&
+                  'animate-pulse border-2 border-brand-red ring-2 ring-brand-red/30'
+              )}
+            >
+              {loading ? 'Loading...' : 'Generate Grid'}
+            </Button>
+            <ThemeToggleButton />
+          </div>
+          {error && <p className="text-brand-red text-sm mt-3">{error}</p>}
+        </div>
 
         {showSpinner && (
           <div
@@ -671,7 +690,7 @@ export default function Home() {
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              zIndex: 10, // Ensure it's above other content
+              zIndex: 10,
             }}
           >
             <div
@@ -680,164 +699,171 @@ export default function Home() {
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                borderLeftColor: 'var(--foreground)', // Use theme color
+                borderLeftColor: '#d51007',
                 animation: 'spin 1s ease infinite',
               }}
-            ></div>
+            />
           </div>
         )}
 
-        {albums.length > 0 &&
-          !showSpinner && ( // Also hide grid if spinner is shown
-            <>
-              <div className="flex justify-end mb-4 space-x-2">
+        {albums.length > 0 && !showSpinner && (
+          <>
+            {/* Results header: context + actions */}
+            <div className="flex items-center justify-between mt-8 mb-3">
+              <p className="text-sm">
+                <span className="font-semibold text-brand-red">{username}</span>
+                <span className="text-muted-foreground">
+                  {' · '}
+                  {timeRanges[timeRange as keyof typeof timeRanges]}
+                </span>
+              </p>
+              <div className="flex gap-2">
                 {sharedId && (
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={handleShareGrid}
                     disabled={shareCopied}
-                    className="gap-2"
+                    className="gap-1.5 h-8 text-xs"
                   >
                     {shareCopied ? (
-                      <Check className="h-4 w-4 text-green-500" />
+                      <Check className="h-3 w-3 text-brand-success" />
                     ) : (
-                      <Share2 size={16} />
+                      <Share2 size={13} />
                     )}
                     {shareCopied ? 'Copied!' : 'Share Grid'}
                   </Button>
                 )}
-                <Button onClick={handleToggleView} className="gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleToggleView}
+                  className="gap-1.5 h-8 text-xs bg-brand-red hover:bg-brand-red-dark text-white"
+                >
                   {isJpgView ? (
                     'Revert to Grid'
                   ) : (
                     <>
-                      <FileImage size={16} />
+                      <FileImage size={13} />
                       Convert to JPG
                     </>
                   )}
                 </Button>
               </div>
+            </div>
 
-              {isJpgView && jpgImageData ? (
-                <Image
-                  src={jpgImageData}
-                  alt="Album Grid JPG"
-                  width={900} // Intrinsic width of the generated image
-                  height={900} // Intrinsic height of the generated image
-                  className="w-full h-auto border rounded-lg shadow-md" // Example styling
-                  priority // Consider adding priority if this image becomes LCP
-                />
-              ) : (
-                <div
-                  data-testid="album-grid-container"
-                  className={`grid gap-4 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
-                  style={{
-                    gridTemplateColumns: `repeat(${Math.round(Math.sqrt(albums.length))}, minmax(0, 1fr))`,
-                  }}
-                >
-                  {albums.map((album, index) => {
-                    const currentSpotifyUrl = album.mbid
-                      ? spotifyLinks[album.mbid]
-                      : null;
-                    const logoBgType = album.mbid
-                      ? logoColorStates[album.mbid]
-                      : 'dark'; // Default if not found
-                    const showCue = album.mbid
-                      ? spotifyCueVisible[album.mbid]
-                      : false;
-                    return (
-                      <Card key={album.mbid || index}>
-                        {' '}
-                        {/* Use mbid as key if available */}
-                        <CardContent className="p-4">
-                          <div className="aspect-square relative group album-hover-container">
+            {isJpgView && jpgImageData ? (
+              <Image
+                src={jpgImageData}
+                alt="Album Grid JPG"
+                width={900}
+                height={900}
+                className="w-full h-auto rounded shadow-lg"
+                priority
+              />
+            ) : (
+              <div
+                data-testid="album-grid-container"
+                className={`grid gap-1.5 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
+                style={{
+                  gridTemplateColumns: `repeat(${Math.round(Math.sqrt(albums.length))}, minmax(0, 1fr))`,
+                }}
+              >
+                {albums.map((album, index) => {
+                  const currentSpotifyUrl = album.mbid
+                    ? spotifyLinks[album.mbid]
+                    : null;
+                  const logoBgType = album.mbid
+                    ? logoColorStates[album.mbid]
+                    : 'dark';
+                  const showCue = album.mbid
+                    ? spotifyCueVisible[album.mbid]
+                    : false;
+                  return (
+                    <div
+                      key={album.mbid || index}
+                      className="album-grid-cell flex flex-col"
+                    >
+                      <div className="aspect-square relative group album-hover-container overflow-hidden">
+                        <Image
+                          src={album.imageUrl || '/api/placeholder/300/300'}
+                          alt={`${album.name} by ${album.artist.name}`}
+                          fill
+                          className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
+                          sizes="(max-width: 768px) 50vw, 300px"
+                          onLoad={() => handleImageLoad(index)}
+                        />
+                        {showCue && (
+                          <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
                             <Image
-                              src={album.imageUrl || '/api/placeholder/300/300'} // Updated image access
-                              alt={`${album.name} by ${album.artist.name}`}
-                              fill
-                              className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
-                              sizes="(max-width: 768px) 100vw, 300px"
-                              onLoad={() => handleImageLoad(index)}
+                              src="/spotify_icon.svg"
+                              alt="Spotify Playable Cue"
+                              width={24}
+                              height={24}
+                              className="w-6 h-6 opacity-75"
                             />
-                            {showCue && (
-                              <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
-                                <Image
-                                  src="/spotify_icon.svg"
-                                  alt="Spotify Playable Cue"
-                                  width={24}
-                                  height={24}
-                                  className="w-6 h-6 opacity-75"
-                                />
-                              </div>
-                            )}
-                            {currentSpotifyUrl && (
-                              <a
-                                href={currentSpotifyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
-                              >
-                                <Image
-                                  src="/spotify_icon.svg"
-                                  alt="Play on Spotify"
-                                  width={64}
-                                  height={64}
-                                  className="w-16 h-16"
-                                />
-                              </a>
-                            )}
-                            <div className="absolute bottom-0 inset-x-0 bg-black/70 px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">
-                              <p className="text-white text-xs font-semibold truncate">
-                                {album.name}
-                              </p>
-                              <p className="text-white/80 text-xs truncate">
-                                {album.artist.name}
-                              </p>
-                              <p className="text-white/70 text-xs">
-                                {album.playcount.toLocaleString()} plays
-                              </p>
-                            </div>
                           </div>
-                          <div className="mt-2">
-                            <p
-                              className="font-semibold truncate"
-                              title={album.name}
-                            >
-                              <a
-                                href={`https://musicbrainz.org/release/${album.mbid}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {album.name}
-                              </a>
-                            </p>
-                            <p
-                              className="text-sm text-muted-foreground truncate"
-                              title={album.artist.name}
-                            >
-                              <a
-                                href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {album.artist.name}
-                              </a>
-                            </p>
-                            <p
-                              className="text-sm text-muted-foreground truncate"
-                              title={`${album.playcount} listens`}
-                            >
-                              {album.playcount} listens
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
+                        )}
+                        {currentSpotifyUrl && (
+                          <a
+                            href={currentSpotifyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+                          >
+                            <Image
+                              src="/spotify_icon.svg"
+                              alt="Play on Spotify"
+                              width={64}
+                              height={64}
+                              className="w-16 h-16"
+                            />
+                          </a>
+                        )}
+                        <div className="absolute bottom-0 inset-x-0 bg-black/70 px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">
+                          <p className="text-white text-xs font-semibold truncate">
+                            {album.name}
+                          </p>
+                          <p className="text-white/80 text-xs truncate">
+                            {album.artist.name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-1.5 pb-1 min-w-0">
+                        <p
+                          className="text-[11px] font-semibold truncate leading-tight"
+                          title={album.name}
+                        >
+                          <a
+                            href={`https://musicbrainz.org/release/${album.mbid}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {album.name}
+                          </a>
+                        </p>
+                        <p
+                          className="text-[11px] text-muted-foreground truncate leading-tight"
+                          title={album.artist.name}
+                        >
+                          <a
+                            href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {album.artist.name}
+                          </a>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground/60 leading-tight">
+                          {album.playcount.toLocaleString()} plays
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
       </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
