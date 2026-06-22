@@ -55,7 +55,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [jpgImageData, setJpgImageData] = useState<string>('');
+  const [jpgImageCache, setJpgImageCache] = useState<{
+    withLabels: string;
+    withoutLabels: string;
+  }>({ withLabels: '', withoutLabels: '' });
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
     {}
@@ -75,6 +78,7 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
   const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
   const [showAlbumLabels, setShowAlbumLabels] = useState(false);
+  const [jpgGenerationCount, setJpgGenerationCount] = useState(0);
 
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
@@ -252,6 +256,7 @@ export default function Home() {
           }));
 
         setAlbums(albumData);
+        setJpgGenerationCount(0);
 
         if (typeof responseData.sharedId === 'string') {
           setSharedId(responseData.sharedId);
@@ -292,8 +297,11 @@ export default function Home() {
     }
   };
 
-  const generateImage = async () => {
+  const generateImage = async (withLabels?: boolean) => {
     if (!canvasRef.current || albums.length === 0) return;
+    if (jpgGenerationCount >= 2) return;
+    setJpgGenerationCount((c) => c + 1);
+    const labelsEnabled = withLabels ?? showAlbumLabels;
 
     const cols = Math.round(Math.sqrt(albums.length));
     const cellSize = 900 / cols;
@@ -338,7 +346,7 @@ export default function Home() {
           const img = await loadImage(albums[i].imageUrl);
           ctx.drawImage(img, x, y, cellSize, cellSize);
 
-          if (showAlbumLabels) {
+          if (labelsEnabled) {
             const padding = 4;
             const albumFontSize = Math.max(9, Math.round(cellSize / 25));
             const artistFontSize = Math.max(8, Math.round(cellSize / 28));
@@ -403,7 +411,10 @@ export default function Home() {
       }
 
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
-      setJpgImageData(imageURL);
+      setJpgImageCache((prev) => ({
+        ...prev,
+        [labelsEnabled ? 'withLabels' : 'withoutLabels']: imageURL,
+      }));
       setIsJpgView(true);
     } catch (error) {
       console.error('Error generating image:', error);
@@ -616,7 +627,8 @@ export default function Home() {
   const handleToggleView = () => {
     if (isJpgView) {
       setIsJpgView(false);
-      setJpgImageData('');
+      setJpgImageCache({ withLabels: '', withoutLabels: '' });
+      setJpgGenerationCount(0);
     } else {
       generateImage();
     }
@@ -762,11 +774,26 @@ export default function Home() {
                     {shareCopied ? 'Copied!' : 'Share Grid'}
                   </Button>
                 )}
-                {!isJpgView && (
+                {isJpgView && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowAlbumLabels(!showAlbumLabels)}
+                    onClick={() => {
+                      const next = !showAlbumLabels;
+                      setShowAlbumLabels(next);
+                      const cached = next
+                        ? jpgImageCache.withLabels
+                        : jpgImageCache.withoutLabels;
+                      if (!cached) {
+                        generateImage(next);
+                      }
+                    }}
+                    disabled={
+                      jpgGenerationCount >= 2 &&
+                      !(showAlbumLabels
+                        ? jpgImageCache.withoutLabels
+                        : jpgImageCache.withLabels)
+                    }
                     className={cn(
                       'gap-1.5 h-8 text-xs',
                       showAlbumLabels &&
@@ -793,9 +820,16 @@ export default function Home() {
               </div>
             </div>
 
-            {isJpgView && jpgImageData ? (
+            {isJpgView &&
+            (showAlbumLabels
+              ? jpgImageCache.withLabels
+              : jpgImageCache.withoutLabels) ? (
               <Image
-                src={jpgImageData}
+                src={
+                  showAlbumLabels
+                    ? jpgImageCache.withLabels
+                    : jpgImageCache.withoutLabels
+                }
                 alt="Album Grid JPG"
                 width={900}
                 height={900}
