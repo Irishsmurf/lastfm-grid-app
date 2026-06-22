@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 // Removed direct Firebase SDK imports for FTUE: getRemoteConfig, getValue, getApp
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,7 @@ export default function Home() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const [jpgImageCache, setJpgImageCache] = useState<{
     withLabels: string;
     withoutLabels: string;
@@ -78,7 +78,6 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
   const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
   const [showAlbumLabels, setShowAlbumLabels] = useState(false);
-  const [jpgGenerationCount, setJpgGenerationCount] = useState(0);
 
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
@@ -256,7 +255,6 @@ export default function Home() {
           }));
 
         setAlbums(albumData);
-        setJpgGenerationCount(0);
 
         if (typeof responseData.sharedId === 'string') {
           setSharedId(responseData.sharedId);
@@ -298,20 +296,22 @@ export default function Home() {
   };
 
   const generateImage = async (withLabels?: boolean) => {
-    if (!canvasRef.current || albums.length === 0) return;
-    if (jpgGenerationCount >= 2) return;
-    setJpgGenerationCount((c) => c + 1);
+    if (albums.length === 0) return;
     const labelsEnabled = withLabels ?? showAlbumLabels;
 
     const cols = Math.round(Math.sqrt(albums.length));
-    const cellSize = 900 / cols;
+    const canvasSize = 1800;
+    const cellSize = canvasSize / cols;
 
-    const canvas = canvasRef.current;
+    const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = 900;
-    canvas.height = 900;
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -337,6 +337,24 @@ export default function Home() {
       });
     };
 
+    const truncateText = (
+      text: string | undefined | null,
+      font: string,
+      maxWidth: number
+    ) => {
+      if (!text) return '';
+      ctx.font = font;
+      if (ctx.measureText(text).width <= maxWidth) return text;
+      let truncated = text;
+      while (
+        truncated.length > 0 &&
+        ctx.measureText(truncated + '...').width > maxWidth
+      ) {
+        truncated = truncated.slice(0, -1);
+      }
+      return truncated + '...';
+    };
+
     try {
       for (let i = 0; i < albums.length; i++) {
         const x = (i % cols) * cellSize;
@@ -357,24 +375,6 @@ export default function Home() {
 
             ctx.textAlign = 'left';
             const maxTextWidth = cellSize - padding * 2;
-
-            const truncateText = (
-              text: string | undefined | null,
-              font: string,
-              maxWidth: number
-            ) => {
-              if (!text) return '';
-              ctx.font = font;
-              if (ctx.measureText(text).width <= maxWidth) return text;
-              let truncated = text;
-              while (
-                truncated.length > 0 &&
-                ctx.measureText(truncated + '...').width > maxWidth
-              ) {
-                truncated = truncated.slice(0, -1);
-              }
-              return truncated + '...';
-            };
 
             const albumFont = `bold ${albumFontSize}px Inter, sans-serif`;
             const artistFont = `${artistFontSize}px Inter, sans-serif`;
@@ -410,7 +410,7 @@ export default function Home() {
         }
       }
 
-      const imageURL = canvas.toDataURL('image/jpeg', 0.8);
+      const imageURL = canvas.toDataURL('image/jpeg', 0.95);
       setJpgImageCache((prev) => ({
         ...prev,
         [labelsEnabled ? 'withLabels' : 'withoutLabels']: imageURL,
@@ -628,7 +628,6 @@ export default function Home() {
     if (isJpgView) {
       setIsJpgView(false);
       setJpgImageCache({ withLabels: '', withoutLabels: '' });
-      setJpgGenerationCount(0);
     } else {
       generateImage();
     }
@@ -788,12 +787,6 @@ export default function Home() {
                         generateImage(next);
                       }
                     }}
-                    disabled={
-                      jpgGenerationCount >= 2 &&
-                      !(showAlbumLabels
-                        ? jpgImageCache.withoutLabels
-                        : jpgImageCache.withLabels)
-                    }
                     className={cn(
                       'gap-1.5 h-8 text-xs',
                       showAlbumLabels &&
@@ -831,8 +824,8 @@ export default function Home() {
                     : jpgImageCache.withoutLabels
                 }
                 alt="Album Grid JPG"
-                width={900}
-                height={900}
+                width={1800}
+                height={1800}
                 className="w-full h-auto rounded shadow-lg"
                 priority
               />
@@ -935,7 +928,6 @@ export default function Home() {
           </>
         )}
       </div>
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );
 }
