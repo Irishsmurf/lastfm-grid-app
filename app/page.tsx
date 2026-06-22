@@ -55,7 +55,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [jpgImageData, setJpgImageData] = useState<string>('');
+  const [jpgImageCache, setJpgImageCache] = useState<{
+    withLabels: string;
+    withoutLabels: string;
+  }>({ withLabels: '', withoutLabels: '' });
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
     {}
@@ -74,6 +77,8 @@ export default function Home() {
   const [sharedId, setSharedId] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
+  const [showAlbumLabels, setShowAlbumLabels] = useState(false);
+  const [jpgGenerationCount, setJpgGenerationCount] = useState(0);
 
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
@@ -251,6 +256,7 @@ export default function Home() {
           }));
 
         setAlbums(albumData);
+        setJpgGenerationCount(0);
 
         if (typeof responseData.sharedId === 'string') {
           setSharedId(responseData.sharedId);
@@ -291,8 +297,11 @@ export default function Home() {
     }
   };
 
-  const generateImage = async () => {
+  const generateImage = async (withLabels?: boolean) => {
     if (!canvasRef.current || albums.length === 0) return;
+    if (jpgGenerationCount >= 2) return;
+    setJpgGenerationCount((c) => c + 1);
+    const labelsEnabled = withLabels ?? showAlbumLabels;
 
     const cols = Math.round(Math.sqrt(albums.length));
     const cellSize = 900 / cols;
@@ -336,6 +345,56 @@ export default function Home() {
         try {
           const img = await loadImage(albums[i].imageUrl);
           ctx.drawImage(img, x, y, cellSize, cellSize);
+
+          if (labelsEnabled) {
+            const padding = 4;
+            const albumFontSize = Math.max(9, Math.round(cellSize / 25));
+            const artistFontSize = Math.max(8, Math.round(cellSize / 28));
+            const barHeight = albumFontSize + artistFontSize + padding * 3;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(x, y + cellSize - barHeight, cellSize, barHeight);
+
+            ctx.textAlign = 'left';
+            const maxTextWidth = cellSize - padding * 2;
+
+            const truncateText = (
+              text: string | undefined | null,
+              font: string,
+              maxWidth: number
+            ) => {
+              if (!text) return '';
+              ctx.font = font;
+              if (ctx.measureText(text).width <= maxWidth) return text;
+              let truncated = text;
+              while (
+                truncated.length > 0 &&
+                ctx.measureText(truncated + '...').width > maxWidth
+              ) {
+                truncated = truncated.slice(0, -1);
+              }
+              return truncated + '...';
+            };
+
+            const albumFont = `bold ${albumFontSize}px Inter, sans-serif`;
+            const artistFont = `${artistFontSize}px Inter, sans-serif`;
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = albumFont;
+            ctx.fillText(
+              truncateText(albums[i].name, albumFont, maxTextWidth),
+              x + padding,
+              y + cellSize - barHeight + albumFontSize + padding
+            );
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.font = artistFont;
+            ctx.fillText(
+              truncateText(albums[i].artist.name, artistFont, maxTextWidth),
+              x + padding,
+              y + cellSize - padding - 1
+            );
+          }
         } catch (error) {
           console.log('Image failed to load: ', error);
           ctx.fillStyle = '#f0f0f0';
@@ -351,25 +410,11 @@ export default function Home() {
         }
       }
 
-      // Add watermark
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
-      ctx.font = '16px Inter';
-      const labelText = `${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]} · `;
-      const domainText = 'lastfm.paddez.com';
-      const totalWidth = ctx.measureText(labelText + domainText).width;
-      const labelWidth = ctx.measureText(labelText).width;
-      const baseX = canvas.width / 2 - totalWidth / 2;
-      const baseY = canvas.height - 10;
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#000000';
-      ctx.fillText(labelText, baseX, baseY);
-      ctx.fillStyle = '#d51007';
-      ctx.fillText(domainText, baseX + labelWidth, baseY);
-      ctx.textAlign = 'center';
-
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
-      setJpgImageData(imageURL);
+      setJpgImageCache((prev) => ({
+        ...prev,
+        [labelsEnabled ? 'withLabels' : 'withoutLabels']: imageURL,
+      }));
       setIsJpgView(true);
     } catch (error) {
       console.error('Error generating image:', error);
@@ -582,7 +627,8 @@ export default function Home() {
   const handleToggleView = () => {
     if (isJpgView) {
       setIsJpgView(false);
-      setJpgImageData('');
+      setJpgImageCache({ withLabels: '', withoutLabels: '' });
+      setJpgGenerationCount(0);
     } else {
       generateImage();
     }
@@ -685,13 +731,7 @@ export default function Home() {
         {showSpinner && (
           <div
             data-testid="loading-spinner"
-            style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 10,
-            }}
+            className="fixed inset-0 flex items-center justify-center bg-black/30 z-50"
           >
             <div
               style={{
@@ -706,7 +746,7 @@ export default function Home() {
           </div>
         )}
 
-        {albums.length > 0 && !showSpinner && (
+        {albums.length > 0 && (
           <>
             {/* Results header: context + actions */}
             <div className="flex items-center justify-between mt-8 mb-3">
@@ -734,6 +774,35 @@ export default function Home() {
                     {shareCopied ? 'Copied!' : 'Share Grid'}
                   </Button>
                 )}
+                {isJpgView && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const next = !showAlbumLabels;
+                      setShowAlbumLabels(next);
+                      const cached = next
+                        ? jpgImageCache.withLabels
+                        : jpgImageCache.withoutLabels;
+                      if (!cached) {
+                        generateImage(next);
+                      }
+                    }}
+                    disabled={
+                      jpgGenerationCount >= 2 &&
+                      !(showAlbumLabels
+                        ? jpgImageCache.withoutLabels
+                        : jpgImageCache.withLabels)
+                    }
+                    className={cn(
+                      'gap-1.5 h-8 text-xs',
+                      showAlbumLabels &&
+                        'border-brand-red text-brand-red hover:text-brand-red-dark'
+                    )}
+                  >
+                    {showAlbumLabels ? 'Labels On' : 'Labels Off'}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   onClick={handleToggleView}
@@ -751,9 +820,16 @@ export default function Home() {
               </div>
             </div>
 
-            {isJpgView && jpgImageData ? (
+            {isJpgView &&
+            (showAlbumLabels
+              ? jpgImageCache.withLabels
+              : jpgImageCache.withoutLabels) ? (
               <Image
-                src={jpgImageData}
+                src={
+                  showAlbumLabels
+                    ? jpgImageCache.withLabels
+                    : jpgImageCache.withoutLabels
+                }
                 alt="Album Grid JPG"
                 width={900}
                 height={900}
@@ -829,10 +905,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="pt-1.5 pb-1 min-w-0">
-                        <p
-                          className="text-[11px] font-semibold truncate leading-tight"
-                          title={album.name}
-                        >
+                        <p className="text-[11px] font-semibold truncate leading-tight">
                           <a
                             href={`https://musicbrainz.org/release/${album.mbid}`}
                             target="_blank"
@@ -841,10 +914,7 @@ export default function Home() {
                             {album.name}
                           </a>
                         </p>
-                        <p
-                          className="text-[11px] text-muted-foreground truncate leading-tight"
-                          title={album.artist.name}
-                        >
+                        <p className="text-[11px] text-muted-foreground truncate leading-tight">
                           <a
                             href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
                             target="_blank"

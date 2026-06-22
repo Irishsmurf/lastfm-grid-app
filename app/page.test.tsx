@@ -254,10 +254,8 @@ describe('Home Page - Grid Update Animations and Loading Spinner', () => {
     });
     expect(screen.getByTestId('loading-spinner')).toBeVisible();
 
-    // Now the grid container with its items should be unmounted due to `!showSpinner` condition
-    expect(
-      screen.queryByTestId('album-grid-container')
-    ).not.toBeInTheDocument();
+    // Grid container remains visible behind the spinner overlay
+    expect(screen.queryByTestId('album-grid-container')).toBeInTheDocument();
 
     // Resolve the second albums fetch
     await act(async () => {
