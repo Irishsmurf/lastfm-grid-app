@@ -402,23 +402,6 @@ export default function Home() {
         }
       }
 
-      // Add watermark
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
-      ctx.font = '16px Inter';
-      const labelText = `${username}'s Top Albums - ${timeRanges[timeRange as keyof typeof timeRanges]} · `;
-      const domainText = 'lastfm.paddez.com';
-      const totalWidth = ctx.measureText(labelText + domainText).width;
-      const labelWidth = ctx.measureText(labelText).width;
-      const baseX = canvas.width / 2 - totalWidth / 2;
-      const baseY = canvas.height - 10;
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#000000';
-      ctx.fillText(labelText, baseX, baseY);
-      ctx.fillStyle = '#d51007';
-      ctx.fillText(domainText, baseX + labelWidth, baseY);
-      ctx.textAlign = 'center';
-
       const imageURL = canvas.toDataURL('image/jpeg', 0.8);
       setJpgImageData(imageURL);
       setIsJpgView(true);
@@ -779,6 +762,20 @@ export default function Home() {
                     {shareCopied ? 'Copied!' : 'Share Grid'}
                   </Button>
                 )}
+                {!isJpgView && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAlbumLabels(!showAlbumLabels)}
+                    className={cn(
+                      'gap-1.5 h-8 text-xs',
+                      showAlbumLabels &&
+                        'border-brand-red text-brand-red hover:text-brand-red-dark'
+                    )}
+                  >
+                    {showAlbumLabels ? 'Labels On' : 'Labels Off'}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   onClick={handleToggleView}
@@ -795,18 +792,6 @@ export default function Home() {
                 </Button>
               </div>
             </div>
-
-            {!isJpgView && (
-              <label className="flex items-center gap-2 mb-3 text-xs text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={showAlbumLabels}
-                  onChange={(e) => setShowAlbumLabels(e.target.checked)}
-                  className="accent-brand-red"
-                />
-                Show album labels on JPG
-              </label>
-            )}
 
             {isJpgView && jpgImageData ? (
               <Image
