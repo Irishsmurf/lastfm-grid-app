@@ -74,6 +74,7 @@ export default function Home() {
   const [sharedId, setSharedId] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
+  const [showAlbumLabels, setShowAlbumLabels] = useState(false);
 
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
@@ -336,6 +337,55 @@ export default function Home() {
         try {
           const img = await loadImage(albums[i].imageUrl);
           ctx.drawImage(img, x, y, cellSize, cellSize);
+
+          if (showAlbumLabels) {
+            const padding = 4;
+            const albumFontSize = Math.max(9, Math.round(cellSize / 25));
+            const artistFontSize = Math.max(8, Math.round(cellSize / 28));
+            const barHeight = albumFontSize + artistFontSize + padding * 3;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(x, y + cellSize - barHeight, cellSize, barHeight);
+
+            ctx.textAlign = 'left';
+            const maxTextWidth = cellSize - padding * 2;
+
+            const truncateText = (
+              text: string,
+              font: string,
+              maxWidth: number
+            ) => {
+              ctx.font = font;
+              if (ctx.measureText(text).width <= maxWidth) return text;
+              let truncated = text;
+              while (
+                truncated.length > 0 &&
+                ctx.measureText(truncated + '...').width > maxWidth
+              ) {
+                truncated = truncated.slice(0, -1);
+              }
+              return truncated + '...';
+            };
+
+            const albumFont = `bold ${albumFontSize}px Inter, sans-serif`;
+            const artistFont = `${artistFontSize}px Inter, sans-serif`;
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = albumFont;
+            ctx.fillText(
+              truncateText(albums[i].name, albumFont, maxTextWidth),
+              x + padding,
+              y + cellSize - barHeight + albumFontSize + padding
+            );
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.font = artistFont;
+            ctx.fillText(
+              truncateText(albums[i].artist.name, artistFont, maxTextWidth),
+              x + padding,
+              y + cellSize - padding - 1
+            );
+          }
         } catch (error) {
           console.log('Image failed to load: ', error);
           ctx.fillStyle = '#f0f0f0';
@@ -687,10 +737,15 @@ export default function Home() {
             data-testid="loading-spinner"
             style={{
               position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 10,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              zIndex: 50,
             }}
           >
             <div
@@ -706,7 +761,7 @@ export default function Home() {
           </div>
         )}
 
-        {albums.length > 0 && !showSpinner && (
+        {albums.length > 0 && (
           <>
             {/* Results header: context + actions */}
             <div className="flex items-center justify-between mt-8 mb-3">
@@ -750,6 +805,18 @@ export default function Home() {
                 </Button>
               </div>
             </div>
+
+            {!isJpgView && (
+              <label className="flex items-center gap-2 mb-3 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showAlbumLabels}
+                  onChange={(e) => setShowAlbumLabels(e.target.checked)}
+                  className="accent-brand-red"
+                />
+                Show album labels on JPG
+              </label>
+            )}
 
             {isJpgView && jpgImageData ? (
               <Image
@@ -829,10 +896,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="pt-1.5 pb-1 min-w-0">
-                        <p
-                          className="text-[11px] font-semibold truncate leading-tight"
-                          title={album.name}
-                        >
+                        <p className="text-[11px] font-semibold truncate leading-tight">
                           <a
                             href={`https://musicbrainz.org/release/${album.mbid}`}
                             target="_blank"
@@ -841,10 +905,7 @@ export default function Home() {
                             {album.name}
                           </a>
                         </p>
-                        <p
-                          className="text-[11px] text-muted-foreground truncate leading-tight"
-                          title={album.artist.name}
-                        >
+                        <p className="text-[11px] text-muted-foreground truncate leading-tight">
                           <a
                             href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
                             target="_blank"

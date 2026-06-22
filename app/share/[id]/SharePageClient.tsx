@@ -337,10 +337,7 @@ export default function SharePageClient() {
                   )}
                 </div>
                 <div className="pt-1.5 pb-1 min-w-0">
-                  <p
-                    className="text-[11px] font-semibold truncate leading-tight"
-                    title={album.name}
-                  >
+                  <p className="text-[11px] font-semibold truncate leading-tight">
                     <a
                       href={`https://musicbrainz.org/release/${album.mbid}`}
                       target="_blank"
@@ -349,10 +346,7 @@ export default function SharePageClient() {
                       {album.name}
                     </a>
                   </p>
-                  <p
-                    className="text-[11px] text-muted-foreground truncate leading-tight"
-                    title={album.artist.name}
-                  >
+                  <p className="text-[11px] text-muted-foreground truncate leading-tight">
                     <a
                       href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
                       target="_blank"
