@@ -262,6 +262,70 @@ describe('GET /api/albums', () => {
     expect(responseBody.message).toBe('Error fetching albums');
   });
 
+  it('should call end() and increment counter on invalid limit', async () => {
+    const { apiRequestCounter, apiRequestDuration } = require('../../../lib/metrics');
+    const mockEnd = jest.fn();
+    (apiRequestDuration.startTimer as jest.Mock).mockReturnValue(mockEnd);
+
+    const url = 'http://localhost:3000/api/albums?username=testuser&period=7day&limit=999';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
+  it('should call end() and increment counter on invalid username', async () => {
+    const { apiRequestCounter, apiRequestDuration } = require('../../../lib/metrics');
+    const mockEnd = jest.fn();
+    (apiRequestDuration.startTimer as jest.Mock).mockReturnValue(mockEnd);
+
+    const url = 'http://localhost:3000/api/albums?username=x&period=7day';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
+  it('should call end() and increment counter on invalid period', async () => {
+    const { apiRequestCounter, apiRequestDuration } = require('../../../lib/metrics');
+    const mockEnd = jest.fn();
+    (apiRequestDuration.startTimer as jest.Mock).mockReturnValue(mockEnd);
+
+    const url = 'http://localhost:3000/api/albums?username=testuser&period=badperiod';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
+  it('should call end() and increment counter on missing username/period', async () => {
+    const { apiRequestCounter, apiRequestDuration } = require('../../../lib/metrics');
+    const mockEnd = jest.fn();
+    (apiRequestDuration.startTimer as jest.Mock).mockReturnValue(mockEnd);
+
+    const url = 'http://localhost:3000/api/albums';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
   it('should return 500 when a network error is thrown', async () => {
     const mockUsername = 'testuser';
     const mockPeriod = 'overall';

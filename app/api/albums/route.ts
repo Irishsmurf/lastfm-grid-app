@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
 
   if (limitParam && !validLimits.includes(limit)) {
     logger.warn(CTX, `Invalid limit: ${limitParam}`);
+    apiRequestCounter.inc({ method: 'GET', route: '/api/albums', status_code: '400' });
+    end();
     return NextResponse.json(
       { message: 'Invalid limit. Must be 9, 16, or 25.' },
       { status: 400 }
@@ -48,6 +50,8 @@ export async function GET(req: NextRequest) {
   // Validate username
   if (username && (username.length < 2 || username.length > 50)) {
     logger.warn(CTX, `Invalid username: ${username}`);
+    apiRequestCounter.inc({ method: 'GET', route: '/api/albums', status_code: '400' });
+    end();
     return NextResponse.json(
       { message: 'Invalid username. Must be between 2 and 50 characters.' },
       { status: 400 }
@@ -65,6 +69,8 @@ export async function GET(req: NextRequest) {
   ];
   if (period && !validPeriods.includes(period)) {
     logger.warn(CTX, `Invalid period: ${period}`);
+    apiRequestCounter.inc({ method: 'GET', route: '/api/albums', status_code: '400' });
+    end();
     return NextResponse.json({ message: 'Invalid period.' }, { status: 400 });
   }
 
@@ -75,6 +81,8 @@ export async function GET(req: NextRequest) {
 
   if (!username || !period) {
     logger.warn(CTX, 'Missing username or period in request');
+    apiRequestCounter.inc({ method: 'GET', route: '/api/albums', status_code: '400' });
+    end();
     return NextResponse.json(
       { message: 'Username and period are required' },
       { status: 400 }
