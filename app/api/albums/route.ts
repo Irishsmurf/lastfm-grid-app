@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
         `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`
       );
       return respond(200, {
-        albums: data,
+        albums: data || [],
         sharedId: null,
         error:
           process.env.NODE_ENV === 'production'
@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return respond(200, { albums: data, sharedId: sharedId });
+    return respond(200, { albums: data || [], sharedId: sharedId });
   } catch (error) {
     let detailedErrorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {
