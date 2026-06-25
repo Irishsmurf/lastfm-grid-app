@@ -14,11 +14,11 @@
 
 ### Sizes
 
-| File | Usage |
-|------|-------|
-| `/public/logo.svg` | Inline SVG, scalable |
+| File                             | Usage                            |
+| -------------------------------- | -------------------------------- |
+| `/public/logo.svg`               | Inline SVG, scalable             |
 | `/public/icons/icon-192x192.png` | PWA manifest, Android homescreen |
-| `/public/icons/icon-512x512.png` | PWA manifest splash, app stores |
+| `/public/icons/icon-512x512.png` | PWA manifest splash, app stores  |
 
 ### Clear space
 
@@ -28,14 +28,14 @@ Maintain a minimum clear space of ½ the icon's height on all sides.
 
 ## Colour Palette
 
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `brand-red` | `#d51007` | Primary accent, CTA highlights, brand marker |
-| `brand-red-dark` | `#a80c05` | Hover state for red elements |
-| `brand-red-light` | `#ff2a1f` | Focus ring or light-mode accent variant |
-| `brand-dark` | `#0f0f0f` | OG image background, dark surfaces |
-| `brand-surface` | `#1a1a1a` | Cards on dark background, grid cell placeholders |
-| `brand-success` | `#22c55e` | Confirmation states (e.g. "Copied!" checkmark) |
+| Token             | Hex       | Usage                                            |
+| ----------------- | --------- | ------------------------------------------------ |
+| `brand-red`       | `#d51007` | Primary accent, CTA highlights, brand marker     |
+| `brand-red-dark`  | `#a80c05` | Hover state for red elements                     |
+| `brand-red-light` | `#ff2a1f` | Focus ring or light-mode accent variant          |
+| `brand-dark`      | `#0f0f0f` | OG image background, dark surfaces               |
+| `brand-surface`   | `#1a1a1a` | Cards on dark background, grid cell placeholders |
+| `brand-success`   | `#22c55e` | Confirmation states (e.g. "Copied!" checkmark)   |
 
 Tokens are wired into `tailwind.config.ts` under the `brand.*` namespace and can be used as `bg-brand-red`, `text-brand-red`, etc.
 
@@ -45,11 +45,11 @@ The light/dark mode UI uses shadcn/ui CSS variables (`--background`, `--foregrou
 
 ## Typography
 
-| Role | Font | Weight | Tailwind class |
-|------|------|--------|----------------|
-| Headings (h1–h6) | Montserrat | 700 | `font-montserrat` / `--font-montserrat` |
-| Body & UI | Inter | 400–600 | `font-inter` / `--font-inter` |
-| Captions / meta | Inter | 400 | `text-sm text-muted-foreground` |
+| Role             | Font       | Weight  | Tailwind class                          |
+| ---------------- | ---------- | ------- | --------------------------------------- |
+| Headings (h1–h6) | Montserrat | 700     | `font-montserrat` / `--font-montserrat` |
+| Body & UI        | Inter      | 400–600 | `font-inter` / `--font-inter`           |
+| Captions / meta  | Inter      | 400     | `text-sm text-muted-foreground`         |
 
 Both fonts are loaded via `next/font/google` in `app/layout.tsx` and applied globally in `app/globals.css`.
 
@@ -74,10 +74,10 @@ Both fonts are loaded via `next/font/google` in `app/layout.tsx` and applied glo
 
 ## OG Images
 
-| File | Dimensions | When used |
-|------|-----------|-----------|
-| `app/opengraph-image.tsx` | 1200×630 | Default / homepage |
-| `app/share/[id]/opengraph-image.tsx` | 1200×630 | Per-share URLs (shows real album art) |
+| File                                 | Dimensions | When used                             |
+| ------------------------------------ | ---------- | ------------------------------------- |
+| `app/opengraph-image.tsx`            | 1200×630   | Default / homepage                    |
+| `app/share/[id]/opengraph-image.tsx` | 1200×630   | Per-share URLs (shows real album art) |
 
 Both use `BRAND_DARK` (#0f0f0f) background, white headings, `#aaaaaa` subtext, and `BRAND_RED` for the brand marker.
 
