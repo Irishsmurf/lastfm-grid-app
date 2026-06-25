@@ -27,6 +27,13 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://lastfm.paddez.com'),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
+  icons: {
+    icon: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/icons/icon-192x192.png',
+  },
   openGraph: {
     type: 'website',
     siteName: 'LastFM Album Collage Generator',
@@ -61,8 +68,6 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="theme-color" content="#d51007" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <link rel="shortcut icon" href="/favicon.ico" />
         {/* Google tag (gtag.js) */}
         <script
           async
