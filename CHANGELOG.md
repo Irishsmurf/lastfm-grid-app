@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.0] — 2026-06-15
 
 ### Added
+
 - Gallery-first album grid: Card wrappers removed, images tile at `gap-1.5` forming a true mosaic with compact 11px metadata below each cell
 - Album cell hover animation: `scale(1.03)` lift with box-shadow, respects `prefers-reduced-motion`
 - Page hero on home and share pages: Montserrat Black uppercase heading with "Collage" in brand-red, tagline in tracked caps
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `font-montserrat` added to Tailwind `fontFamily` extension making it a proper utility class
 
 ### Changed
+
 - Generate Grid button uses `bg-brand-red hover:bg-brand-red-dark text-white` (was shadcn `--primary` near-black)
 - FTUE highlight ring/border uses `border-brand-red ring-brand-red/30` (was `border-blue-500 ring-blue-300`)
 - Error text uses `text-brand-red` throughout (was `text-red-500 dark:text-red-400`)
@@ -28,12 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JPG watermark renders `lastfm.paddez.com` domain in brand-red beside the username label
 
 ### Technical
+
 - PWA `theme-color` and `msapplication-TileColor` updated to `#d51007`
 - `tailwind.config.ts` extended with `fontFamily.montserrat` for proper Tailwind class support
 
 ## [1.6.0] — 2026-06-15
 
 ### Added
+
 - GitHub Actions CI pipeline for automated linting and testing on every PR and push to main
 - `/api/health` endpoint for Redis connection health checks with structured logging
 - Redis error and reconnecting event listeners for improved monitoring and debugging
@@ -44,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured logging (Pino) throughout API routes for better observability
 
 ### Changed
+
 - Replaced all `console.log` and `console.error` calls with structured logger in API routes
 - Removed redundant `initializeRemoteConfig()` calls from server-side API routes
 - Lazy-initialized Firebase Remote Config to prevent module-level crashes in Node.js environments
@@ -52,11 +57,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canvas renderer updated to use dynamic column count for grid exports
 
 ### Fixed
+
 - Firebase Remote Config SDK initialization no longer crashes when imported in Node.js server context
 - Removed inappropriate server-side Firebase Remote Config initialization
 - Fixed TypeScript compatibility issues with nullable `remoteConfig` in client components
 
 ### Technical
+
 - Redis cache key for albums now includes limit parameter: `lastfm:albums:<user>:<period>:<limit>:minimized`
 - Added `brand-*` color tokens to Tailwind configuration (brand-red, brand-dark, brand-surface, brand-success)
 - Created `BRAND.md` for brand guidelines and usage documentation
