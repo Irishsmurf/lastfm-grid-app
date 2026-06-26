@@ -579,13 +579,13 @@ export default function Home() {
       } else {
         // If no image, default to dark background for logo
         setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
-        if (!spotifyCueVisible[album.mbid]) {
+        setSpotifyCueVisible((prevCues) => {
           // Check if not already set by link fetching
-          setSpotifyCueVisible((prevCues) => ({
-            ...prevCues,
-            [album.mbid]: false,
-          }));
-        }
+          if (!prevCues[album.mbid]) {
+            return { ...prevCues, [album.mbid]: false };
+          }
+          return prevCues;
+        });
       }
     });
   }, [albums]); // Changed dependency array to [albums]
