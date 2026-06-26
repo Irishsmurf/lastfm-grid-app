@@ -182,21 +182,12 @@ export async function GET(req: NextRequest) {
     };
 
     try {
-      // Get shared_grid_expiry_days from Remote Config
-      const remoteConfigExpiryDays = getRemoteConfigValue(
-        'shared_grid_expiry_days'
-      ).asNumber();
-      const defaultExpiryDays = 30;
-      const expiryDays =
-        remoteConfigExpiryDays > 0 ? remoteConfigExpiryDays : defaultExpiryDays;
-      const expirySeconds = expiryDays * 24 * 60 * 60;
-
-      await redis.set(
-        `share:${sharedId}`,
-        JSON.stringify(sharedGridData),
-        'EX',
-        expirySeconds
-      );
+      // Shared grids are stored without an expiry so share links never break.
+      // NOTE: this relies on the Redis instance being durable for these keys —
+      // configure it for persistence with a volatile-* eviction policy (or no
+      // eviction), so permanent share data isn't silently evicted under memory
+      // pressure.
+      await redis.set(`share:${sharedId}`, JSON.stringify(sharedGridData));
       logger.info(
         CTX,
         `Successfully saved shared grid data to Redis for id: ${sharedId}`
