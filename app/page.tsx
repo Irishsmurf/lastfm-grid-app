@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
+import { FileImage, Share2, Check, Loader2 } from 'lucide-react'; // Added Share2, Check, Loader2
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import {
@@ -78,6 +78,7 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
   const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
   const [showAlbumLabels, setShowAlbumLabels] = useState(false);
+  const [isGeneratingLabels, setIsGeneratingLabels] = useState(false);
 
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
@@ -772,23 +773,39 @@ export default function Home() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       const next = !showAlbumLabels;
                       setShowAlbumLabels(next);
                       const cached = next
                         ? jpgImageCache.withLabels
                         : jpgImageCache.withoutLabels;
+                      // Only spin while a new image is being generated. When the
+                      // requested variant is already cached the swap is instant.
                       if (!cached) {
-                        generateImage(next);
+                        setIsGeneratingLabels(true);
+                        try {
+                          await generateImage(next);
+                        } finally {
+                          setIsGeneratingLabels(false);
+                        }
                       }
                     }}
+                    disabled={isGeneratingLabels}
                     className={cn(
-                      'gap-1.5 h-8 text-xs',
+                      // min-width keeps the button from shrinking when its text
+                      // is swapped for the spinner, avoiding layout shift.
+                      'gap-1.5 h-8 text-xs min-w-[5.5rem]',
                       showAlbumLabels &&
                         'border-brand-red text-brand-red hover:text-brand-red-dark'
                     )}
                   >
-                    {showAlbumLabels ? 'Labels On' : 'Labels Off'}
+                    {isGeneratingLabels ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : showAlbumLabels ? (
+                      'Labels On'
+                    ) : (
+                      'Labels Off'
+                    )}
                   </Button>
                 )}
                 <Button
