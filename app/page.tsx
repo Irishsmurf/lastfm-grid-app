@@ -800,8 +800,13 @@ export default function Home() {
                     // is swapped for the spinner, avoiding layout shift.
                     'gap-1.5 h-8 text-xs min-w-[5.5rem] transition-opacity duration-200',
                     // Hidden but space-reserving outside JPG view to avoid the
-                    // row reflowing when the button appears.
-                    !isJpgView && 'invisible pointer-events-none',
+                    // row reflowing when the button appears. opacity (not
+                    // visibility) keeps the footprint while letting the button
+                    // fade in; disabled:opacity-0 overrides the base Button's
+                    // disabled:opacity-50 so it goes fully transparent.
+                    !isJpgView
+                      ? 'opacity-0 disabled:opacity-0 pointer-events-none'
+                      : 'opacity-100',
                     showAlbumLabels &&
                       'border-brand-red text-brand-red hover:text-brand-red-dark'
                   )}
