@@ -212,6 +212,12 @@ export default function Home() {
 
   const fetchTopAlbums = async () => {
     setIsJpgView(false); // Add this line
+    // Invalidate any previously generated JPGs. The cache is keyed only by
+    // label state, not by the album set, so leaving it intact would let a
+    // stale JPG from the prior grid surface when toggling labels on the new
+    // grid (e.g. generate 3×3 → JPG → Labels → generate 5×5 → JPG → Labels Off
+    // would otherwise show the old 3×3 image).
+    setJpgImageCache({ withLabels: '', withoutLabels: '' });
     if (!username) {
       setError('Please enter a username');
       return;

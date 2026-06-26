@@ -74,6 +74,10 @@ jest.mock('lucide-react', () => ({
     <svg data-testid="file-image-icon" {...props} />
   ),
   Share2: (props: IconProps) => <svg data-testid="share2-icon" {...props} />,
+  Loader2: (props: IconProps) => <svg data-testid="loader2-icon" {...props} />,
+  LayoutGrid: (props: IconProps) => (
+    <svg data-testid="layout-grid-icon" {...props} />
+  ),
 }));
 
 const mockLocalStorage = (() => {
@@ -315,5 +319,149 @@ describe('Home Page - Basic Rendering', () => {
     expect(
       screen.getByRole('button', { name: 'Generate Grid' })
     ).toBeInTheDocument();
+  });
+});
+
+describe('Home Page - JPG label toggle cache invalidation', () => {
+  // Each generateImage() call produces a unique data URL so we can assert which
+  // generation is actually being displayed.
+  let toDataUrlCounter: number;
+  let srcDescriptor: PropertyDescriptor | undefined;
+  let originalGetContext: typeof HTMLCanvasElement.prototype.getContext;
+  let originalToDataURL: typeof HTMLCanvasElement.prototype.toDataURL;
+
+  beforeEach(() => {
+    mockLocalStorage.clear();
+    mockLocalStorage.setItem('username', 'testuser');
+
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({
+            albums: mockApiAlbumsPayload,
+            sharedId: 'test-share-id',
+          }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        return { ok: true, json: async () => ({ spotifyUrl: null }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    // Fake 2D canvas context covering every method generateImage and the logo
+    // colour analysis rely on.
+    toDataUrlCounter = 0;
+    const fakeCtx = {
+      fillStyle: '',
+      font: '',
+      textAlign: '',
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: '',
+      fillRect: jest.fn(),
+      drawImage: jest.fn(),
+      fillText: jest.fn(),
+      measureText: jest.fn(() => ({ width: 10 })),
+      getImageData: jest.fn(() => ({
+        data: new Uint8ClampedArray(64 * 64 * 4),
+      })),
+    };
+    // Capture the originals so they can be restored in afterEach, avoiding
+    // pollution of the other suites in this file (which rely on getContext
+    // returning null).
+    originalGetContext = HTMLCanvasElement.prototype.getContext;
+    originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.getContext = jest.fn(
+      () => fakeCtx
+    ) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.toDataURL = jest.fn(
+      () => `data:image/jpeg;base64,gen-${++toDataUrlCounter}`
+    );
+
+    // Make <img> elements created via document.createElement / new Image()
+    // resolve their onload as soon as a src is assigned, so the async image
+    // loading inside generateImage completes.
+    srcDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      'src'
+    );
+    Object.defineProperty(HTMLImageElement.prototype, 'src', {
+      configurable: true,
+      get() {
+        return this._src ?? '';
+      },
+      set(value: string) {
+        this._src = value;
+        if (typeof this.onload === 'function') {
+          Promise.resolve().then(() => this.onload(new Event('load')));
+        }
+      },
+    });
+  });
+
+  afterEach(() => {
+    if (srcDescriptor) {
+      Object.defineProperty(HTMLImageElement.prototype, 'src', srcDescriptor);
+    }
+    HTMLCanvasElement.prototype.getContext = originalGetContext;
+    HTMLCanvasElement.prototype.toDataURL = originalToDataURL;
+  });
+
+  async function loadGrid() {
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+    await screen.findByTestId('album-grid-container');
+  }
+
+  async function convertToJpg() {
+    fireEvent.click(screen.getByRole('button', { name: /Convert to JPG/ }));
+    await screen.findByAltText('Album Grid JPG');
+  }
+
+  it('regenerates the JPG instead of showing a stale grid after a new fetch', async () => {
+    render(<Home />);
+
+    // 1. Generate a grid, 2. Convert to JPG (labels off → withoutLabels = gen-1)
+    await loadGrid();
+    await convertToJpg();
+    expect(screen.getByAltText('Album Grid JPG')).toHaveAttribute(
+      'src',
+      'data:image/jpeg;base64,gen-1'
+    );
+
+    // 3. Turn labels on → withLabels = gen-2
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Labels Off' }));
+    });
+    await screen.findByRole('button', { name: 'Labels On' });
+    expect(screen.getByAltText('Album Grid JPG')).toHaveAttribute(
+      'src',
+      'data:image/jpeg;base64,gen-2'
+    );
+
+    // 4. Generate a new grid without refreshing — this must invalidate the
+    //    cached JPGs from the previous grid.
+    await loadGrid();
+
+    // 5. Convert to JPG again (labels preference still on → withLabels = gen-3)
+    await convertToJpg();
+    expect(screen.getByAltText('Album Grid JPG')).toHaveAttribute(
+      'src',
+      'data:image/jpeg;base64,gen-3'
+    );
+
+    // 6. Flip labels off. The withoutLabels slot was cleared by the new fetch,
+    //    so this must regenerate (gen-4) rather than resurfacing the stale
+    //    gen-1 image from the first grid.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Labels On' }));
+    });
+    await screen.findByRole('button', { name: 'Labels Off' });
+    expect(screen.getByAltText('Album Grid JPG')).toHaveAttribute(
+      'src',
+      'data:image/jpeg;base64,gen-4'
+    );
   });
 });
