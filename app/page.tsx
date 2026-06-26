@@ -814,14 +814,18 @@ export default function Home() {
             </div>
 
             {isJpgView &&
+            // Prefer the JPG matching the current label state, but fall back to
+            // the other cached JPG while the requested one is still generating.
+            // This prevents a momentary flash of the underlying grid when
+            // toggling labels on/off in JPG view.
             (showAlbumLabels
-              ? jpgImageCache.withLabels
-              : jpgImageCache.withoutLabels) ? (
+              ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
+              : jpgImageCache.withoutLabels || jpgImageCache.withLabels) ? (
               <Image
                 src={
                   showAlbumLabels
-                    ? jpgImageCache.withLabels
-                    : jpgImageCache.withoutLabels
+                    ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
+                    : jpgImageCache.withoutLabels || jpgImageCache.withLabels
                 }
                 alt="Album Grid JPG"
                 width={1800}
