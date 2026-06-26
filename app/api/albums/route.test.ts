@@ -2,6 +2,7 @@ import { GET } from './route';
 import { redis } from '../../../lib/redis';
 import { MinimizedAlbum } from '../../../lib/minimizedLastfmService';
 import { nanoid } from 'nanoid';
+import { apiRequestCounter, apiRequestDuration } from '../../../lib/metrics';
 
 jest.mock('next/server', () => ({
   NextRequest: jest.fn(),
@@ -38,7 +39,6 @@ jest.mock('../../../lib/firebase', () => ({
     asNumber: () => {
       if (key === 'lastfm_cache_expiry_seconds') return 3600;
       if (key === 'not_found_cache_expiry_seconds') return 600;
-      if (key === 'shared_grid_expiry_days') return 30;
       return 0;
     },
     asString: () => '',
@@ -59,10 +59,15 @@ const createMockRequest = (username: string, period: string, limit = 9) => {
 };
 
 describe('GET /api/albums', () => {
+  let mockEnd: jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
     process.env.LASTFM_API_KEY = 'testapikey';
+
+    mockEnd = jest.fn();
+    (apiRequestDuration.startTimer as jest.Mock).mockReturnValue(mockEnd);
   });
 
   it('should return cached album data when available', async () => {
@@ -157,9 +162,7 @@ describe('GET /api/albums', () => {
     );
     expect(redis.set).toHaveBeenCalledWith(
       `share:${mockSharedId}`,
-      expect.stringContaining(`"id":"${mockSharedId}"`),
-      'EX',
-      2592000
+      expect.stringContaining(`"id":"${mockSharedId}"`)
     );
     expect(response.status).toBe(200);
     expect(responseBody.albums).toEqual(expectedAlbums);
@@ -260,6 +263,91 @@ describe('GET /api/albums', () => {
 
     expect(response.status).toBe(500);
     expect(responseBody.message).toBe('Error fetching albums');
+  });
+
+  it('should call end() and increment counter on invalid limit', async () => {
+    const url =
+      'http://localhost:3000/api/albums?username=testuser&period=7day&limit=999';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
+  it('should call end() and increment counter on invalid username', async () => {
+    const url = 'http://localhost:3000/api/albums?username=x&period=7day';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
+  it('should call end() and increment counter on invalid period', async () => {
+    const url =
+      'http://localhost:3000/api/albums?username=testuser&period=badperiod';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
+  it('should call end() and increment counter on missing username/period', async () => {
+    const url = 'http://localhost:3000/api/albums';
+    const req = new Request(url) as any;
+    const response = await GET(req);
+
+    expect(response.status).toBe(400);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '400' })
+    );
+  });
+
+  it('should call end() and increment counter when Redis share save fails', async () => {
+    const mockLastFmData = {
+      topalbums: {
+        album: [
+          {
+            name: 'RF Album',
+            artist: { name: 'RF Artist', mbid: 'rf-artist-mbid', url: '' },
+            image: [{ '#text': 'rf.jpg', size: 'extralarge' }],
+            mbid: 'rf-mbid',
+            playcount: '150',
+            url: '',
+          },
+        ],
+      },
+    };
+
+    (nanoid as jest.Mock).mockReturnValue('redis-fail-nanoid');
+    (redis.get as jest.Mock).mockResolvedValue(null);
+    (redis.setex as jest.Mock).mockResolvedValue('OK');
+    (redis.set as jest.Mock).mockRejectedValue(new Error('Redis SET failed'));
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(mockLastFmData),
+    });
+
+    const req = createMockRequest('redis-fail-user', '1month');
+    const response = await GET(req);
+
+    expect(response.status).toBe(200);
+    expect(mockEnd).toHaveBeenCalled();
+    expect(apiRequestCounter.inc).toHaveBeenCalledWith(
+      expect.objectContaining({ status_code: '200' })
+    );
   });
 
   it('should return 500 when a network error is thrown', async () => {

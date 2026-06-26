@@ -24,6 +24,16 @@ export async function GET(req: NextRequest) {
     route: '/api/albums',
   });
 
+  const respond = (status: number, body: Record<string, unknown>) => {
+    apiRequestCounter.inc({
+      method: 'GET',
+      route: '/api/albums',
+      status_code: status.toString(),
+    });
+    end();
+    return NextResponse.json(body, { status });
+  };
+
   const { searchParams } = new URL(req.url);
   const username = searchParams.get('username');
   const period = searchParams.get('period');
@@ -34,10 +44,7 @@ export async function GET(req: NextRequest) {
 
   if (limitParam && !validLimits.includes(limit)) {
     logger.warn(CTX, `Invalid limit: ${limitParam}`);
-    return NextResponse.json(
-      { message: 'Invalid limit. Must be 9, 16, or 25.' },
-      { status: 400 }
-    );
+    return respond(400, { message: 'Invalid limit. Must be 9, 16, or 25.' });
   }
 
   logger.info(
@@ -45,16 +52,13 @@ export async function GET(req: NextRequest) {
     `Received request for username: ${username}, period: ${period}, limit: ${limit}`
   );
 
-  // Validate username
   if (username && (username.length < 2 || username.length > 50)) {
     logger.warn(CTX, `Invalid username: ${username}`);
-    return NextResponse.json(
-      { message: 'Invalid username. Must be between 2 and 50 characters.' },
-      { status: 400 }
-    );
+    return respond(400, {
+      message: 'Invalid username. Must be between 2 and 50 characters.',
+    });
   }
 
-  // Validate period
   const validPeriods = [
     'overall',
     '7day',
@@ -65,7 +69,7 @@ export async function GET(req: NextRequest) {
   ];
   if (period && !validPeriods.includes(period)) {
     logger.warn(CTX, `Invalid period: ${period}`);
-    return NextResponse.json({ message: 'Invalid period.' }, { status: 400 });
+    return respond(400, { message: 'Invalid period.' });
   }
 
   logger.info(
@@ -75,10 +79,7 @@ export async function GET(req: NextRequest) {
 
   if (!username || !period) {
     logger.warn(CTX, 'Missing username or period in request');
-    return NextResponse.json(
-      { message: 'Username and period are required' },
-      { status: 400 }
-    );
+    return respond(400, { message: 'Username and period are required' });
   }
 
   // Encode username and period for cache key security
@@ -181,21 +182,12 @@ export async function GET(req: NextRequest) {
     };
 
     try {
-      // Get shared_grid_expiry_days from Remote Config
-      const remoteConfigExpiryDays = getRemoteConfigValue(
-        'shared_grid_expiry_days'
-      ).asNumber();
-      const defaultExpiryDays = 30;
-      const expiryDays =
-        remoteConfigExpiryDays > 0 ? remoteConfigExpiryDays : defaultExpiryDays;
-      const expirySeconds = expiryDays * 24 * 60 * 60;
-
-      await redis.set(
-        `share:${sharedId}`,
-        JSON.stringify(sharedGridData),
-        'EX',
-        expirySeconds
-      );
+      // Shared grids are stored without an expiry so share links never break.
+      // NOTE: this relies on the Redis instance being durable for these keys —
+      // configure it for persistence with a volatile-* eviction policy (or no
+      // eviction), so permanent share data isn't silently evicted under memory
+      // pressure.
+      await redis.set(`share:${sharedId}`, JSON.stringify(sharedGridData));
       logger.info(
         CTX,
         `Successfully saved shared grid data to Redis for id: ${sharedId}`
@@ -205,28 +197,17 @@ export async function GET(req: NextRequest) {
         CTX,
         `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`
       );
-      // Still return album data, but indicate sharing failed.
-      const redisErrorResponse = {
-        albums: data,
+      return respond(200, {
+        albums: data || [],
         sharedId: null,
         error:
           process.env.NODE_ENV === 'production'
             ? 'Failed to save share data.'
             : `Failed to save share data: ${redisError instanceof Error ? redisError.message : String(redisError)}`,
-      };
-      return NextResponse.json(redisErrorResponse, { status: 200 }); // Status 200 as per original, though 500 might be more appropriate.
+      });
     }
 
-    apiRequestCounter.inc({
-      method: 'GET',
-      route: '/api/albums',
-      status_code: '200',
-    });
-    end();
-    return NextResponse.json(
-      { albums: data, sharedId: sharedId },
-      { status: 200 }
-    );
+    return respond(200, { albums: data || [], sharedId: sharedId });
   } catch (error) {
     let detailedErrorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {
@@ -247,15 +228,6 @@ export async function GET(req: NextRequest) {
         ? undefined // Omit detailed error in production
         : detailedErrorMessage;
 
-    apiRequestCounter.inc({
-      method: 'GET',
-      route: '/api/albums',
-      status_code: '500',
-    });
-    end();
-    return NextResponse.json(
-      { message: responseMessage, error: errorDetail },
-      { status: 500 }
-    );
+    return respond(500, { message: responseMessage, error: errorDetail });
   }
 }

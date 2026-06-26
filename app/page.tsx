@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileImage, Share2, Check } from 'lucide-react'; // Added Share2, Check
+import { FileImage, LayoutGrid, Share2, Check, Loader2 } from 'lucide-react'; // Added Share2, Check, Loader2, LayoutGrid
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import {
@@ -78,6 +78,7 @@ export default function Home() {
   const [shareCopied, setShareCopied] = useState(false);
   const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
   const [showAlbumLabels, setShowAlbumLabels] = useState(false);
+  const [isGeneratingLabels, setIsGeneratingLabels] = useState(false);
 
   // FTUE States
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
@@ -211,6 +212,12 @@ export default function Home() {
 
   const fetchTopAlbums = async () => {
     setIsJpgView(false); // Add this line
+    // Invalidate any previously generated JPGs. The cache is keyed only by
+    // label state, not by the album set, so leaving it intact would let a
+    // stale JPG from the prior grid surface when toggling labels on the new
+    // grid (e.g. generate 3×3 → JPG → Labels → generate 5×5 → JPG → Labels Off
+    // would otherwise show the old 3×3 image).
+    setJpgImageCache({ withLabels: '', withoutLabels: '' });
     if (!username) {
       setError('Please enter a username');
       return;
@@ -577,15 +584,10 @@ export default function Home() {
         // Updated image access
         getLogoBackgroundColorType(album.imageUrl, album.mbid);
       } else {
-        // If no image, default to dark background for logo
+        // If no image, default to dark background for logo. The Spotify cue
+        // visibility is left to fetchSpotifyLink, which always sets it; the UI
+        // treats an unset value as false in the meantime.
         setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
-        if (!spotifyCueVisible[album.mbid]) {
-          // Check if not already set by link fetching
-          setSpotifyCueVisible((prevCues) => ({
-            ...prevCues,
-            [album.mbid]: false,
-          }));
-        }
       }
     });
   }, [albums]); // Changed dependency array to [albums]
@@ -773,36 +775,68 @@ export default function Home() {
                     {shareCopied ? 'Copied!' : 'Share Grid'}
                   </Button>
                 )}
-                {isJpgView && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const next = !showAlbumLabels;
-                      setShowAlbumLabels(next);
-                      const cached = next
-                        ? jpgImageCache.withLabels
-                        : jpgImageCache.withoutLabels;
-                      if (!cached) {
-                        generateImage(next);
+                {/* Always mounted so it reserves its slot in the row. When not
+                    in JPG view it's hidden but keeps its footprint, so entering
+                    JPG view reveals it in place instead of pushing neighbors. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const next = !showAlbumLabels;
+                    setShowAlbumLabels(next);
+                    const cached = next
+                      ? jpgImageCache.withLabels
+                      : jpgImageCache.withoutLabels;
+                    // Only spin while a new image is being generated. When the
+                    // requested variant is already cached the swap is instant.
+                    if (!cached) {
+                      setIsGeneratingLabels(true);
+                      try {
+                        await generateImage(next);
+                      } finally {
+                        setIsGeneratingLabels(false);
                       }
-                    }}
-                    className={cn(
-                      'gap-1.5 h-8 text-xs',
-                      showAlbumLabels &&
-                        'border-brand-red text-brand-red hover:text-brand-red-dark'
-                    )}
-                  >
-                    {showAlbumLabels ? 'Labels On' : 'Labels Off'}
-                  </Button>
-                )}
+                    }
+                  }}
+                  disabled={isGeneratingLabels || !isJpgView}
+                  aria-hidden={!isJpgView}
+                  tabIndex={isJpgView ? undefined : -1}
+                  className={cn(
+                    // min-width keeps the button from shrinking when its text
+                    // is swapped for the spinner, avoiding layout shift.
+                    'gap-1.5 h-8 text-xs min-w-[5.5rem] transition-opacity duration-200',
+                    // Hidden but space-reserving outside JPG view to avoid the
+                    // row reflowing when the button appears. opacity (not
+                    // visibility) keeps the footprint while letting the button
+                    // fade in; disabled:opacity-0 overrides the base Button's
+                    // disabled:opacity-50 so it goes fully transparent.
+                    !isJpgView
+                      ? 'opacity-0 disabled:opacity-0 pointer-events-none'
+                      : 'opacity-100',
+                    showAlbumLabels &&
+                      'border-brand-red text-brand-red hover:text-brand-red-dark'
+                  )}
+                >
+                  {isGeneratingLabels ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : showAlbumLabels ? (
+                    'Labels On'
+                  ) : (
+                    'Labels Off'
+                  )}
+                </Button>
                 <Button
                   size="sm"
                   onClick={handleToggleView}
-                  className="gap-1.5 h-8 text-xs bg-brand-red hover:bg-brand-red-dark text-white"
+                  // min-width + a consistent leading icon keep this button a
+                  // fixed size across both states, so toggling never resizes it.
+                  className="gap-1.5 h-8 text-xs min-w-[8.5rem] justify-center bg-brand-red hover:bg-brand-red-dark text-white"
                 >
                   {isJpgView ? (
-                    'Revert to Grid'
+                    <>
+                      <LayoutGrid size={13} />
+                      Revert to Grid
+                    </>
                   ) : (
                     <>
                       <FileImage size={13} />
@@ -814,14 +848,18 @@ export default function Home() {
             </div>
 
             {isJpgView &&
+            // Prefer the JPG matching the current label state, but fall back to
+            // the other cached JPG while the requested one is still generating.
+            // This prevents a momentary flash of the underlying grid when
+            // toggling labels on/off in JPG view.
             (showAlbumLabels
-              ? jpgImageCache.withLabels
-              : jpgImageCache.withoutLabels) ? (
+              ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
+              : jpgImageCache.withoutLabels || jpgImageCache.withLabels) ? (
               <Image
                 src={
                   showAlbumLabels
-                    ? jpgImageCache.withLabels
-                    : jpgImageCache.withoutLabels
+                    ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
+                    : jpgImageCache.withoutLabels || jpgImageCache.withLabels
                 }
                 alt="Album Grid JPG"
                 width={1800}

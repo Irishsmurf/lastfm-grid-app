@@ -33,6 +33,7 @@ export const metadata: Metadata = {
       { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: '/icons/icon-192x192.png',
+    shortcut: '/icons/icon-192x192.png',
   },
   openGraph: {
     type: 'website',
@@ -68,19 +69,6 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="theme-color" content="#d51007" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <link
-          rel="icon"
-          type="image/png"
-          sizes="192x192"
-          href="/icons/icon-192x192.png"
-        />
-        <link
-          rel="icon"
-          type="image/png"
-          sizes="512x512"
-          href="/icons/icon-512x512.png"
-        />
         {/* Google tag (gtag.js) */}
         <script
           async
