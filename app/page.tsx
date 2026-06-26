@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileImage, Share2, Check, Loader2 } from 'lucide-react'; // Added Share2, Check, Loader2
+import { FileImage, LayoutGrid, Share2, Check, Loader2 } from 'lucide-react'; // Added Share2, Check, Loader2, LayoutGrid
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import {
@@ -769,52 +769,63 @@ export default function Home() {
                     {shareCopied ? 'Copied!' : 'Share Grid'}
                   </Button>
                 )}
-                {isJpgView && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      const next = !showAlbumLabels;
-                      setShowAlbumLabels(next);
-                      const cached = next
-                        ? jpgImageCache.withLabels
-                        : jpgImageCache.withoutLabels;
-                      // Only spin while a new image is being generated. When the
-                      // requested variant is already cached the swap is instant.
-                      if (!cached) {
-                        setIsGeneratingLabels(true);
-                        try {
-                          await generateImage(next);
-                        } finally {
-                          setIsGeneratingLabels(false);
-                        }
+                {/* Always mounted so it reserves its slot in the row. When not
+                    in JPG view it's hidden but keeps its footprint, so entering
+                    JPG view reveals it in place instead of pushing neighbors. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const next = !showAlbumLabels;
+                    setShowAlbumLabels(next);
+                    const cached = next
+                      ? jpgImageCache.withLabels
+                      : jpgImageCache.withoutLabels;
+                    // Only spin while a new image is being generated. When the
+                    // requested variant is already cached the swap is instant.
+                    if (!cached) {
+                      setIsGeneratingLabels(true);
+                      try {
+                        await generateImage(next);
+                      } finally {
+                        setIsGeneratingLabels(false);
                       }
-                    }}
-                    disabled={isGeneratingLabels}
-                    className={cn(
-                      // min-width keeps the button from shrinking when its text
-                      // is swapped for the spinner, avoiding layout shift.
-                      'gap-1.5 h-8 text-xs min-w-[5.5rem]',
-                      showAlbumLabels &&
-                        'border-brand-red text-brand-red hover:text-brand-red-dark'
-                    )}
-                  >
-                    {isGeneratingLabels ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : showAlbumLabels ? (
-                      'Labels On'
-                    ) : (
-                      'Labels Off'
-                    )}
-                  </Button>
-                )}
+                    }
+                  }}
+                  disabled={isGeneratingLabels || !isJpgView}
+                  aria-hidden={!isJpgView}
+                  tabIndex={isJpgView ? undefined : -1}
+                  className={cn(
+                    // min-width keeps the button from shrinking when its text
+                    // is swapped for the spinner, avoiding layout shift.
+                    'gap-1.5 h-8 text-xs min-w-[5.5rem] transition-opacity duration-200',
+                    // Hidden but space-reserving outside JPG view to avoid the
+                    // row reflowing when the button appears.
+                    !isJpgView && 'invisible pointer-events-none',
+                    showAlbumLabels &&
+                      'border-brand-red text-brand-red hover:text-brand-red-dark'
+                  )}
+                >
+                  {isGeneratingLabels ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : showAlbumLabels ? (
+                    'Labels On'
+                  ) : (
+                    'Labels Off'
+                  )}
+                </Button>
                 <Button
                   size="sm"
                   onClick={handleToggleView}
-                  className="gap-1.5 h-8 text-xs bg-brand-red hover:bg-brand-red-dark text-white"
+                  // min-width + a consistent leading icon keep this button a
+                  // fixed size across both states, so toggling never resizes it.
+                  className="gap-1.5 h-8 text-xs min-w-[8.5rem] justify-center bg-brand-red hover:bg-brand-red-dark text-white"
                 >
                   {isJpgView ? (
-                    'Revert to Grid'
+                    <>
+                      <LayoutGrid size={13} />
+                      Revert to Grid
+                    </>
                   ) : (
                     <>
                       <FileImage size={13} />
