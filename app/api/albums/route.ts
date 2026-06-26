@@ -183,6 +183,10 @@ export async function GET(req: NextRequest) {
 
     try {
       // Shared grids are stored without an expiry so share links never break.
+      // NOTE: this relies on the Redis instance being durable for these keys —
+      // configure it for persistence with a volatile-* eviction policy (or no
+      // eviction), so permanent share data isn't silently evicted under memory
+      // pressure.
       await redis.set(`share:${sharedId}`, JSON.stringify(sharedGridData));
       logger.info(
         CTX,
