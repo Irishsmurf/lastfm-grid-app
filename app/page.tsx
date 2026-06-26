@@ -797,7 +797,9 @@ export default function Home() {
                     }}
                     disabled={isGeneratingLabels}
                     className={cn(
-                      'gap-1.5 h-8 text-xs',
+                      // min-width keeps the button from shrinking when its text
+                      // is swapped for the spinner, avoiding layout shift.
+                      'gap-1.5 h-8 text-xs min-w-[5.5rem]',
                       showAlbumLabels &&
                         'border-brand-red text-brand-red hover:text-brand-red-dark'
                     )}
