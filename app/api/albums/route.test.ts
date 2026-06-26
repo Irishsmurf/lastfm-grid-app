@@ -39,7 +39,6 @@ jest.mock('../../../lib/firebase', () => ({
     asNumber: () => {
       if (key === 'lastfm_cache_expiry_seconds') return 3600;
       if (key === 'not_found_cache_expiry_seconds') return 600;
-      if (key === 'shared_grid_expiry_days') return 30;
       return 0;
     },
     asString: () => '',
@@ -163,9 +162,7 @@ describe('GET /api/albums', () => {
     );
     expect(redis.set).toHaveBeenCalledWith(
       `share:${mockSharedId}`,
-      expect.stringContaining(`"id":"${mockSharedId}"`),
-      'EX',
-      2592000
+      expect.stringContaining(`"id":"${mockSharedId}"`)
     );
     expect(response.status).toBe(200);
     expect(responseBody.albums).toEqual(expectedAlbums);
