@@ -577,15 +577,10 @@ export default function Home() {
         // Updated image access
         getLogoBackgroundColorType(album.imageUrl, album.mbid);
       } else {
-        // If no image, default to dark background for logo
+        // If no image, default to dark background for logo. The Spotify cue
+        // visibility is left to fetchSpotifyLink, which always sets it; the UI
+        // treats an unset value as false in the meantime.
         setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
-        setSpotifyCueVisible((prevCues) => {
-          // Check if not already set by link fetching
-          if (!prevCues[album.mbid]) {
-            return { ...prevCues, [album.mbid]: false };
-          }
-          return prevCues;
-        });
       }
     });
   }, [albums]); // Changed dependency array to [albums]
