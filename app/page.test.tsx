@@ -75,6 +75,9 @@ jest.mock('lucide-react', () => ({
   ),
   Share2: (props: IconProps) => <svg data-testid="share2-icon" {...props} />,
   Loader2: (props: IconProps) => <svg data-testid="loader2-icon" {...props} />,
+  LayoutGrid: (props: IconProps) => (
+    <svg data-testid="layout-grid-icon" {...props} />
+  ),
 }));
 
 const mockLocalStorage = (() => {
@@ -324,6 +327,8 @@ describe('Home Page - JPG label toggle cache invalidation', () => {
   // generation is actually being displayed.
   let toDataUrlCounter: number;
   let srcDescriptor: PropertyDescriptor | undefined;
+  let originalGetContext: typeof HTMLCanvasElement.prototype.getContext;
+  let originalToDataURL: typeof HTMLCanvasElement.prototype.toDataURL;
 
   beforeEach(() => {
     mockLocalStorage.clear();
@@ -364,6 +369,11 @@ describe('Home Page - JPG label toggle cache invalidation', () => {
         data: new Uint8ClampedArray(64 * 64 * 4),
       })),
     };
+    // Capture the originals so they can be restored in afterEach, avoiding
+    // pollution of the other suites in this file (which rely on getContext
+    // returning null).
+    originalGetContext = HTMLCanvasElement.prototype.getContext;
+    originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
     HTMLCanvasElement.prototype.getContext = jest.fn(
       () => fakeCtx
     ) as unknown as typeof HTMLCanvasElement.prototype.getContext;
@@ -396,6 +406,8 @@ describe('Home Page - JPG label toggle cache invalidation', () => {
     if (srcDescriptor) {
       Object.defineProperty(HTMLImageElement.prototype, 'src', srcDescriptor);
     }
+    HTMLCanvasElement.prototype.getContext = originalGetContext;
+    HTMLCanvasElement.prototype.toDataURL = originalToDataURL;
   });
 
   async function loadGrid() {
