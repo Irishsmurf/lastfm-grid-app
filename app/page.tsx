@@ -314,8 +314,8 @@ export default function Home() {
     }
   };
 
-  const generateImage = async (withLabels?: boolean) => {
-    if (albums.length === 0) return;
+  const generateImage = async (withLabels?: boolean): Promise<boolean> => {
+    if (albums.length === 0) return false;
     const labelsEnabled = withLabels ?? showAlbumLabels;
 
     const cols = Math.round(Math.sqrt(albums.length));
@@ -324,7 +324,7 @@ export default function Home() {
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) return false;
 
     canvas.width = canvasSize;
     canvas.height = canvasSize;
@@ -434,9 +434,11 @@ export default function Home() {
         ...prev,
         [labelsEnabled ? 'withLabels' : 'withoutLabels']: imageURL,
       }));
+      return true;
     } catch (error) {
       console.error('Error generating image:', error);
       setError('Error generating image. Please try again.');
+      return false;
     }
   };
 
@@ -682,8 +684,11 @@ export default function Home() {
       });
     } else {
       setIsPreparingJpg(true);
-      generateImage().finally(() => {
+      generateImage().then((succeeded) => {
         setIsPreparingJpg(false);
+        // Don't animate into JPG view if generation failed — the error is
+        // already surfaced via setError, and there's no image to show.
+        if (!succeeded) return;
         runOut(() => {
           setIsJpgView(true);
           runIn();
