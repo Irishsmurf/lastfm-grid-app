@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 // Removed direct Firebase SDK imports for FTUE: getRemoteConfig, getValue, getApp
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,12 @@ export default function Home() {
     withoutLabels: string;
   }>({ withLabels: '', withoutLabels: '' });
   const [isJpgView, setIsJpgView] = useState<boolean>(false);
+  // Drives the fade/scale animation that plays while swapping between the
+  // grid and JPG views; decoupled from isJpgView so the outgoing content can
+  // stay mounted and animate out before the underlying data flips.
+  const [viewPhase, setViewPhase] = useState<'idle' | 'out' | 'in'>('idle');
+  const [isPreparingJpg, setIsPreparingJpg] = useState(false);
+  const transitionTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [fadeInStates, setFadeInStates] = useState<{ [key: number]: boolean }>(
     {}
   );
@@ -211,7 +217,13 @@ export default function Home() {
   }, []);
 
   const fetchTopAlbums = async () => {
-    setIsJpgView(false); // Add this line
+    // Fetching a new grid is the primary action and always resets to the
+    // grid view instantly, bypassing the animated toggle entirely — cancel
+    // any in-flight view-swap transition so it can't leave viewPhase stuck.
+    clearPendingTransitionTimers();
+    setViewPhase('idle');
+    setIsPreparingJpg(false);
+    setIsJpgView(false);
     // Invalidate any previously generated JPGs. The cache is keyed only by
     // label state, not by the album set, so leaving it intact would let a
     // stale JPG from the prior grid surface when toggling labels on the new
@@ -422,7 +434,6 @@ export default function Home() {
         ...prev,
         [labelsEnabled ? 'withLabels' : 'withoutLabels']: imageURL,
       }));
-      setIsJpgView(true);
     } catch (error) {
       console.error('Error generating image:', error);
       setError('Error generating image. Please try again.');
@@ -458,6 +469,13 @@ export default function Home() {
       setFadeInStates({});
     }
   }, [albums]);
+
+  const clearPendingTransitionTimers = () => {
+    transitionTimeoutsRef.current.forEach(clearTimeout);
+    transitionTimeoutsRef.current = [];
+  };
+
+  useEffect(() => clearPendingTransitionTimers, []);
 
   // Function to determine logo background type (moved outside of useEffect)
   const getLogoBackgroundColorType = (imageUrl: string, albumKey: string) => {
@@ -626,12 +644,51 @@ export default function Home() {
       });
   };
 
+  const VIEW_SWAP_OUT_MS = 200;
+  const VIEW_SWAP_IN_MS = 280;
+
   const handleToggleView = () => {
+    if (viewPhase !== 'idle' || isPreparingJpg) return;
+
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+
+    const runOut = (after: () => void) => {
+      if (reduceMotion) {
+        after();
+        return;
+      }
+      setViewPhase('out');
+      transitionTimeoutsRef.current.push(setTimeout(after, VIEW_SWAP_OUT_MS));
+    };
+
+    const runIn = () => {
+      if (reduceMotion) {
+        setViewPhase('idle');
+        return;
+      }
+      setViewPhase('in');
+      transitionTimeoutsRef.current.push(
+        setTimeout(() => setViewPhase('idle'), VIEW_SWAP_IN_MS)
+      );
+    };
+
     if (isJpgView) {
-      setIsJpgView(false);
-      setJpgImageCache({ withLabels: '', withoutLabels: '' });
+      runOut(() => {
+        setIsJpgView(false);
+        setJpgImageCache({ withLabels: '', withoutLabels: '' });
+        runIn();
+      });
     } else {
-      generateImage();
+      setIsPreparingJpg(true);
+      generateImage().finally(() => {
+        setIsPreparingJpg(false);
+        runOut(() => {
+          setIsJpgView(true);
+          runIn();
+        });
+      });
     }
   };
 
@@ -828,11 +885,17 @@ export default function Home() {
                 <Button
                   size="sm"
                   onClick={handleToggleView}
+                  disabled={viewPhase !== 'idle' || isPreparingJpg}
                   // min-width + a consistent leading icon keep this button a
                   // fixed size across both states, so toggling never resizes it.
                   className="gap-1.5 h-8 text-xs min-w-[8.5rem] justify-center bg-brand-red hover:bg-brand-red-dark text-white"
                 >
-                  {isJpgView ? (
+                  {isPreparingJpg ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Converting...
+                    </>
+                  ) : isJpgView ? (
                     <>
                       <LayoutGrid size={13} />
                       Revert to Grid
@@ -847,122 +910,129 @@ export default function Home() {
               </div>
             </div>
 
-            {isJpgView &&
-            // Prefer the JPG matching the current label state, but fall back to
-            // the other cached JPG while the requested one is still generating.
-            // This prevents a momentary flash of the underlying grid when
-            // toggling labels on/off in JPG view.
-            (showAlbumLabels
-              ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
-              : jpgImageCache.withoutLabels || jpgImageCache.withLabels) ? (
-              <Image
-                src={
-                  showAlbumLabels
-                    ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
-                    : jpgImageCache.withoutLabels || jpgImageCache.withLabels
-                }
-                alt="Album Grid JPG"
-                width={1800}
-                height={1800}
-                className="w-full h-auto rounded shadow-lg"
-                priority
-              />
-            ) : (
-              <div
-                data-testid="album-grid-container"
-                className={`grid gap-1.5 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
-                style={{
-                  gridTemplateColumns: `repeat(${Math.round(Math.sqrt(albums.length))}, minmax(0, 1fr))`,
-                }}
-              >
-                {albums.map((album, index) => {
-                  const currentSpotifyUrl = album.mbid
-                    ? spotifyLinks[album.mbid]
-                    : null;
-                  const logoBgType = album.mbid
-                    ? logoColorStates[album.mbid]
-                    : 'dark';
-                  const showCue = album.mbid
-                    ? spotifyCueVisible[album.mbid]
-                    : false;
-                  return (
-                    <div
-                      key={album.mbid || index}
-                      className="album-grid-cell flex flex-col"
-                    >
-                      <div className="aspect-square relative group album-hover-container overflow-hidden">
-                        <Image
-                          src={album.imageUrl || '/api/placeholder/300/300'}
-                          alt={`${album.name} by ${album.artist.name}`}
-                          fill
-                          className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
-                          sizes="(max-width: 768px) 50vw, 300px"
-                          onLoad={() => handleImageLoad(index)}
-                        />
-                        {showCue && (
-                          <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
-                            <Image
-                              src="/spotify_icon.svg"
-                              alt="Spotify Playable Cue"
-                              width={24}
-                              height={24}
-                              className="w-6 h-6 opacity-75"
-                            />
+            <div
+              className={cn(
+                viewPhase === 'out' && 'view-swap-out',
+                viewPhase === 'in' && 'view-swap-in'
+              )}
+            >
+              {isJpgView &&
+              // Prefer the JPG matching the current label state, but fall back to
+              // the other cached JPG while the requested one is still generating.
+              // This prevents a momentary flash of the underlying grid when
+              // toggling labels on/off in JPG view.
+              (showAlbumLabels
+                ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
+                : jpgImageCache.withoutLabels || jpgImageCache.withLabels) ? (
+                <Image
+                  src={
+                    showAlbumLabels
+                      ? jpgImageCache.withLabels || jpgImageCache.withoutLabels
+                      : jpgImageCache.withoutLabels || jpgImageCache.withLabels
+                  }
+                  alt="Album Grid JPG"
+                  width={1800}
+                  height={1800}
+                  className="w-full h-auto rounded shadow-lg"
+                  priority
+                />
+              ) : (
+                <div
+                  data-testid="album-grid-container"
+                  className={`grid gap-1.5 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.round(Math.sqrt(albums.length))}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {albums.map((album, index) => {
+                    const currentSpotifyUrl = album.mbid
+                      ? spotifyLinks[album.mbid]
+                      : null;
+                    const logoBgType = album.mbid
+                      ? logoColorStates[album.mbid]
+                      : 'dark';
+                    const showCue = album.mbid
+                      ? spotifyCueVisible[album.mbid]
+                      : false;
+                    return (
+                      <div
+                        key={album.mbid || index}
+                        className="album-grid-cell flex flex-col"
+                      >
+                        <div className="aspect-square relative group album-hover-container overflow-hidden">
+                          <Image
+                            src={album.imageUrl || '/api/placeholder/300/300'}
+                            alt={`${album.name} by ${album.artist.name}`}
+                            fill
+                            className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
+                            sizes="(max-width: 768px) 50vw, 300px"
+                            onLoad={() => handleImageLoad(index)}
+                          />
+                          {showCue && (
+                            <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
+                              <Image
+                                src="/spotify_icon.svg"
+                                alt="Spotify Playable Cue"
+                                width={24}
+                                height={24}
+                                className="w-6 h-6 opacity-75"
+                              />
+                            </div>
+                          )}
+                          {currentSpotifyUrl && (
+                            <a
+                              href={currentSpotifyUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+                            >
+                              <Image
+                                src="/spotify_icon.svg"
+                                alt="Play on Spotify"
+                                width={64}
+                                height={64}
+                                className="w-16 h-16"
+                              />
+                            </a>
+                          )}
+                          <div className="absolute bottom-0 inset-x-0 bg-black/70 px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">
+                            <p className="text-white text-xs font-semibold truncate">
+                              {album.name}
+                            </p>
+                            <p className="text-white/80 text-xs truncate">
+                              {album.artist.name}
+                            </p>
                           </div>
-                        )}
-                        {currentSpotifyUrl && (
-                          <a
-                            href={currentSpotifyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
-                          >
-                            <Image
-                              src="/spotify_icon.svg"
-                              alt="Play on Spotify"
-                              width={64}
-                              height={64}
-                              className="w-16 h-16"
-                            />
-                          </a>
-                        )}
-                        <div className="absolute bottom-0 inset-x-0 bg-black/70 px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">
-                          <p className="text-white text-xs font-semibold truncate">
-                            {album.name}
+                        </div>
+                        <div className="pt-1.5 pb-1 min-w-0">
+                          <p className="text-[11px] font-semibold truncate leading-tight">
+                            <a
+                              href={`https://musicbrainz.org/release/${album.mbid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {album.name}
+                            </a>
                           </p>
-                          <p className="text-white/80 text-xs truncate">
-                            {album.artist.name}
+                          <p className="text-[11px] text-muted-foreground truncate leading-tight">
+                            <a
+                              href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {album.artist.name}
+                            </a>
+                          </p>
+                          <p className="text-[11px] text-muted-foreground/60 leading-tight">
+                            {album.playcount.toLocaleString()} plays
                           </p>
                         </div>
                       </div>
-                      <div className="pt-1.5 pb-1 min-w-0">
-                        <p className="text-[11px] font-semibold truncate leading-tight">
-                          <a
-                            href={`https://musicbrainz.org/release/${album.mbid}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {album.name}
-                          </a>
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate leading-tight">
-                          <a
-                            href={`https://musicbrainz.org/artist/${album.artist.mbid}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {album.artist.name}
-                          </a>
-                        </p>
-                        <p className="text-[11px] text-muted-foreground/60 leading-tight">
-                          {album.playcount.toLocaleString()} plays
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
