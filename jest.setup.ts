@@ -40,6 +40,22 @@ if (typeof global.Request === 'undefined') {
   global.FormData = FormData;
 }
 
+// jsdom does not implement window.matchMedia; components that check
+// prefers-reduced-motion (e.g. app/page.tsx) need this stubbed out.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
+
 // Initialize global controls for Spotify mocks
 // This ensures it's available before any jest.mock factory functions in test files are executed.
 declare global {
