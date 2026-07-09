@@ -539,6 +539,17 @@ describe('Home Page - Analytics tracking', () => {
       expect(mockedTrackEvent).toHaveBeenCalledWith('view_toggle', {
         direction: 'to_jpg',
       });
+
+      const revertButton = await screen.findByRole('button', {
+        name: /Revert to Grid/,
+      });
+      await waitFor(() => expect(revertButton).not.toBeDisabled());
+      fireEvent.click(revertButton);
+      await screen.findByTestId('album-grid-container');
+
+      expect(mockedTrackEvent).toHaveBeenCalledWith('view_toggle', {
+        direction: 'to_grid',
+      });
     } finally {
       if (srcDescriptor) {
         Object.defineProperty(HTMLImageElement.prototype, 'src', srcDescriptor);
