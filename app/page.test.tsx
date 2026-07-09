@@ -9,6 +9,11 @@ import {
 } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
+import { trackEvent } from '@/lib/analytics';
+
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: jest.fn(),
+}));
 
 jest.mock('@/lib/firebase', () => ({
   getRemoteConfigValue: jest.fn((key: string) => ({
@@ -319,6 +324,93 @@ describe('Home Page - Basic Rendering', () => {
     expect(
       screen.getByRole('button', { name: 'Generate Grid' })
     ).toBeInTheDocument();
+  });
+});
+
+describe('Home Page - Analytics tracking', () => {
+  const mockedTrackEvent = trackEvent as jest.Mock;
+
+  beforeEach(() => {
+    mockLocalStorage.clear();
+    mockedTrackEvent.mockClear();
+  });
+
+  it('tracks generate_grid with username, time_range, and grid_size on success', async () => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({
+            albums: mockApiAlbumsPayload,
+            sharedId: 'test-share-id',
+          }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        return { ok: true, json: async () => ({ spotifyUrl: null }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByTestId('album-grid-container');
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'generate_grid',
+      expect.objectContaining({
+        username: 'testuser',
+        time_range: '1month',
+        grid_size: 9,
+      })
+    );
+    expect(mockedTrackEvent).not.toHaveBeenCalledWith(
+      'generate_grid_failed',
+      expect.anything()
+    );
+  });
+
+  it('tracks generate_grid_failed with time_range and error_reason on failure', async () => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ message: 'Last.fm user not found' }),
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByText('Last.fm user not found');
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'generate_grid_failed',
+      expect.objectContaining({
+        time_range: '1month',
+        error_reason: 'Last.fm user not found',
+      })
+    );
+    expect(mockedTrackEvent).not.toHaveBeenCalledWith(
+      'generate_grid',
+      expect.anything()
+    );
   });
 });
 
