@@ -5,10 +5,15 @@ import {
   screen,
   fireEvent,
   act,
-  // waitFor, // Removed unused import
+  waitFor,
 } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
+import { trackEvent } from '@/lib/analytics';
+
+jest.mock('@/lib/analytics', () => ({
+  trackEvent: jest.fn(),
+}));
 
 jest.mock('@/lib/firebase', () => ({
   getRemoteConfigValue: jest.fn((key: string) => ({
@@ -319,6 +324,285 @@ describe('Home Page - Basic Rendering', () => {
     expect(
       screen.getByRole('button', { name: 'Generate Grid' })
     ).toBeInTheDocument();
+  });
+});
+
+describe('Home Page - Analytics tracking', () => {
+  const mockedTrackEvent = trackEvent as jest.Mock;
+
+  beforeEach(() => {
+    mockLocalStorage.clear();
+    mockedTrackEvent.mockClear();
+  });
+
+  it('tracks generate_grid with username, time_range, and grid_size on success', async () => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({
+            albums: mockApiAlbumsPayload,
+            sharedId: 'test-share-id',
+          }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        return { ok: true, json: async () => ({ spotifyUrl: null }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByTestId('album-grid-container');
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'generate_grid',
+      expect.objectContaining({
+        username: 'testuser',
+        time_range: '1month',
+        grid_size: 9,
+      })
+    );
+    expect(mockedTrackEvent).not.toHaveBeenCalledWith(
+      'generate_grid_failed',
+      expect.anything()
+    );
+  });
+
+  it('tracks generate_grid_failed with time_range and error_reason on failure', async () => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ message: 'Last.fm user not found' }),
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByText('Last.fm user not found');
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'generate_grid_failed',
+      expect.objectContaining({
+        time_range: '1month',
+        error_reason: 'Last.fm user not found',
+      })
+    );
+    expect(mockedTrackEvent).not.toHaveBeenCalledWith(
+      'generate_grid',
+      expect.anything()
+    );
+  });
+
+  it('tracks share_grid with username and shared_id when Share button is clicked', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    });
+
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({
+            albums: mockApiAlbumsPayload,
+            sharedId: 'test-share-id',
+          }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        return { ok: true, json: async () => ({ spotifyUrl: null }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByTestId('album-grid-container');
+
+    fireEvent.click(screen.getByRole('button', { name: /Share Grid/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'share_grid',
+      expect.objectContaining({
+        username: 'testuser',
+        shared_id: 'test-share-id',
+      })
+    );
+  });
+
+  it('tracks view_toggle with direction "to_jpg" when the Grid⇄JPG toggle is clicked', async () => {
+    // The default canvas mocks at the top of this file return a null 2D
+    // context, which is fine for tests that never render a JPG. Converting
+    // to JPG here requires generateImage() to actually succeed, so we swap in
+    // a fake context covering everything generateImage/logo colour analysis
+    // touch — same pattern as the "JPG label toggle cache invalidation" suite.
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    const srcDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLImageElement.prototype,
+      'src'
+    );
+
+    const fakeCtx = {
+      fillStyle: '',
+      font: '',
+      textAlign: '',
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: '',
+      fillRect: jest.fn(),
+      drawImage: jest.fn(),
+      fillText: jest.fn(),
+      measureText: jest.fn(() => ({ width: 10 })),
+      getImageData: jest.fn(() => ({
+        data: new Uint8ClampedArray(64 * 64 * 4),
+      })),
+    };
+    HTMLCanvasElement.prototype.getContext = jest.fn(
+      () => fakeCtx
+    ) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.toDataURL = jest.fn(
+      () => 'data:image/jpeg;base64,gen-1'
+    );
+    Object.defineProperty(HTMLImageElement.prototype, 'src', {
+      configurable: true,
+      get() {
+        return this._src ?? '';
+      },
+      set(value: string) {
+        this._src = value;
+        if (typeof this.onload === 'function') {
+          Promise.resolve().then(() => this.onload(new Event('load')));
+        }
+      },
+    });
+
+    try {
+      mockFetch.mockReset();
+      mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+        const urlString = url.toString();
+        if (urlString.startsWith('/api/albums')) {
+          return {
+            ok: true,
+            json: async () => ({
+              albums: mockApiAlbumsPayload,
+              sharedId: 'test-share-id',
+            }),
+          };
+        }
+        if (urlString.startsWith('/api/spotify-link')) {
+          return { ok: true, json: async () => ({ spotifyUrl: null }) };
+        }
+        return { ok: false, status: 404, json: async () => ({}) };
+      });
+
+      render(<Home />);
+
+      fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+        target: { value: 'testuser' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+      await screen.findByTestId('album-grid-container');
+
+      fireEvent.click(screen.getByRole('button', { name: /Convert to JPG/ }));
+      await screen.findByAltText('Album Grid JPG');
+
+      expect(mockedTrackEvent).toHaveBeenCalledWith('view_toggle', {
+        direction: 'to_jpg',
+      });
+
+      const revertButton = await screen.findByRole('button', {
+        name: /Revert to Grid/,
+      });
+      await waitFor(() => expect(revertButton).not.toBeDisabled());
+      fireEvent.click(revertButton);
+      await screen.findByTestId('album-grid-container');
+
+      expect(mockedTrackEvent).toHaveBeenCalledWith('view_toggle', {
+        direction: 'to_grid',
+      });
+    } finally {
+      if (srcDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, 'src', srcDescriptor);
+      }
+      HTMLCanvasElement.prototype.getContext = originalGetContext;
+      HTMLCanvasElement.prototype.toDataURL = originalToDataURL;
+    }
+  });
+
+  it('tracks spotify_link_click with username when the Spotify overlay link is clicked', async () => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({
+            albums: mockApiAlbumsPayload,
+            sharedId: 'test-share-id',
+          }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        return {
+          ok: true,
+          json: async () => ({
+            spotifyUrl: 'https://open.spotify.com/album/mockedalbum',
+          }),
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByTestId('album-grid-container');
+
+    const spotifyLinks = await screen.findAllByRole('link', {
+      name: 'Play on Spotify',
+    });
+
+    mockedTrackEvent.mockClear();
+    fireEvent.click(spotifyLinks[0]);
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'spotify_link_click',
+      expect.objectContaining({ username: 'testuser' })
+    );
   });
 });
 

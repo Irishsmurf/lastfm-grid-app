@@ -17,6 +17,7 @@ import {
 import { FileImage, LayoutGrid, Share2, Check, Loader2 } from 'lucide-react'; // Added Share2, Check, Loader2, LayoutGrid
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
+import { trackEvent } from '@/lib/analytics';
 import {
   getRemoteConfigValue, // This will be used for FTUE and default_time_period
   defaultRemoteConfig,
@@ -277,6 +278,11 @@ export default function Home() {
 
         if (typeof responseData.sharedId === 'string') {
           setSharedId(responseData.sharedId);
+          trackEvent('generate_grid', {
+            username,
+            time_range: timeRange,
+            grid_size: gridSize,
+          });
         } else if (responseData.sharedId === null && responseData.error) {
           setSharedId(null);
           //setError('Fetched albums, but could not generate a shareable link. The grid is not shareable at the moment.');
@@ -306,6 +312,10 @@ export default function Home() {
         setError('An unknown error occurred. Please check the console.');
         console.error('Unknown error details:', err);
       }
+      trackEvent('generate_grid_failed', {
+        time_range: timeRange,
+        error_reason: err instanceof Error ? err.message : 'unknown_error',
+      });
       setSharedId(null); // Ensure sharedId is reset on error
       setAlbums([]); // Clear albums on error
     } finally {
@@ -636,6 +646,7 @@ export default function Home() {
       .writeText(url)
       .then(() => {
         setShareCopied(true);
+        trackEvent('share_grid', { username, shared_id: sharedId });
         setTimeout(() => {
           setShareCopied(false);
         }, 2000); // Reset after 2 seconds
@@ -651,6 +662,8 @@ export default function Home() {
 
   const handleToggleView = () => {
     if (viewPhase !== 'idle' || isPreparingJpg) return;
+
+    trackEvent('view_toggle', { direction: isJpgView ? 'to_grid' : 'to_jpg' });
 
     const reduceMotion = window.matchMedia(
       '(prefers-reduced-motion: reduce)'
@@ -989,6 +1002,9 @@ export default function Home() {
                               href={currentSpotifyUrl}
                               target="_blank"
                               rel="noopener noreferrer"
+                              onClick={() =>
+                                trackEvent('spotify_link_click', { username })
+                              }
                               className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
                             >
                               <Image
