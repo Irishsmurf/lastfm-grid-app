@@ -663,6 +663,8 @@ export default function Home() {
   const handleToggleView = () => {
     if (viewPhase !== 'idle' || isPreparingJpg) return;
 
+    trackEvent('view_toggle', { direction: isJpgView ? 'to_grid' : 'to_jpg' });
+
     const reduceMotion = window.matchMedia(
       '(prefers-reduced-motion: reduce)'
     ).matches;
