@@ -17,7 +17,11 @@ describe('trackEvent', () => {
     const gtagMock = jest.fn();
     window.gtag = gtagMock;
 
-    trackEvent('generate_grid', { username: 'rj', time_range: 'overall', grid_size: 9 });
+    trackEvent('generate_grid', {
+      username: 'rj',
+      time_range: 'overall',
+      grid_size: 9,
+    });
 
     expect(gtagMock).toHaveBeenCalledWith('event', 'generate_grid', {
       username: 'rj',
@@ -32,6 +36,10 @@ describe('trackEvent', () => {
 
     trackEvent('view_toggle_test_noop');
 
-    expect(gtagMock).toHaveBeenCalledWith('event', 'view_toggle_test_noop', undefined);
+    expect(gtagMock).toHaveBeenCalledWith(
+      'event',
+      'view_toggle_test_noop',
+      undefined
+    );
   });
 });
