@@ -646,6 +646,7 @@ export default function Home() {
       .writeText(url)
       .then(() => {
         setShareCopied(true);
+        trackEvent('share_grid', { username, shared_id: sharedId });
         setTimeout(() => {
           setShareCopied(false);
         }, 2000); // Reset after 2 seconds

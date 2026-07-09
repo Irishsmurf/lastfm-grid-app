@@ -5,7 +5,7 @@ import {
   screen,
   fireEvent,
   act,
-  // waitFor, // Removed unused import
+  waitFor,
 } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
@@ -410,6 +410,52 @@ describe('Home Page - Analytics tracking', () => {
     expect(mockedTrackEvent).not.toHaveBeenCalledWith(
       'generate_grid',
       expect.anything()
+    );
+  });
+
+  it('tracks share_grid with username and shared_id when Share button is clicked', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    });
+
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({
+            albums: mockApiAlbumsPayload,
+            sharedId: 'test-share-id',
+          }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        return { ok: true, json: async () => ({ spotifyUrl: null }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByTestId('album-grid-container');
+
+    fireEvent.click(screen.getByRole('button', { name: /Share Grid/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'share_grid',
+      expect.objectContaining({
+        username: 'testuser',
+        shared_id: 'test-share-id',
+      })
     );
   });
 });
