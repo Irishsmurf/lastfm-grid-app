@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Inter, Montserrat } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
@@ -69,22 +70,21 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="theme-color" content="#d51007" />
         <link rel="manifest" href="/manifest.json" />
+      </head>
+      <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
         {/* Google tag (gtag.js) */}
-        <script
-          async
+        <Script
+          strategy="afterInteractive"
           src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
-        ></script>
-        <script>
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-
             gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
           `}
-        </script>
-      </head>
-      <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
+        </Script>
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
           <RemoteConfigProvider>{children}</RemoteConfigProvider>
           <SpeedInsights />
