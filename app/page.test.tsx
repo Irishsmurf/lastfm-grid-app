@@ -558,6 +558,52 @@ describe('Home Page - Analytics tracking', () => {
       HTMLCanvasElement.prototype.toDataURL = originalToDataURL;
     }
   });
+
+  it('tracks spotify_link_click with username when the Spotify overlay link is clicked', async () => {
+    mockFetch.mockReset();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const urlString = url.toString();
+      if (urlString.startsWith('/api/albums')) {
+        return {
+          ok: true,
+          json: async () => ({
+            albums: mockApiAlbumsPayload,
+            sharedId: 'test-share-id',
+          }),
+        };
+      }
+      if (urlString.startsWith('/api/spotify-link')) {
+        return {
+          ok: true,
+          json: async () => ({
+            spotifyUrl: 'https://open.spotify.com/album/mockedalbum',
+          }),
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    render(<Home />);
+
+    fireEvent.change(screen.getByPlaceholderText('LastFM Username'), {
+      target: { value: 'testuser' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Grid' }));
+
+    await screen.findByTestId('album-grid-container');
+
+    const spotifyLinks = await screen.findAllByRole('link', {
+      name: 'Play on Spotify',
+    });
+
+    mockedTrackEvent.mockClear();
+    fireEvent.click(spotifyLinks[0]);
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith(
+      'spotify_link_click',
+      expect.objectContaining({ username: 'testuser' })
+    );
+  });
 });
 
 describe('Home Page - JPG label toggle cache invalidation', () => {

@@ -1002,6 +1002,9 @@ export default function Home() {
                               href={currentSpotifyUrl}
                               target="_blank"
                               rel="noopener noreferrer"
+                              onClick={() =>
+                                trackEvent('spotify_link_click', { username })
+                              }
                               className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
                             >
                               <Image
