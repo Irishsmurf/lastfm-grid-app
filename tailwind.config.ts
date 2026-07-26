@@ -1,7 +1,6 @@
 import type { Config } from 'tailwindcss';
 
 export default {
-  darkMode: ['class'],
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -10,7 +9,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        montserrat: ['var(--font-montserrat)', 'sans-serif'],
+        archivo: ['var(--font-archivo)', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -47,11 +46,8 @@ export default {
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         brand: {
-          red: '#d51007',
-          'red-dark': '#a80c05',
-          'red-light': '#ff2a1f',
-          dark: '#0f0f0f',
-          surface: '#1a1a1a',
+          red: '#ec3013',
+          'red-dark': '#ae1800',
           success: '#22c55e',
         },
         chart: {
@@ -63,9 +59,10 @@ export default {
         },
       },
       borderRadius: {
+        DEFAULT: 'var(--radius)',
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'var(--radius)',
+        sm: 'var(--radius)',
       },
     },
   },

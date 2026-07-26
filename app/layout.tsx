@@ -1,22 +1,18 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
-import { Inter, Montserrat } from 'next/font/google';
+import { Archivo } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
-import { ThemeProvider } from '@/components/theme-provider';
+import { SiteNav } from '@/components/site-nav';
 import FooterFeatureText from '@/components/FooterFeatureText'; // Assuming path
 // Removed useEffect and initializeRemoteConfig imports from here
 import { RemoteConfigProvider } from '@/lib/remoteConfigContext';
 
 import './globals.css';
 
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-});
-
-const montserrat = Montserrat({
-  variable: '--font-montserrat',
+const archivo = Archivo({
+  variable: '--font-archivo',
+  weight: ['400', '600', '800'],
   subsets: ['latin'],
 });
 
@@ -66,12 +62,12 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/icons/browserconfig.xml" />
-        <meta name="msapplication-TileColor" content="#d51007" />
+        <meta name="msapplication-TileColor" content="#ec3013" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <meta name="theme-color" content="#d51007" />
+        <meta name="theme-color" content="#ec3013" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
+      <body className={`${archivo.variable} antialiased`}>
         {/* Google tag (gtag.js) */}
         <Script
           strategy="afterInteractive"
@@ -85,32 +81,31 @@ export default function RootLayout({
             gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
           `}
         </Script>
-        <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-          <RemoteConfigProvider>{children}</RemoteConfigProvider>
-          <SpeedInsights />
-          <Analytics />
-          <footer>
-            <FooterFeatureText />
-            <a href="/about" style={{ marginRight: '10px' }}>
-              About
-            </a>
-            <a href="/privacy.html" style={{ marginRight: '10px' }}>
-              Privacy Policy
-            </a>
-            <a
-              href="https://ko-fi.com/paddez"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ marginRight: '10px' }}
-            >
-              Support me on Ko-fi
-            </a>
-            <div className="copyright">
-              © {new Date().getFullYear()} LastFM Album Collage Generator. All
-              Rights Reserved.
-            </div>
-          </footer>
-        </ThemeProvider>
+        <SiteNav />
+        <RemoteConfigProvider>{children}</RemoteConfigProvider>
+        <SpeedInsights />
+        <Analytics />
+        <footer>
+          <FooterFeatureText />
+          <a href="/about" style={{ marginRight: '10px' }}>
+            About
+          </a>
+          <a href="/privacy.html" style={{ marginRight: '10px' }}>
+            Privacy Policy
+          </a>
+          <a
+            href="https://ko-fi.com/paddez"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ marginRight: '10px' }}
+          >
+            Support me on Ko-fi
+          </a>
+          <div className="copyright">
+            © {new Date().getFullYear()} LastFM Album Collage Generator. All
+            Rights Reserved.
+          </div>
+        </footer>
       </body>
     </html>
   );

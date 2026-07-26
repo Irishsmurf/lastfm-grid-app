@@ -14,8 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Segmented } from '@/components/ui/segmented';
 import { FileImage, LayoutGrid, Share2, Check, Loader2 } from 'lucide-react'; // Added Share2, Check, Loader2, LayoutGrid
-import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import { trackEvent } from '@/lib/analytics';
 // Imported from the Firebase-free defaults module. Importing these from
@@ -709,13 +709,14 @@ export default function Home() {
               priority
             />
           </div>
-          <h1 className="font-montserrat font-black uppercase tracking-tight leading-none text-5xl sm:text-6xl lg:text-[5.5rem]">
+          <h1 className="font-archivo font-black uppercase tracking-tight leading-none text-5xl sm:text-6xl lg:text-[5.5rem]">
             LastFM Album <span className="text-brand-red">Collage</span>
           </h1>
           <p className="mt-4 text-xs tracking-[0.18em] uppercase text-muted-foreground font-medium">
             Your listening history · your art
           </p>
         </header>
+        <hr className="hr" />
 
         {/* FTUE Welcome Message */}
         {isFirstTimeUser && ftueEnabled && welcomeMessageVariant !== 'none' && (
@@ -730,8 +731,8 @@ export default function Home() {
         )}
 
         {/* Form strip — editorial band between horizontal rules */}
-        <div className="border-y border-border mt-8 py-5">
-          <div className="flex flex-col md:flex-row gap-3 items-center">
+        <div className="border-y-2 border-border mt-8 py-5">
+          <div className="flex flex-col md:flex-row gap-3 items-end md:items-center flex-wrap">
             <Input
               type="text"
               placeholder="LastFM Username"
@@ -758,24 +759,22 @@ export default function Home() {
                 ))}
               </SelectContent>
             </Select>
-            <Select
+            <Segmented
+              name="gridSize"
               value={String(gridSize)}
-              onValueChange={(v) => setGridSize(Number(v) as 9 | 16 | 25)}
-            >
-              <SelectTrigger className="w-full md:w-[105px] h-10">
-                <SelectValue placeholder="Grid size" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="9">3×3</SelectItem>
-                <SelectItem value="16">4×4</SelectItem>
-                <SelectItem value="25">5×5</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={(v) => setGridSize(Number(v) as 9 | 16 | 25)}
+              options={[
+                { value: '9', label: '3×3' },
+                { value: '16', label: '4×4' },
+                { value: '25', label: '5×5' },
+              ]}
+              className="h-10"
+            />
             <Button
               onClick={fetchTopAlbums}
               disabled={loading}
               className={cn(
-                'w-full md:w-auto h-10 px-6 font-semibold bg-brand-red hover:bg-brand-red-dark text-white',
+                'w-full md:w-auto h-10 px-6',
                 isFirstTimeUser &&
                   ftueEnabled &&
                   highlightInitialAction === 'generate_button' &&
@@ -784,7 +783,6 @@ export default function Home() {
             >
               {loading ? 'Loading...' : 'Generate Grid'}
             </Button>
-            <ThemeToggleButton />
           </div>
           {error && <p className="text-brand-red text-sm mt-3">{error}</p>}
         </div>
@@ -898,7 +896,7 @@ export default function Home() {
                   disabled={viewPhase !== 'idle' || isPreparingJpg}
                   // min-width + a consistent leading icon keep this button a
                   // fixed size across both states, so toggling never resizes it.
-                  className="gap-1.5 h-8 text-xs min-w-[8.5rem] justify-center bg-brand-red hover:bg-brand-red-dark text-white"
+                  className="gap-1.5 h-8 text-xs min-w-[8.5rem] justify-center"
                 >
                   {isPreparingJpg ? (
                     <>
@@ -949,9 +947,10 @@ export default function Home() {
               ) : (
                 <div
                   data-testid="album-grid-container"
-                  className={`grid gap-1.5 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
+                  className={`grid gap-0.5 ${isGridUpdating ? 'grid-fade-out-active' : ''}`}
                   style={{
                     gridTemplateColumns: `repeat(${Math.round(Math.sqrt(albums.length))}, minmax(0, 1fr))`,
+                    backgroundColor: 'var(--color-divider)',
                   }}
                 >
                   {albums.map((album, index) => {
@@ -964,7 +963,7 @@ export default function Home() {
                     return (
                       <div
                         key={album.mbid || index}
-                        className="album-grid-cell flex flex-col"
+                        className="album-grid-cell flex flex-col bg-background"
                       >
                         <div className="aspect-square relative group album-hover-container overflow-hidden">
                           <Image

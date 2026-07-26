@@ -53,17 +53,24 @@ describe('SharePageClient', () => {
   });
 
   it('renders the grid from server-provided props', () => {
-    render(<SharePageClient sharedData={mockSharedData} spotifyLinks={{}} />);
+    render(
+      <SharePageClient
+        sharedData={mockSharedData}
+        spotifyLinks={{}}
+        periodLabel="Last Week"
+      />
+    );
 
+    // The username sits in its own <span> for styling, so the accessible-name
+    // algorithm joins it with the trailing text using a space even though
+    // nothing is rendered between them visually — match loosely.
     expect(
-      screen.getByText((content) =>
-        content.includes(`Album Grid by ${mockSharedData.username}`)
-      )
+      screen.getByRole('heading', {
+        name: new RegExp(`${mockSharedData.username}\\s*'s grid`),
+      })
     ).toBeInTheDocument();
     expect(
-      screen.getByText((content) =>
-        content.includes(`Period: ${mockSharedData.period}`)
-      )
+      screen.getByText((content) => content.includes('Last Week'))
     ).toBeInTheDocument();
     expect(screen.getByText('Album 1')).toBeInTheDocument();
     expect(screen.getByText('Artist A')).toBeInTheDocument();
@@ -76,6 +83,7 @@ describe('SharePageClient', () => {
       <SharePageClient
         sharedData={mockSharedData}
         spotifyLinks={{ 'album-mbid-1': 'https://open.spotify.com/album/1' }}
+        periodLabel="Last Week"
       />
     );
 
@@ -92,6 +100,7 @@ describe('SharePageClient', () => {
           'album-mbid-1': 'https://open.spotify.com/album/1',
           'album-mbid-2': null,
         }}
+        periodLabel="Last Week"
       />
     );
 
@@ -112,7 +121,13 @@ describe('SharePageClient', () => {
   });
 
   it('marks only the first album image as priority', () => {
-    render(<SharePageClient sharedData={mockSharedData} spotifyLinks={{}} />);
+    render(
+      <SharePageClient
+        sharedData={mockSharedData}
+        spotifyLinks={{}}
+        periodLabel="Last Week"
+      />
+    );
 
     const albumImages = screen
       .getAllByRole('img')
@@ -129,7 +144,13 @@ describe('SharePageClient', () => {
       albums: [{ ...mockSharedData.albums[0], imageUrl: '' }],
     };
 
-    render(<SharePageClient sharedData={withMissingArt} spotifyLinks={{}} />);
+    render(
+      <SharePageClient
+        sharedData={withMissingArt}
+        spotifyLinks={{}}
+        periodLabel="Last Week"
+      />
+    );
 
     expect(screen.getByAltText('Album 1 by Artist A')).toHaveAttribute(
       'src',

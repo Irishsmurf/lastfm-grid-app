@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-archivo), sans-serif;
 }
 
 h1,
@@ -12,62 +12,47 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-montserrat), sans-serif;
+  font-family: var(--font-archivo), sans-serif;
+  font-weight: 800;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
+    /* Modernist design tokens — flat, architectural, single light theme.
+       Mapped onto the existing shadcn slot names so utility classes
+       (bg-background, text-muted-foreground, etc.) stay unchanged. */
+    --background: 0 4% 95%;
+    --foreground: 20 5% 12%;
+    --card: 0 3% 92%;
+    --card-foreground: 20 5% 12%;
+    --popover: 0 3% 92%;
+    --popover-foreground: 20 5% 12%;
+    --primary: 8 85% 50%;
+    --primary-foreground: 0 4% 95%;
+    --secondary: 0 3% 92%;
+    --secondary-foreground: 20 5% 12%;
+    --muted: 0 3% 92%;
+    --muted-foreground: 0 0% 49%;
+    --accent: 11 100% 97%;
+    --accent-foreground: 8 100% 34%;
+    --destructive: 8 100% 34%;
+    --destructive-foreground: 0 4% 95%;
+    --border: 0 2% 60%;
+    --input: 0 2% 60%;
+    --ring: 8 85% 50%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-  }
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --radius: 0px;
+
+    /* Raw tokens for places that need the design system's own vocabulary
+       directly (rules, dividers, hover/active accent steps) rather than
+       going through the shadcn slots above. */
+    --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+    --color-accent-600: #dd2b0f;
+    --color-accent-700: #ae1800;
   }
 }
 
@@ -80,31 +65,32 @@ h6 {
   }
 }
 
+.hr {
+  height: 2px;
+  border: 0;
+  margin: 1rem 0;
+  background: var(--color-divider);
+}
+
 footer {
-  @apply text-center p-5 mt-[30px] border-t; /* p-5 is equivalent to 20px padding if 1 unit = 4px */
-  @apply bg-gray-100 text-gray-700 border-gray-300; /* Light mode styles */
-  @apply dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700; /* Dark mode styles */
+  @apply text-center p-5 mt-[30px] text-foreground;
+  border-top: 2px solid var(--color-divider);
 }
 
 footer a {
   @apply text-sm text-brand-red no-underline;
-  @apply dark:text-brand-red-light;
   display: inline-block; /* Ensure padding and border apply correctly */
   padding: 8px 12px;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
   transition: background-color 0.2s ease-in-out; /* Smooth transition for hover */
 }
 
 footer a:hover {
-  @apply dark:text-brand-red-light;
   background-color: hsl(var(--accent));
   text-decoration: none; /* Ensure no underline on hover */
 }
 
 footer .copyright {
-  @apply text-xs mt-2; /* text-xs is 0.75rem, mt-2 is margin-top: 0.5rem */
-  /* Color will be inherited from footer's text-gray-700 dark:text-gray-200 */
+  @apply text-xs mt-2 text-muted-foreground;
 }
 
 .image-fade-enter {
