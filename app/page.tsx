@@ -73,14 +73,8 @@ export default function Home() {
   const [spotifyLinks, setSpotifyLinks] = useState<
     Record<string, string | null>
   >({});
-  const [logoColorStates, setLogoColorStates] = useState<
-    Record<string, 'light' | 'dark'>
-  >({});
   const [isGridUpdating, setIsGridUpdating] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false); // New state for spinner
-  const [spotifyCueVisible, setSpotifyCueVisible] = useState<
-    Record<string, boolean>
-  >({});
   const [sharedId, setSharedId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -275,11 +269,18 @@ export default function Home() {
             playcount: apiAlbum.playcount,
           }));
 
+        // Spotify links come back inline, so the grid can render complete on the
+        // first pass instead of firing one request per album after it mounts.
+        setSpotifyLinks(
+          responseData.spotify && typeof responseData.spotify === 'object'
+            ? responseData.spotify
+            : {}
+        );
         setAlbums(albumData);
 
         // The share record is no longer created here — /api/albums is a pure read
         // so it can be cached at the CDN. The id is minted on demand when the user
-        // actually clicks Share (see handleShare).
+        // actually clicks Share (see handleShareGrid).
         setSharedId(null);
 
         if (albumData.length > 0) {
@@ -354,7 +355,7 @@ export default function Home() {
         img.onload = () => resolve(img);
         img.onerror = () => {
           const fallbackImg = document.createElement('img');
-          fallbackImg.src = '/api/placeholder/300/300';
+          fallbackImg.src = '/placeholder-album.svg';
           fallbackImg.onload = () => resolve(fallbackImg);
           fallbackImg.onerror = () =>
             reject(new Error('Failed to load placeholder image'));
@@ -382,12 +383,22 @@ export default function Home() {
     };
 
     try {
+      // Loaded up front rather than one-at-a-time inside the draw loop. Serial
+      // awaits meant 25 sequential full-resolution downloads before the canvas
+      // was complete; the network can do them concurrently.
+      const loadedImages = await Promise.all(
+        albums.map((album) =>
+          loadImage(album.imageUrl).catch(() => null as HTMLImageElement | null)
+        )
+      );
+
       for (let i = 0; i < albums.length; i++) {
         const x = (i % cols) * cellSize;
         const y = Math.floor(i / cols) * cellSize;
 
         try {
-          const img = await loadImage(albums[i].imageUrl);
+          const img = loadedImages[i];
+          if (!img) throw new Error(`Image unavailable for ${albums[i].name}`);
           ctx.drawImage(img, x, y, cellSize, cellSize);
 
           if (labelsEnabled) {
@@ -486,138 +497,48 @@ export default function Home() {
 
   useEffect(() => clearPendingTransitionTimers, []);
 
-  // Function to determine logo background type (moved outside of useEffect)
-  const getLogoBackgroundColorType = (imageUrl: string, albumKey: string) => {
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const sampleSize = 64; // Matching logo size
-      canvas.width = sampleSize;
-      canvas.height = sampleSize;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        console.error('Failed to get canvas context for logo color analysis');
-        setLogoColorStates((prev) => ({ ...prev, [albumKey]: 'dark' })); // Default to dark
-        return;
-      }
-
-      // Calculate source x, y to sample center of the image
-      const sourceX = (img.naturalWidth - sampleSize) / 2;
-      const sourceY = (img.naturalHeight - sampleSize) / 2;
-
-      ctx.drawImage(
-        img,
-        sourceX,
-        sourceY,
-        sampleSize,
-        sampleSize,
-        0,
-        0,
-        sampleSize,
-        sampleSize
-      );
-
-      const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
-      let totalBrightness = 0;
-      for (let i = 0; i < imageData.length; i += 4) {
-        const brightness =
-          0.299 * imageData[i] +
-          0.587 * imageData[i + 1] +
-          0.114 * imageData[i + 2];
-        totalBrightness += brightness;
-      }
-      const avgBrightness = totalBrightness / (sampleSize * sampleSize);
-      const type = avgBrightness > 128 ? 'light' : 'dark';
-      setLogoColorStates((prev) => ({ ...prev, [albumKey]: type }));
-    };
-    img.onerror = () => {
-      console.error('Error loading image for logo color analysis:', imageUrl);
-      setLogoColorStates((prev) => ({ ...prev, [albumKey]: 'dark' })); // Default to dark on error
-    };
-    img.src = imageUrl;
-  };
-
-  // useEffect to fetch Spotify links and determine logo color when albums change
+  // Spotify links now arrive inline with /api/albums (see fetchTopAlbums), so there
+  // is no per-album request stage here any more. This effect only covers the rare
+  // case where the server hit its resolution deadline and returned a partial map.
   useEffect(() => {
-    setLogoColorStates({}); // Clear logo color states on new album fetch or when albums are cleared
-    setSpotifyCueVisible({}); // Clear cue visibility states
-    if (albums.length === 0) {
-      setSpotifyLinks({}); // Clear links if no albums
-      return;
-    }
+    if (albums.length === 0) return;
 
-    setSpotifyLinks({}); // Reset links before fetching for new set of albums
+    const unresolved = albums.filter(
+      (album) => album.mbid && !(album.mbid in spotifyLinks)
+    );
+    if (unresolved.length === 0) return;
 
-    albums.forEach((album) => {
-      if (!album.mbid) {
-        // Ensure we have a key for spotify link and logo color
-        console.warn(
-          'Album missing mbid, cannot fetch Spotify link or analyze logo color:',
-          album.name
+    let cancelled = false;
+
+    Promise.allSettled(
+      unresolved.map(async (album) => {
+        const response = await fetch(
+          `/api/spotify-link?albumName=${encodeURIComponent(album.name)}&artistName=${encodeURIComponent(album.artist.name)}`
         );
-        // Set cue visibility to false if mbid is missing
-        setSpotifyCueVisible((prev) => ({ ...prev, [album.name]: false })); // Use album.name as a fallback key if mbid is missing
-        return;
-      }
-
-      // Fetch Spotify link
-      const fetchSpotifyLink = async () => {
-        try {
-          const response = await fetch(
-            `/api/spotify-link?albumName=${encodeURIComponent(album.name)}&artistName=${encodeURIComponent(album.artist.name)}`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            setSpotifyLinks((prevLinks) => ({
-              ...prevLinks,
-              [album.mbid]: data.spotifyUrl || null,
-            }));
-            setSpotifyCueVisible((prevCues) => ({
-              ...prevCues,
-              [album.mbid]: !!data.spotifyUrl, // True if link exists, false otherwise
-            }));
-          } else {
-            console.error(
-              `Failed to fetch Spotify link for ${album.name}: ${response.status}`
-            );
-            setSpotifyLinks((prevLinks) => ({
-              ...prevLinks,
-              [album.mbid]: null,
-            }));
-            setSpotifyCueVisible((prevCues) => ({
-              ...prevCues,
-              [album.mbid]: false,
-            }));
-          }
-        } catch (err) {
-          console.error(`Error fetching Spotify link for ${album.name}:`, err);
-          setSpotifyLinks((prevLinks) => ({
-            ...prevLinks,
-            [album.mbid]: null,
-          }));
-          setSpotifyCueVisible((prevCues) => ({
-            ...prevCues,
-            [album.mbid]: false,
-          }));
+        if (!response.ok) {
+          throw new Error(`Spotify link lookup failed: ${response.status}`);
         }
-      };
+        const data = await response.json();
+        return { mbid: album.mbid, url: data.spotifyUrl ?? null };
+      })
+    ).then((results) => {
+      if (cancelled) return;
 
-      fetchSpotifyLink();
-
-      // Analyze album art for logo color
-      if (album.imageUrl) {
-        // Updated image access
-        getLogoBackgroundColorType(album.imageUrl, album.mbid);
-      } else {
-        // If no image, default to dark background for logo. The Spotify cue
-        // visibility is left to fetchSpotifyLink, which always sets it; the UI
-        // treats an unset value as false in the meantime.
-        setLogoColorStates((prev) => ({ ...prev, [album.mbid]: 'dark' }));
+      // Applied as one batched update rather than two per album, which previously
+      // re-rendered the whole grid up to 50 times as responses trickled in.
+      const resolved: Record<string, string | null> = {};
+      for (const [i, result] of results.entries()) {
+        resolved[unresolved[i].mbid] =
+          result.status === 'fulfilled' ? result.value.url : null;
       }
+      setSpotifyLinks((prev) => ({ ...prev, ...resolved }));
     });
-  }, [albums]); // Changed dependency array to [albums]
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [albums]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -1037,12 +958,9 @@ export default function Home() {
                     const currentSpotifyUrl = album.mbid
                       ? spotifyLinks[album.mbid]
                       : null;
-                    const logoBgType = album.mbid
-                      ? logoColorStates[album.mbid]
-                      : 'dark';
-                    const showCue = album.mbid
-                      ? spotifyCueVisible[album.mbid]
-                      : false;
+                    // The cue is shown exactly when there's a link to show, so it
+                    // needs no state of its own.
+                    const showCue = !!currentSpotifyUrl;
                     return (
                       <div
                         key={album.mbid || index}
@@ -1050,7 +968,7 @@ export default function Home() {
                       >
                         <div className="aspect-square relative group album-hover-container overflow-hidden">
                           <Image
-                            src={album.imageUrl || '/api/placeholder/300/300'}
+                            src={album.imageUrl || '/placeholder-album.svg'}
                             alt={`${album.name} by ${album.artist.name}`}
                             fill
                             className={`object-cover ${currentSpotifyUrl ? 'group-hover:opacity-70' : ''} ${fadeInStates[index] ? 'image-fade-enter-active' : 'image-fade-enter'}`}
@@ -1076,7 +994,7 @@ export default function Home() {
                               onClick={() =>
                                 trackEvent('spotify_link_click', { username })
                               }
-                              className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 spotify-icon-overlay ${logoBgType === 'light' ? 'spotify-logo-light-bg' : 'spotify-logo-dark-bg'}`}
+                              className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                             >
                               <Image
                                 src="/spotify_icon.svg"

@@ -5,6 +5,7 @@ import {
   MinimizedAlbum,
 } from '@/lib/minimizedLastfmService'; // Added
 import { handleCaching } from '@/lib/cache';
+import { resolveSpotifyLinks } from '@/lib/spotifyService';
 import { logger } from '@/utils/logger';
 import {
   albumsTtlSeconds,
@@ -155,20 +156,31 @@ export async function GET(req: NextRequest) {
     // Share records are now created on demand by POST /api/share.
     const albums = data || [];
 
+    if (albums.length === 0) {
+      // Negative results get a short edge TTL so a user who has just started
+      // scrobbling isn't stuck with an empty grid at the edge.
+      return respond(
+        200,
+        { albums, spotify: {} },
+        cacheHeaders({ cdn: ALBUMS_NOT_FOUND_TTL, browser: 0, swr: 600 })
+      );
+    }
+
+    // Resolved here rather than by the client, which used to fire one request per
+    // album after the grid had already rendered. The server has the album list and
+    // a warm Spotify token, so it can answer in the same response.
+    const { links, complete } = await resolveSpotifyLinks(albums);
+
     return respond(
       200,
-      { albums },
-      albums.length === 0
-        ? // Negative results get a short edge TTL so a user who has just started
-          // scrobbling isn't stuck with an empty grid at the edge.
-          cacheHeaders({ cdn: ALBUMS_NOT_FOUND_TTL, browser: 0, swr: 600 })
-        : // Edge TTL deliberately matches the Redis TTL, so the CDN can never
+      { albums, spotify: links },
+      complete
+        ? // Edge TTL deliberately matches the Redis TTL, so the CDN can never
           // serve data older than the origin would have.
-          cacheHeaders({
-            cdn: cacheExpirySeconds,
-            browser: 60,
-            swr: 86400,
-          })
+          cacheHeaders({ cdn: cacheExpirySeconds, browser: 60, swr: 86400 })
+        : // Some links are still unresolved. Cache this only briefly, or a
+          // partial answer would be frozen at the edge for the full hour.
+          cacheHeaders({ cdn: 30, browser: 0, swr: 60 })
     );
   } catch (error) {
     let detailedErrorMessage = 'An unexpected error occurred';

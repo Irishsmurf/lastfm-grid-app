@@ -48,6 +48,11 @@ jest.mock('../../../lib/firebase', () => ({
 
 jest.mock('../../../lib/spotifyService', () => ({
   searchAlbum: jest.fn(),
+  // Kept real: the route and the batch resolver must build identical cache keys,
+  // so stubbing this would hide exactly the drift it's meant to prevent.
+  spotifyLinkCacheKey: jest.requireActual('../../../lib/spotifyService')
+    .spotifyLinkCacheKey,
+  SPOTIFY_NOT_FOUND_PLACEHOLDER: 'SPOTIFY_NOT_FOUND',
 }));
 
 const mockSearchAlbum = searchAlbum as jest.Mock;

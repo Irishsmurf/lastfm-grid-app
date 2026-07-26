@@ -1,93 +1,59 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SharePageClient from './SharePageClient';
 import { SharedGridData } from '@/lib/types';
-import { useParams } from 'next/navigation';
-
-// Mock next/navigation
-jest.mock('next/navigation');
 
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ src, alt }: { src: string; alt: string }) => (
+  default: ({
+    src,
+    alt,
+    priority,
+  }: {
+    src: string;
+    alt: string;
+    priority?: boolean;
+  }) => (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} />
+    <img src={src} alt={alt} data-priority={priority ? 'true' : 'false'} />
   ),
 }));
 
-// Mock global fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Mock logger
-jest.mock('@/utils/logger', () => ({
-  logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-  },
-}));
+const mockSharedData: SharedGridData = {
+  id: 'test-share-id',
+  username: 'testuser',
+  period: '7day',
+  albums: [
+    {
+      name: 'Album 1',
+      artist: { name: 'Artist A', mbid: 'artist-mbid-a' },
+      imageUrl: 'img1.jpg',
+      mbid: 'album-mbid-1',
+      playcount: 10,
+    },
+    {
+      name: 'Album 2',
+      artist: { name: 'Artist B', mbid: 'artist-mbid-b' },
+      imageUrl: 'img2.jpg',
+      mbid: 'album-mbid-2',
+      playcount: 5,
+    },
+  ],
+  createdAt: new Date().toISOString(),
+};
 
 describe('SharePageClient', () => {
-  const mockId = 'test-share-id';
-
   beforeEach(() => {
     jest.clearAllMocks();
-    (useParams as jest.Mock).mockReturnValue({ id: mockId });
   });
 
-  it('should call fetch with the correct URL and display loading skeleton initially', () => {
-    mockFetch.mockImplementationOnce(() => new Promise(() => {})); // Keep fetch pending
-
-    render(<SharePageClient />);
-
-    expect(screen.getByTestId('skeleton-container')).toBeInTheDocument();
-    expect(mockFetch).toHaveBeenCalledWith(`/api/share/${mockId}`);
-  });
-
-  it('should display shared grid data when fetch is successful', async () => {
-    const mockSharedData: SharedGridData = {
-      id: mockId,
-      username: 'testuser',
-      period: '7day',
-      albums: [
-        {
-          name: 'Album 1',
-          artist: { name: 'Artist A', mbid: 'artist-mbid-a' },
-          imageUrl: 'img1.jpg',
-          mbid: 'album-mbid-1',
-          playcount: 10,
-        },
-        {
-          name: 'Album 2',
-          artist: { name: 'Artist B', mbid: 'artist-mbid-b' },
-          imageUrl: 'img2.jpg',
-          mbid: 'album-mbid-2',
-          playcount: 5,
-        },
-      ],
-      createdAt: new Date().toISOString(),
-    };
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockSharedData,
-    } as Response);
-
-    // Default for subsequent spotify link calls
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ spotifyUrl: null }),
-    } as Response);
-
-    render(<SharePageClient />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId('skeleton-container')).not.toBeInTheDocument()
-    );
+  it('renders the grid from server-provided props', () => {
+    render(<SharePageClient sharedData={mockSharedData} spotifyLinks={{}} />);
 
     expect(
       screen.getByText((content) =>
@@ -105,83 +71,69 @@ describe('SharePageClient', () => {
     expect(screen.getByText('Artist B')).toBeInTheDocument();
   });
 
-  it('should display "Shared grid not found" error when fetch returns 404', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-      json: async () => ({ message: 'Shared grid not found' }),
-    } as Response);
+  it('makes no network requests — the server already resolved everything', () => {
+    render(
+      <SharePageClient
+        sharedData={mockSharedData}
+        spotifyLinks={{ 'album-mbid-1': 'https://open.spotify.com/album/1' }}
+      />
+    );
 
-    render(<SharePageClient />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Error: Shared grid not found')
-      ).toBeInTheDocument();
-    });
+    // Previously this component re-fetched the share record it was already given
+    // and then fired one Spotify request per album.
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('should display generic error message when fetch fails with other errors', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: async () => ({ message: 'Internal Server Error' }),
-    } as Response);
+  it('renders a Spotify link and cue only for albums that have one', () => {
+    render(
+      <SharePageClient
+        sharedData={mockSharedData}
+        spotifyLinks={{
+          'album-mbid-1': 'https://open.spotify.com/album/1',
+          'album-mbid-2': null,
+        }}
+      />
+    );
 
-    render(<SharePageClient />);
+    const spotifyAnchors = screen
+      .getAllByRole('link')
+      .filter((a) => a.getAttribute('href')?.includes('open.spotify.com'));
 
-    await waitFor(() => {
-      expect(
-        screen.getByText('Error: Internal Server Error')
-      ).toBeInTheDocument();
-    });
+    expect(spotifyAnchors).toHaveLength(1);
+    expect(spotifyAnchors[0]).toHaveAttribute(
+      'href',
+      'https://open.spotify.com/album/1'
+    );
+
+    // One cue image for the linked album, one overlay logo — and nothing for the
+    // album without a link.
+    expect(screen.getAllByAltText('Spotify Playable Cue')).toHaveLength(1);
+    expect(screen.getAllByAltText('Play on Spotify')).toHaveLength(1);
   });
 
-  it('should display generic error message when fetch promise is rejected', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('Network failure'));
+  it('marks only the first album image as priority', () => {
+    render(<SharePageClient sharedData={mockSharedData} spotifyLinks={{}} />);
 
-    render(<SharePageClient />);
+    const albumImages = screen
+      .getAllByRole('img')
+      .filter((img) => img.getAttribute('alt')?.includes(' by '));
 
-    await waitFor(() => {
-      expect(screen.getByText('Error: Network failure')).toBeInTheDocument();
-    });
+    expect(albumImages).toHaveLength(2);
+    expect(albumImages[0]).toHaveAttribute('data-priority', 'true');
+    expect(albumImages[1]).toHaveAttribute('data-priority', 'false');
   });
 
-  it('should attempt to fetch Spotify links if shared data has albums', async () => {
-    const mockSharedDataWithAlbums: SharedGridData = {
-      id: mockId,
-      username: 'spotifyUser',
-      period: '1month',
-      albums: [
-        {
-          name: 'Album X',
-          artist: { name: 'Artist X', mbid: 'artist-mbid-x' },
-          imageUrl: 'imgX.jpg',
-          mbid: 'album-mbid-x',
-          playcount: 20,
-        },
-      ],
-      createdAt: new Date().toISOString(),
+  it('falls back to a local placeholder when album art is missing', () => {
+    const withMissingArt: SharedGridData = {
+      ...mockSharedData,
+      albums: [{ ...mockSharedData.albums[0], imageUrl: '' }],
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockSharedDataWithAlbums,
-    } as Response);
+    render(<SharePageClient sharedData={withMissingArt} spotifyLinks={{}} />);
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ spotifyUrl: 'spotify.com/albumX' }),
-    } as Response);
-
-    render(<SharePageClient />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Album X')).toBeInTheDocument();
-    });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      `/api/spotify-link?artistName=${encodeURIComponent('Artist X')}&albumName=${encodeURIComponent('Album X')}`
+    expect(screen.getByAltText('Album 1 by Artist A')).toHaveAttribute(
+      'src',
+      '/placeholder-album.svg'
     );
   });
 });
