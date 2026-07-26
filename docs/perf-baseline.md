@@ -11,26 +11,32 @@ Commit at time of capture: `ac2eefa` (branch `claude/web-app-performance-tuning-
 
 Captured with `npm run build` on Node v22.22.2.
 
-| Route            | Route size | First Load JS |
-| ---------------- | ---------- | ------------- |
-| `/`              | 32.7 kB    | **168 kB**    |
-| `/share/[id]`    | 6.71 kB    | 125 kB        |
-| `/about`         | 5.13 kB    | 109 kB        |
-| `/_not-found`    | 977 B      | 104 kB        |
-| API routes (`ƒ`) | 155 B      | 104 kB        |
+| Route            | Route size (before → after) | First Load JS (before → after) |
+| ---------------- | --------------------------- | ------------------------------ |
+| `/`              | 32.7 kB → 32.0 kB           | **168 kB → 150 kB**            |
+| `/share/[id]`    | 6.71 kB → 2.10 kB           | 125 kB → 120 kB                |
+| `/about`         | 5.13 kB → 3.45 kB           | 109 kB → 107 kB                |
+| `/_not-found`    | 977 B → 977 B               | 104 kB → 104 kB                |
+| API routes (`ƒ`) | 155 B → 156 B               | 104 kB → 104 kB                |
 
-Shared by all: **103 kB**
+Shared by all: **103 kB** (unchanged — React and the framework runtime).
 
-- `chunks/4bd1b696-*.js` — 53.2 kB
-- `chunks/721-*.js` — 48.3 kB
-- other shared — 1.93 kB
+Where the reductions come from:
 
-`/` is the target: 168 kB First Load JS for a page that renders nine images.
+- `/` — the Firebase SDK is no longer in the initial bundle. It was imported at module
+  scope for `defaultRemoteConfig` (a plain object) and a handful of FTUE values; the
+  defaults moved to a Firebase-free module and the SDK is now a dynamic `import()` that
+  only genuinely first-time visitors load.
+- `/share/[id]` — pino (a server logger) is out of the browser bundle, and the component
+  no longer contains fetch/loading/error logic or the pixel-analysis code.
+- `/about` — converted from a client component to a server component; it ships no
+  page-specific JS.
 
 ## 2. Test suite
 
-`npm test` → **13 suites, 58 tests, all passing** in ~18.6 s. This is the regression gate;
-it must stay green through every phase.
+Baseline: **13 suites, 58 tests** passing in ~18.6 s.
+After: **14 suites, 83 tests** passing. This is the regression gate; it stayed green
+through every phase.
 
 ## 3. Observed during build — eager Redis connection
 

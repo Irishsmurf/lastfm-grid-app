@@ -1,47 +1,39 @@
 // app/about/page.tsx
-'use client';
-
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import Head from 'next/head'; // Import Head
 
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+const TITLE = 'About Us | Gridify - Your Epic Last.fm Album Art Grid Generator';
+const DESCRIPTION =
+  "Ever stared at your Last.fm profile and thought, 'This needs more... grid?' We get it. Gridify is here to turn your scrobbled anthems into legendary album art mosaics!";
+
+// Previously declared with `next/head`, which is a Pages Router API and a no-op in
+// the App Router — so this page shipped with no title, description or social tags
+// at all. The App Router equivalent is an exported metadata object.
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    type: 'website',
+    url: `${baseUrl}/about`,
+    images: [`${baseUrl}/globe.svg`],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [`${baseUrl}/globe.svg`],
+  },
+};
+
+// Static prose — no hooks, no interactivity, so it renders on the server and ships
+// no JavaScript for itself.
 export default function AboutPage() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-
   return (
     <>
-      <Head>
-        <title>
-          About Us | Gridify - Your Epic Last.fm Album Art Grid Generator
-        </title>
-        <meta
-          name="description"
-          content="Ever stared at your Last.fm profile and thought, 'This needs more... grid?' We get it. Gridify is here to turn your scrobbled anthems into legendary album art mosaics!"
-        />
-        {/* Open Graph Tags */}
-        <meta
-          property="og:title"
-          content="About Us | Gridify - Your Epic Last.fm Album Art Grid Generator"
-        />
-        <meta
-          property="og:description"
-          content="Ever stared at your Last.fm profile and thought, 'This needs more... grid?' We get it. Gridify is here to turn your scrobbled anthems into legendary album art mosaics!"
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={`${baseUrl}/about`} />
-        <meta property="og:image" content={`${baseUrl}/globe.svg`} />{' '}
-        {/* Assuming globe.svg is a suitable image */}
-        {/* Twitter Card Tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="About Us | Gridify - Your Epic Last.fm Album Art Grid Generator"
-        />
-        <meta
-          name="twitter:description"
-          content="Ever stared at your Last.fm profile and thought, 'This needs more... grid?' We get it. Gridify is here to turn your scrobbled anthems into legendary album art mosaics!"
-        />
-        <meta name="twitter:image" content={`${baseUrl}/globe.svg`} />
-      </Head>
       <div className="min-h-screen bg-background py-12 px-4">
         <div className="max-w-3xl mx-auto prose dark:prose-invert">
           <h1>So, You Wanna Know About Gridify?</h1>

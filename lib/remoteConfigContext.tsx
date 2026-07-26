@@ -38,7 +38,11 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
     const initializeConfig = async () => {
       if (!remoteConfig) return;
 
+      // Merged rather than assigned. This used to overwrite the whole
+      // defaultConfig object that lib/firebase.ts sets, dropping its other keys
+      // so every consumer of those fell back to SDK defaults instead.
       remoteConfig.defaultConfig = {
+        ...remoteConfig.defaultConfig,
         footer_feature_text: JSON.stringify(defaultConfig.footer_feature_text),
       };
 

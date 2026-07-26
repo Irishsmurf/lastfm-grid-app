@@ -8,6 +8,7 @@ import {
   isSupported,
 } from 'firebase/remote-config';
 import { logger } from '../utils/logger';
+import { defaultRemoteConfig } from './remoteConfigDefaults';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -44,24 +45,10 @@ if (remoteConfig) {
     process.env.NODE_ENV === 'development' ? 10000 : 43200000;
 }
 
-// Set default values (optional, but recommended)
-export const defaultRemoteConfig = {
-  show_footer_feature_text: false, // Default value for our example feature
-  default_time_period: '1month', // Default time period
-  lastfm_cache_expiry_seconds: 3600, // Default cache expiry in seconds
-  not_found_cache_expiry_seconds: 86400, // Default not found cache expiry in seconds
-  spotify_cache_expiry_seconds: 3600, // Default Spotify cache expiry in seconds
-  // FTUE Defaults
-  ftue_enabled: true,
-  welcome_message_variant: 'short_intro', // "none", "short_intro", "detailed_guide"
-  welcome_message_text_short:
-    'Welcome to Gridify! Generate your Last.fm album grid below.',
-  welcome_message_text_detailed:
-    "Get started with Gridify in 3 simple steps: 1. Enter your Last.fm username. 2. Choose a time period. 3. Click 'Generate Grid'!",
-  highlight_initial_action: 'username_input', // "none", "username_input", "generate_button"
-  prefill_example_username: false,
-  example_username_value: 'musiclover123',
-};
+// Defaults live in their own Firebase-free module so consumers that only need the
+// values don't pull the SDK in. Re-exported here for existing callers.
+export { defaultRemoteConfig };
+
 if (remoteConfig) {
   remoteConfig.defaultConfig = defaultRemoteConfig;
 }
