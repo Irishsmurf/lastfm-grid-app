@@ -135,11 +135,7 @@ export async function GET(req: NextRequest) {
     // or a fresh fetch that resulted in "not found".
     // The client should receive this structured response.
     const lastFmAlbumCount = data ? data.length : 0;
-    lastfmAlbumCount.inc(
-      { username: username as string, period: period as string },
-      lastFmAlbumCount
-    );
-    // spotifyLinkCount cannot be determined here as MinimizedAlbum does not have spotifyUrl
+    lastfmAlbumCount.inc({ period }, lastFmAlbumCount);
 
     logger.info(
       CTX,

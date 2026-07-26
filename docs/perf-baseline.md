@@ -47,6 +47,9 @@ build-time static generation workers that never issue a command — opens a sock
 a reconnect loop. On Vercel this is one connection per lambda instance, opened at cold start
 whether or not the request needs Redis. This is the concrete scale-out ceiling.
 
+**After (verified):** the same build emits **zero** such lines. `lazyConnect` plus a
+`globalThis` singleton means a connection is opened only when a command is actually issued.
+
 ---
 
 ## 4. Dead weight confirmed by inspection

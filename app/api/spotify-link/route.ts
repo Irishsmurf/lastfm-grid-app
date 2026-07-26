@@ -40,10 +40,12 @@ export async function GET(req: NextRequest) {
   const notFoundRedisPlaceholder = SPOTIFY_NOT_FOUND_PLACEHOLDER;
 
   // Define how to check if the fetched data means "not found"
+  // A transient failure also has a null spotifyUrl, but must not be cached as
+  // "no match" — that would blank the link for the full not-found TTL.
   const isResultNotFound = (
-    data: { spotifyUrl: string | null } | null
+    data: { spotifyUrl: string | null; transient?: boolean } | null
   ): boolean => {
-    return data?.spotifyUrl === null;
+    return data?.spotifyUrl === null && !data?.transient;
   };
 
   // Define the value to return when "not found" (either from cache placeholder or fresh fetch)
@@ -67,6 +69,7 @@ export async function GET(req: NextRequest) {
       notFoundValue: notFoundReturnValue,
       notFoundCacheExpirySeconds,
       notFoundRedisPlaceholder,
+      isTransient: (data) => !!data?.transient,
     });
 
     // The client expects a 200 OK even if spotifyUrl is null

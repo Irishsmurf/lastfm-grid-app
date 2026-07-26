@@ -1,6 +1,23 @@
 import { redis } from '@/lib/redis';
 import { logger } from '@/utils/logger';
 
+/**
+ * In-flight fetches, keyed by cache key, so concurrent misses for the same key
+ * share one upstream call instead of stampeding the origin API.
+ *
+ * Held on globalThis because Next.js can load this module more than once (dev
+ * HMR, separate route bundles) and a per-module map would silently stop
+ * deduplicating across those copies.
+ */
+const globalForCache = globalThis as unknown as {
+  __cacheInFlight?: Map<string, Promise<unknown>>;
+};
+
+const inFlight: Map<
+  string,
+  Promise<unknown>
+> = (globalForCache.__cacheInFlight ??= new Map());
+
 interface HandleCachingParams<T> {
   cacheKey: string;
   fetchDataFunction: () => Promise<T>;
@@ -10,6 +27,13 @@ interface HandleCachingParams<T> {
   isNotFound?: (value: T) => boolean;
   notFoundValue?: T | null; // The actual value to return when not found and placeholder was hit or fetch returned not found
   notFoundRedisPlaceholder?: string;
+  /**
+   * Marks a result as a transient failure: returned to the caller but never
+   * written to cache, positively or negatively. Without this, an upstream
+   * timeout gets persisted as if it were a real answer and the failure sticks
+   * around for the full TTL.
+   */
+  isTransient?: (value: T) => boolean;
 }
 
 /**
@@ -40,45 +64,76 @@ export async function handleCaching<T>({
   isNotFound,
   notFoundValue = null,
   notFoundRedisPlaceholder = 'NOT_FOUND_PLACEHOLDER',
+  isTransient,
 }: HandleCachingParams<T>): Promise<T | null> {
+  // --- Cache read. A Redis failure here degrades to an uncached fetch rather
+  // than failing the request: a Redis blip used to surface as a 500.
+  let cachedDataString: string | null = null;
   try {
-    const cachedDataString = await redis.get(cacheKey);
+    cachedDataString = await redis.get(cacheKey);
+  } catch (error) {
+    logger.warn(
+      'Cache',
+      `Cache read failed for ${cacheKey}, serving uncached: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 
-    if (cachedDataString) {
-      if (cachedDataString === notFoundRedisPlaceholder) {
-        logger.info(
-          'Cache',
-          `Cache hit for NOT_FOUND placeholder: ${cacheKey}`
-        );
-        return notFoundValue;
-      }
+  if (cachedDataString) {
+    if (cachedDataString === notFoundRedisPlaceholder) {
+      logger.info('Cache', `Cache hit for NOT_FOUND placeholder: ${cacheKey}`);
+      return notFoundValue;
+    }
+    try {
+      const parsedData = JSON.parse(cachedDataString);
+      logger.info('Cache', `Cache hit: ${cacheKey}`);
+      return parsedData as T;
+    } catch (parseError) {
+      logger.error('Cache', `Error parsing cached data for key ${cacheKey}:`, {
+        error: parseError,
+      });
+      logger.warn(
+        'Cache',
+        `Evicting corrupted cache entry for key: ${cacheKey}`
+      );
       try {
-        const parsedData = JSON.parse(cachedDataString);
-        logger.info('Cache', `Cache hit: ${cacheKey}`);
-        return parsedData as T;
-      } catch (parseError) {
+        await redis.del(cacheKey);
+      } catch (delError) {
         logger.error(
           'Cache',
-          `Error parsing cached data for key ${cacheKey}:`,
-          { error: parseError }
+          `Failed to delete corrupted cache key ${cacheKey}:`,
+          { error: delError }
         );
-        logger.warn(
-          'Cache',
-          `Evicting corrupted cache entry for key: ${cacheKey}`
-        );
-        try {
-          await redis.del(cacheKey);
-        } catch (delError) {
-          logger.error(
-            'Cache',
-            `Failed to delete corrupted cache key ${cacheKey}:`,
-            { error: delError }
-          );
-        }
       }
     }
-    logger.info('Cache', `Cache miss: ${cacheKey}. Fetching fresh data.`);
+  }
+
+  logger.info('Cache', `Cache miss: ${cacheKey}. Fetching fresh data.`);
+
+  // --- Single-flight. Without this, N concurrent misses on the same key each
+  // call the upstream API, so a popular key expiring under load produces a
+  // thundering herd against Last.fm or Spotify.
+  //
+  // This dedupes within one process. On serverless that means one upstream call
+  // per warm instance rather than one globally, which is still a large reduction
+  // and avoids the failure modes of a distributed lock.
+  const existing = inFlight.get(cacheKey);
+  if (existing) {
+    logger.info('Cache', `Joining in-flight fetch for ${cacheKey}`);
+    return existing as Promise<T | null>;
+  }
+
+  const fetchPromise = (async (): Promise<T | null> => {
     const freshData = await fetchDataFunction();
+
+    // A transient upstream failure is returned but never persisted, so the next
+    // request retries instead of being served a cached error.
+    if (isTransient?.(freshData)) {
+      logger.warn(
+        'Cache',
+        `Transient upstream result for ${cacheKey}; not caching.`
+      );
+      return freshData;
+    }
 
     // Determine if the result is a "not found" scenario
     // The `isNotFound` function provides flexibility, e.g. checking for { spotifyUrl: null } or an empty array
@@ -86,41 +141,59 @@ export async function handleCaching<T>({
       ? isNotFound(freshData)
       : JSON.stringify(freshData) === JSON.stringify(notFoundValue);
 
-    if (isResultNotFound) {
-      if (notFoundCacheExpirySeconds && notFoundRedisPlaceholder) {
+    // Cache writes are best-effort: the data is already in hand, so a write
+    // failure must not fail a request that otherwise succeeded.
+    try {
+      if (isResultNotFound) {
+        if (notFoundCacheExpirySeconds && notFoundRedisPlaceholder) {
+          logger.info(
+            'Cache',
+            `Caching NOT_FOUND placeholder for ${cacheKey} for ${notFoundCacheExpirySeconds}s`
+          );
+          await redis.setex(
+            cacheKey,
+            notFoundCacheExpirySeconds,
+            notFoundRedisPlaceholder
+          );
+        }
+      } else {
         logger.info(
           'Cache',
-          `Caching NOT_FOUND placeholder for ${cacheKey} for ${notFoundCacheExpirySeconds}s`
+          `Caching fresh data for ${cacheKey} for ${cacheExpirySeconds}s`
         );
         await redis.setex(
           cacheKey,
-          notFoundCacheExpirySeconds,
-          notFoundRedisPlaceholder
+          cacheExpirySeconds,
+          JSON.stringify(freshData)
         );
       }
-      return freshData; // Return the original "not found" data (e.g., null or { spotifyUrl: null })
-    } else {
-      // Cache the "found" result
-      const serializedData = JSON.stringify(freshData);
-      logger.info(
+    } catch (error) {
+      logger.warn(
         'Cache',
-        `Caching fresh data for ${cacheKey} for ${cacheExpirySeconds}s`
+        `Cache write failed for ${cacheKey}: ${error instanceof Error ? error.message : String(error)}`
       );
-      await redis.setex(cacheKey, cacheExpirySeconds, serializedData);
-      return freshData;
     }
+
+    return freshData;
+  })();
+
+  inFlight.set(cacheKey, fetchPromise as Promise<unknown>);
+
+  try {
+    return await fetchPromise;
   } catch (error) {
     logger.error('Cache', `Error in handleCaching for key ${cacheKey}:`, {
       error,
     });
-    // Depending on requirements, you might want to re-throw,
-    // or return a default/fallback value, or the potentially stale notFoundValue.
-    // For now, re-throwing to make the caller aware.
     if (error instanceof Error) {
       throw error;
     }
     throw new Error(
       `An unexpected error occurred in handleCaching for key ${cacheKey}`
     );
+  } finally {
+    // Always cleared, including on failure, so a failed fetch doesn't pin a
+    // rejected promise that every later caller would join.
+    inFlight.delete(cacheKey);
   }
 }

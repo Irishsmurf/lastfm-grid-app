@@ -60,6 +60,49 @@ type LastFmResponse = LastFmTopAlbumsResponse | LastFmError;
  * @throws {Error} If the API key is not configured, or if there's an unrecoverable
  *                 API error or network issue.
  */
+/** How long to wait on Last.fm before giving up on a single attempt. */
+const LASTFM_TIMEOUT_MS = 4000;
+
+/**
+ * Fetch with a hard timeout and a single retry for transient faults.
+ *
+ * Retries only on a transport error or a 5xx — a 4xx is a real answer (bad key,
+ * unknown user) and retrying it just doubles the latency of a guaranteed failure.
+ */
+async function fetchWithRetry(url: string): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      // Brief jittered backoff, enough to ride out a momentary blip without
+      // meaningfully extending the request.
+      await new Promise((resolve) =>
+        setTimeout(resolve, 150 + Math.random() * 150)
+      );
+      logger.warn(CTX, `Retrying Last.fm request (attempt ${attempt + 1})`);
+    }
+
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(LASTFM_TIMEOUT_MS),
+      });
+
+      if (response.status >= 500 && attempt === 0) {
+        lastError = new Error(`Last.fm returned ${response.status}`);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Last.fm request failed');
+}
+
 export async function getTopAlbums(
   username: string,
   period: string,
@@ -94,7 +137,11 @@ export async function getTopAlbums(
   logger.info(CTX, `Fetching Last.fm API: ${urlForLogging.toString()}`);
 
   try {
-    const response = await fetch(apiUrl);
+    // Bounded, with one retry on a transport failure or a 5xx. Previously there
+    // was no timeout at all, so a hung Last.fm socket held the request open until
+    // the platform killed it. Deliberately does not retry 4xx or the in-body
+    // error checked below — those are real answers, not transient faults.
+    const response = await fetchWithRetry(apiUrl);
 
     if (!response.ok) {
       const errorText = await response.text();
