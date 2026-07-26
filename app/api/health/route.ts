@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { redis } from '@/lib/redis';
 import { logger } from '@/utils/logger';
+import { NO_STORE } from '@/lib/config';
 
 const CTX = 'HealthAPI';
 
@@ -9,7 +10,7 @@ export async function GET() {
     await redis.ping();
     return NextResponse.json(
       { status: 'ok', redis: 'connected' },
-      { status: 200 }
+      { status: 200, headers: NO_STORE }
     );
   } catch (error) {
     logger.error(
@@ -18,7 +19,7 @@ export async function GET() {
     );
     return NextResponse.json(
       { status: 'degraded', redis: 'error' },
-      { status: 503 }
+      { status: 503, headers: NO_STORE }
     );
   }
 }

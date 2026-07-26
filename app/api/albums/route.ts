@@ -6,10 +6,12 @@ import {
 } from '@/lib/minimizedLastfmService'; // Added
 import { handleCaching } from '@/lib/cache';
 import { logger } from '@/utils/logger';
-import { nanoid } from 'nanoid';
-import { SharedGridData } from '@/lib/types';
-import { redis } from '@/lib/redis';
-import { getRemoteConfigValue } from '@/lib/firebase';
+import {
+  albumsTtlSeconds,
+  ALBUMS_NOT_FOUND_TTL,
+  cacheHeaders,
+  NO_STORE,
+} from '@/lib/config';
 import {
   apiRequestCounter,
   apiRequestDuration,
@@ -24,14 +26,18 @@ export async function GET(req: NextRequest) {
     route: '/api/albums',
   });
 
-  const respond = (status: number, body: Record<string, unknown>) => {
+  const respond = (
+    status: number,
+    body: Record<string, unknown>,
+    headers: Record<string, string> = NO_STORE
+  ) => {
     apiRequestCounter.inc({
       method: 'GET',
       route: '/api/albums',
       status_code: status.toString(),
     });
     end();
-    return NextResponse.json(body, { status });
+    return NextResponse.json(body, { status, headers });
   };
 
   const { searchParams } = new URL(req.url);
@@ -87,39 +93,10 @@ export async function GET(req: NextRequest) {
   const encodedPeriod = encodeURIComponent(period);
   const cacheKey = `lastfm:albums:${encodedUsername}:${encodedPeriod}:${limit}:minimized`;
 
-  // Get cache expiry values from Remote Config
-  const defaultCacheExpirySeconds = 3600; // 1 hour
-  const defaultNotFoundCacheExpirySeconds = 600; // 10 minutes
-
-  let cacheExpirySeconds = defaultCacheExpirySeconds;
-  try {
-    const remoteCacheExpiry = getRemoteConfigValue(
-      'lastfm_cache_expiry_seconds'
-    ).asNumber();
-    if (remoteCacheExpiry > 0) {
-      cacheExpirySeconds = remoteCacheExpiry;
-    }
-  } catch (error) {
-    logger.warn(
-      CTX,
-      `Failed to get 'lastfm_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-
-  let notFoundCacheExpirySeconds = defaultNotFoundCacheExpirySeconds;
-  try {
-    const remoteNotFoundCacheExpiry = getRemoteConfigValue(
-      'not_found_cache_expiry_seconds'
-    ).asNumber();
-    if (remoteNotFoundCacheExpiry > 0) {
-      notFoundCacheExpirySeconds = remoteNotFoundCacheExpiry;
-    }
-  } catch (error) {
-    logger.warn(
-      CTX,
-      `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
+  // Cache lifetimes are plain constants — see lib/config.ts for why these are no
+  // longer read from Remote Config.
+  const cacheExpirySeconds = albumsTtlSeconds(period);
+  const notFoundCacheExpirySeconds = ALBUMS_NOT_FOUND_TTL;
 
   const isResultNotFound = (data: MinimizedAlbum[]): boolean => {
     // Updated type and logic
@@ -172,42 +149,27 @@ export async function GET(req: NextRequest) {
       `Successfully fetched ${lastFmAlbumCount} albums for username: ${username}, period: ${period}`
     );
 
-    const sharedId = nanoid();
-    const sharedGridData: SharedGridData = {
-      id: sharedId,
-      username: username as string,
-      period: period as string,
-      albums: data || [], // Ensure data is not null/undefined
-      createdAt: new Date().toISOString(),
-    };
+    // No share record is written here. This route is a pure read, which is what
+    // makes it CDN-cacheable: it previously minted a unique nanoid per request, so
+    // every response body differed and nothing could ever be shared between users.
+    // Share records are now created on demand by POST /api/share.
+    const albums = data || [];
 
-    try {
-      // Shared grids are stored without an expiry so share links never break.
-      // NOTE: this relies on the Redis instance being durable for these keys —
-      // configure it for persistence with a volatile-* eviction policy (or no
-      // eviction), so permanent share data isn't silently evicted under memory
-      // pressure.
-      await redis.set(`share:${sharedId}`, JSON.stringify(sharedGridData));
-      logger.info(
-        CTX,
-        `Successfully saved shared grid data to Redis for id: ${sharedId}`
-      );
-    } catch (redisError) {
-      logger.error(
-        CTX,
-        `Error saving shared grid data to Redis for username: ${username}, period: ${period}: ${redisError instanceof Error ? redisError.message : String(redisError)}`
-      );
-      return respond(200, {
-        albums: data || [],
-        sharedId: null,
-        error:
-          process.env.NODE_ENV === 'production'
-            ? 'Failed to save share data.'
-            : `Failed to save share data: ${redisError instanceof Error ? redisError.message : String(redisError)}`,
-      });
-    }
-
-    return respond(200, { albums: data || [], sharedId: sharedId });
+    return respond(
+      200,
+      { albums },
+      albums.length === 0
+        ? // Negative results get a short edge TTL so a user who has just started
+          // scrobbling isn't stuck with an empty grid at the edge.
+          cacheHeaders({ cdn: ALBUMS_NOT_FOUND_TTL, browser: 0, swr: 600 })
+        : // Edge TTL deliberately matches the Redis TTL, so the CDN can never
+          // serve data older than the origin would have.
+          cacheHeaders({
+            cdn: cacheExpirySeconds,
+            browser: 60,
+            swr: 86400,
+          })
+    );
   } catch (error) {
     let detailedErrorMessage = 'An unexpected error occurred';
     if (error instanceof Error) {

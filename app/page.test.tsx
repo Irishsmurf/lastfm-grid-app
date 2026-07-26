@@ -423,16 +423,21 @@ describe('Home Page - Analytics tracking', () => {
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const urlString = url.toString();
       if (urlString.startsWith('/api/albums')) {
+        // No sharedId here any more — /api/albums is a pure, cacheable read.
         return {
           ok: true,
-          json: async () => ({
-            albums: mockApiAlbumsPayload,
-            sharedId: 'test-share-id',
-          }),
+          json: async () => ({ albums: mockApiAlbumsPayload }),
         };
       }
       if (urlString.startsWith('/api/spotify-link')) {
         return { ok: true, json: async () => ({ spotifyUrl: null }) };
+      }
+      if (urlString.startsWith('/api/share')) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ sharedId: 'test-share-id' }),
+        };
       }
       return { ok: false, status: 404, json: async () => ({}) };
     });
@@ -449,6 +454,12 @@ describe('Home Page - Analytics tracking', () => {
     fireEvent.click(screen.getByRole('button', { name: /Share Grid/i }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalled());
+
+    // The share record is created on click, not during grid generation.
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/share',
+      expect.objectContaining({ method: 'POST' })
+    );
 
     expect(mockedTrackEvent).toHaveBeenCalledWith(
       'share_grid',
