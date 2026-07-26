@@ -18,10 +18,10 @@ import { FileImage, LayoutGrid, Share2, Check, Loader2 } from 'lucide-react'; //
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import type { MinimizedAlbum } from '@/lib/minimizedLastfmService'; // Import MinimizedAlbum
 import { trackEvent } from '@/lib/analytics';
-import {
-  getRemoteConfigValue, // This will be used for FTUE and default_time_period
-  defaultRemoteConfig,
-} from '@/lib/firebase'; // Updated path if necessary, assuming it's correct
+// Imported from the Firebase-free defaults module. Importing these from
+// '@/lib/firebase' pulled firebase/app + firebase/remote-config into this page's
+// first-load bundle; the SDK is now loaded lazily, only where it's actually used.
+import { defaultRemoteConfig } from '@/lib/remoteConfigDefaults';
 
 const timeRanges = {
   '7day': 'Last Week',
@@ -121,50 +121,51 @@ export default function Home() {
       setUsername(storedUsername);
     }
 
-    // FTUE Logic - Fetch and Apply Remote Config if it's a first-time user
-    // This relies on Firebase app being initialized and Remote Config fetched by layout.tsx via lib/firebase.ts
+    // FTUE Logic - Fetch and Apply Remote Config if it's a first-time user.
+    // The Firebase SDK is imported dynamically so it stays out of the initial
+    // bundle: only genuinely first-time visitors ever pay to download it, and the
+    // useState defaults above already cover everyone else.
     if (!hasVisitedBefore) {
-      // Only run FTUE Remote Config value retrieval for actual first-time users in this session
-      try {
-        // Use getRemoteConfigValue from lib/firebase.ts
-        setFtueEnabled(getRemoteConfigValue('ftue_enabled').asBoolean());
-        setWelcomeMessageVariant(
-          getRemoteConfigValue('welcome_message_variant').asString()
-        );
-        setWelcomeMessageTextShort(
-          getRemoteConfigValue('welcome_message_text_short').asString()
-        );
-        setWelcomeMessageTextDetailed(
-          getRemoteConfigValue('welcome_message_text_detailed').asString()
-        );
-        setHighlightInitialAction(
-          getRemoteConfigValue('highlight_initial_action').asString()
-        );
+      void (async () => {
+        try {
+          const { getRemoteConfigValue } = await import('@/lib/firebase');
 
-        const shouldPrefill = getRemoteConfigValue(
-          'prefill_example_username'
-        ).asBoolean();
-        setPrefillExampleUsername(shouldPrefill);
-        const exampleUser = getRemoteConfigValue(
-          'example_username_value'
-        ).asString();
-        setExampleUsernameValue(exampleUser);
+          setFtueEnabled(getRemoteConfigValue('ftue_enabled').asBoolean());
+          setWelcomeMessageVariant(
+            getRemoteConfigValue('welcome_message_variant').asString()
+          );
+          setWelcomeMessageTextShort(
+            getRemoteConfigValue('welcome_message_text_short').asString()
+          );
+          setWelcomeMessageTextDetailed(
+            getRemoteConfigValue('welcome_message_text_detailed').asString()
+          );
+          setHighlightInitialAction(
+            getRemoteConfigValue('highlight_initial_action').asString()
+          );
 
-        if (shouldPrefill && !storedUsername && exampleUser) {
-          setUsername(exampleUser);
-          // Do NOT save this example username to localStorage immediately,
-          // let the normal flow save it if the user proceeds.
+          const shouldPrefill = getRemoteConfigValue(
+            'prefill_example_username'
+          ).asBoolean();
+          setPrefillExampleUsername(shouldPrefill);
+          const exampleUser = getRemoteConfigValue(
+            'example_username_value'
+          ).asString();
+          setExampleUsernameValue(exampleUser);
+
+          if (shouldPrefill && !storedUsername && exampleUser) {
+            setUsername(exampleUser);
+            // Do NOT save this example username to localStorage immediately,
+            // let the normal flow save it if the user proceeds.
+          }
+        } catch (error) {
+          console.error(
+            'FTUE: Error getting remote config values for FTUE:',
+            error
+          );
+          // Defaults set in useState will be used.
         }
-        console.log(
-          'FTUE: Remote config values applied for first-time user using lib/firebase.'
-        );
-      } catch (error) {
-        console.error(
-          'FTUE: Error getting remote config values for FTUE using lib/firebase:',
-          error
-        );
-        // Defaults set in useState will be used, which should align with those in lib/firebase.ts defaultRemoteConfig
-      }
+      })();
     }
   }, []); // Empty dependency array: runs once on mount
 
@@ -173,11 +174,10 @@ export default function Home() {
   useEffect(() => {
     const fetchDefaultTimePeriod = async () => {
       try {
-        // initializeRemoteConfig from lib/firebase is now called in layout.tsx.
-        // So, it should have already fetched and activated by the time this component mounts.
-        // We can directly try to get the value.
-        // If `initializeRemoteConfig` in lib also ensures defaults are loaded synchronously before fetch, this is fine.
-        // Otherwise, if there's a slight delay, it might pick up the lib's internal default.
+        // Dynamically imported so the Firebase SDK stays off the critical path.
+        // The select already renders with the default from useState, so resolving
+        // this a moment later is invisible.
+        const { getRemoteConfigValue } = await import('@/lib/firebase');
         const remoteTimePeriodValue = getRemoteConfigValue(
           'default_time_period'
         );

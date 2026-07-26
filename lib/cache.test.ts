@@ -235,16 +235,16 @@ describe('handleCaching', () => {
     it('never caches a result marked transient', async () => {
       (redis.get as jest.Mock).mockResolvedValue(null);
       (redis.setex as jest.Mock).mockResolvedValue('OK');
-      const transientResult = { spotifyUrl: null, transient: true };
+      type LinkResult = { spotifyUrl: string | null; transient?: boolean };
+      const transientResult: LinkResult = { spotifyUrl: null, transient: true };
 
-      const result = await handleCaching({
+      const result = await handleCaching<LinkResult>({
         cacheKey: 'transient-key',
         fetchDataFunction: jest.fn().mockResolvedValue(transientResult),
         cacheExpirySeconds: 2592000,
         notFoundCacheExpirySeconds: 86400,
-        isNotFound: (v: { spotifyUrl: string | null; transient?: boolean }) =>
-          v.spotifyUrl === null && !v.transient,
-        isTransient: (v: { transient?: boolean }) => !!v.transient,
+        isNotFound: (v) => v.spotifyUrl === null && !v.transient,
+        isTransient: (v) => !!v.transient,
         notFoundValue: { spotifyUrl: null },
       });
 

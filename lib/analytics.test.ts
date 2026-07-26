@@ -8,7 +8,7 @@ describe('trackEvent', () => {
   });
 
   it('does nothing when window.gtag is undefined', () => {
-    // @ts-expect-error deliberately clearing gtag for this test
+    // gtag is declared optional, so clearing it needs no suppression.
     delete window.gtag;
     expect(() => trackEvent('generate_grid', { username: 'rj' })).not.toThrow();
   });

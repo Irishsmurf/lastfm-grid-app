@@ -25,5 +25,39 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck
+        run: npx tsc --noEmit
+
       - name: Test
         run: npm test
+
+      # There was no build step here, so build breakage and bundle regressions
+      # could reach main unchallenged. Placeholder values are enough: nothing is
+      # called at build time, they only need to exist.
+      - name: Build
+        run: npm run build | tee build-output.txt
+        env:
+          LASTFM_API_KEY: ci-placeholder
+          LASTFM_BASE_URL: https://ws.audioscrobbler.com/2.0/
+          SPOTIFY_CLIENT_ID: ci-placeholder
+          SPOTIFY_CLIENT_SECRET: ci-placeholder
+          REDIS_URL: redis://127.0.0.1:6379
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: G-PLACEHOLDER
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ci.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          NEXT_PUBLIC_FIREBASE_APP_ID: '1:000000000000:web:ciplaceholder'
+
+      # Surfaces per-route First Load JS on every PR, so bundle growth is visible
+      # in review rather than discovered later.
+      - name: Report bundle size
+        if: always()
+        run: |
+          {
+            echo '### Route bundle sizes'
+            echo '```'
+            sed -n '/Route (app)/,/^$/p' build-output.txt || echo 'Build output unavailable.'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
