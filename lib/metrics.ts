@@ -10,7 +10,6 @@ const globalForRegistry = global as unknown as {
   apiRequestCounter: Counter | undefined;
   apiRequestDuration: Histogram | undefined;
   lastfmAlbumCount: Counter | undefined;
-  spotifyLinkCount: Counter | undefined;
 };
 
 function getOrCreateRegistry(): Registry {
@@ -76,14 +75,11 @@ export const apiRequestDuration = getOrCreateHistogram(
   [0.1, 0.5, 1, 1.5, 2, 5]
 );
 
+// Labelled by period only. `username` was previously a label, which gave this
+// metric unbounded cardinality: every distinct user created a permanent child
+// series, so process memory and the /api/metrics response grew without limit.
 export const lastfmAlbumCount = getOrCreateCounter(
   'lastfm_album_count',
   'Number of albums returned from the Last.fm API',
-  ['username', 'period']
-);
-
-export const spotifyLinkCount = getOrCreateCounter(
-  'spotify_link_count',
-  'Number of Spotify links found for albums',
-  ['username', 'period']
+  ['period']
 );

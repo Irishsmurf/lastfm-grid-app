@@ -25,6 +25,21 @@ export function spotifyLinkCacheKey(
   return `spotify:link:${encodeURIComponent(artistName)}:${encodeURIComponent(albumName)}`;
 }
 
+/** Timeouts, so a hung Spotify socket can't hold a request open indefinitely. */
+const SPOTIFY_TOKEN_TIMEOUT_MS = 3000;
+const SPOTIFY_SEARCH_TIMEOUT_MS = 3000;
+
+/**
+ * Process-local token cache, in front of the Redis copy.
+ *
+ * Redis remains the cross-instance layer; this just avoids paying a Redis GET for
+ * the token on every single album lookup within a warm instance.
+ */
+const globalForToken = globalThis as unknown as {
+  __spotifyToken?: { value: string; expiresAt: number };
+  __spotifyTokenInFlight?: Promise<string> | null;
+};
+
 async function refreshSpotifyToken(): Promise<string> {
   if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
     throw new Error(
@@ -41,6 +56,7 @@ async function refreshSpotifyToken(): Promise<string> {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: 'grant_type=client_credentials',
+    signal: AbortSignal.timeout(SPOTIFY_TOKEN_TIMEOUT_MS),
   });
   if (!res.ok) {
     throw new Error(`Spotify token request failed: ${res.status}`);
@@ -51,33 +67,66 @@ async function refreshSpotifyToken(): Promise<string> {
   if (typeof accessToken !== 'string' || typeof expiresIn !== 'number') {
     throw new Error('Invalid token response structure from Spotify');
   }
-  await redis.setex(
-    SPOTIFY_ACCESS_TOKEN_REDIS_KEY,
-    expiresIn - 300,
-    accessToken
-  );
+  const ttl = expiresIn - 300;
+  await redis.setex(SPOTIFY_ACCESS_TOKEN_REDIS_KEY, ttl, accessToken);
+
+  // Memoised slightly shorter than the Redis TTL so this copy never outlives it.
+  globalForToken.__spotifyToken = {
+    value: accessToken,
+    expiresAt: Date.now() + Math.max(ttl - 60, 30) * 1000,
+  };
+
   logger.info(CTX, 'Spotify access token refreshed and stored in Redis.');
   return accessToken;
 }
 
 async function getAccessToken(): Promise<string> {
-  let token = await redis.get(SPOTIFY_ACCESS_TOKEN_REDIS_KEY);
-  if (!token) {
-    logger.info(
-      CTX,
-      'Spotify access token not found in Redis or expired, refreshing...'
-    );
-    token = await refreshSpotifyToken();
-  } else {
-    logger.info(CTX, 'Spotify access token retrieved from Redis.');
+  const memo = globalForToken.__spotifyToken;
+  if (memo && memo.expiresAt > Date.now()) {
+    return memo.value;
   }
-  return token;
+
+  const token = await redis.get(SPOTIFY_ACCESS_TOKEN_REDIS_KEY);
+  if (token) {
+    logger.info(CTX, 'Spotify access token retrieved from Redis.');
+    return token;
+  }
+
+  // Single-flight. Resolving a 25-album grid on a cold token would otherwise fire
+  // 25 simultaneous POSTs to accounts.spotify.com and 25 identical writes back.
+  if (globalForToken.__spotifyTokenInFlight) {
+    return globalForToken.__spotifyTokenInFlight;
+  }
+
+  logger.info(
+    CTX,
+    'Spotify access token not found in Redis or expired, refreshing...'
+  );
+
+  const refresh = refreshSpotifyToken().finally(() => {
+    globalForToken.__spotifyTokenInFlight = null;
+  });
+  globalForToken.__spotifyTokenInFlight = refresh;
+
+  return refresh;
+}
+
+export interface SpotifySearchResult {
+  spotifyUrl: string | null;
+  /**
+   * True when the lookup failed rather than genuinely finding nothing.
+   *
+   * Callers must not negative-cache these. Both null cases look identical to a
+   * caller otherwise, and with a 24h not-found TTL a momentary Spotify outage
+   * would blank those links for a full day.
+   */
+  transient?: boolean;
 }
 
 export async function searchAlbum(
   albumName: string,
   artistName: string
-): Promise<{ spotifyUrl: string | null }> {
+): Promise<SpotifySearchResult> {
   logger.info(
     CTX,
     `Searching for album on Spotify: ${albumName} by ${artistName}`
@@ -87,11 +136,14 @@ export async function searchAlbum(
     const query = encodeURIComponent(`album:${albumName} artist:${artistName}`);
     const res = await fetch(
       `https://api.spotify.com/v1/search?q=${query}&type=album&limit=1`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(SPOTIFY_SEARCH_TIMEOUT_MS),
+      }
     );
     if (!res.ok) {
       logger.error(CTX, `Spotify search request failed: ${res.status}`);
-      return { spotifyUrl: null };
+      return { spotifyUrl: null, transient: true };
     }
     const data = await res.json();
     const spotifyUrl = data.albums?.items?.[0]?.external_urls?.spotify;
@@ -107,7 +159,9 @@ export async function searchAlbum(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : error;
     logger.error(CTX, `Error searching for album on Spotify: ${errorMessage}`);
-    return { spotifyUrl: null };
+    // Timeouts, network faults and token failures all land here — none of them
+    // mean "this album isn't on Spotify".
+    return { spotifyUrl: null, transient: true };
   }
 }
 
@@ -201,7 +255,10 @@ export async function resolveSpotifyLinks(
       }
       const { album, key } = misses[index++];
       try {
-        const { spotifyUrl } = await searchAlbum(album.name, album.artist.name);
+        const { spotifyUrl, transient } = await searchAlbum(
+          album.name,
+          album.artist.name
+        );
         links[album.mbid] = spotifyUrl;
 
         // Write through with the same TTLs the single-album route uses.
@@ -211,7 +268,7 @@ export async function resolveSpotifyLinks(
             SPOTIFY_LINK_TTL,
             JSON.stringify({ spotifyUrl })
           );
-        } else {
+        } else if (!transient) {
           await redis.setex(
             key,
             SPOTIFY_NOT_FOUND_TTL,
