@@ -1,14 +1,21 @@
 import { GET } from './route';
 import { redis } from '../../../lib/redis';
 import { searchAlbum } from '../../../lib/spotifyService';
+import { SPOTIFY_LINK_TTL, SPOTIFY_NOT_FOUND_TTL } from '../../../lib/config';
 
 jest.mock('next/server', () => ({
   NextRequest: jest.fn(),
   NextResponse: {
-    json: jest.fn((body: unknown, init?: { status?: number }) => ({
-      status: init?.status ?? 200,
-      json: async () => body,
-    })),
+    json: jest.fn(
+      (
+        body: unknown,
+        init?: { status?: number; headers?: Record<string, string> }
+      ) => ({
+        status: init?.status ?? 200,
+        headers: new Headers(init?.headers ?? {}),
+        json: async () => body,
+      })
+    ),
   },
 }));
 
@@ -113,11 +120,15 @@ describe('GET /api/spotify-link', () => {
     expect(mockSearchAlbum).toHaveBeenCalledWith(albumName, artistName);
     expect(redis.setex).toHaveBeenCalledWith(
       cacheKey,
-      86400,
+      SPOTIFY_LINK_TTL,
       JSON.stringify({ spotifyUrl })
     );
     expect(response.status).toBe(200);
     expect(body.spotifyUrl).toBe(spotifyUrl);
+    // Found links are long-lived at the edge; this is the CDN offload.
+    expect(response.headers.get('Vercel-CDN-Cache-Control')).toContain(
+      `max-age=${SPOTIFY_LINK_TTL}`
+    );
   });
 
   it('returns null spotifyUrl and caches NOT_FOUND when album is not on Spotify', async () => {
@@ -134,7 +145,7 @@ describe('GET /api/spotify-link', () => {
 
     expect(redis.setex).toHaveBeenCalledWith(
       cacheKey,
-      3600,
+      SPOTIFY_NOT_FOUND_TTL,
       'SPOTIFY_NOT_FOUND'
     );
     expect(response.status).toBe(200);

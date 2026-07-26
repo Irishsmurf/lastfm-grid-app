@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchAlbum } from '@/lib/spotifyService'; // Corrected import path
 import { handleCaching } from '@/lib/cache';
 import { logger } from '@/utils/logger'; // Import logger
-import { getRemoteConfigValue } from '@/lib/firebase';
+import {
+  SPOTIFY_LINK_TTL,
+  SPOTIFY_NOT_FOUND_TTL,
+  cacheHeaders,
+  NO_STORE,
+} from '@/lib/config';
 
 const CTX = 'SpotifyLinkAPI'; // Context for logger
 
@@ -16,7 +21,7 @@ export async function GET(req: NextRequest) {
       {
         message: 'Missing required query parameters: albumName and artistName',
       },
-      { status: 400 }
+      { status: 400, headers: NO_STORE }
     );
   }
 
@@ -26,39 +31,9 @@ export async function GET(req: NextRequest) {
   const safeAlbumName = encodeURIComponent(albumName);
   const cacheKey = `spotify:link:${safeArtistName}:${safeAlbumName}`;
 
-  // Get cache expiry values from Remote Config
-  const defaultCacheExpirySeconds = 86400; // 24 hours
-  const defaultNotFoundCacheExpirySeconds = 3600; // 1 hour
-
-  let cacheExpirySeconds = defaultCacheExpirySeconds;
-  try {
-    const remoteCacheExpiry = getRemoteConfigValue(
-      'spotify_cache_expiry_seconds'
-    ).asNumber();
-    if (remoteCacheExpiry > 0) {
-      cacheExpirySeconds = remoteCacheExpiry;
-    }
-  } catch (error) {
-    logger.warn(
-      CTX,
-      `Failed to get 'spotify_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-
-  let notFoundCacheExpirySeconds = defaultNotFoundCacheExpirySeconds;
-  try {
-    const remoteNotFoundCacheExpiry = getRemoteConfigValue(
-      'not_found_cache_expiry_seconds'
-    ).asNumber();
-    if (remoteNotFoundCacheExpiry > 0) {
-      notFoundCacheExpirySeconds = remoteNotFoundCacheExpiry;
-    }
-  } catch (error) {
-    logger.warn(
-      CTX,
-      `Failed to get 'not_found_cache_expiry_seconds' from Remote Config or invalid value. Using default: ${defaultNotFoundCacheExpirySeconds}s. Error: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
+  // Cache lifetimes are plain constants — see lib/config.ts.
+  const cacheExpirySeconds = SPOTIFY_LINK_TTL;
+  const notFoundCacheExpirySeconds = SPOTIFY_NOT_FOUND_TTL;
 
   const notFoundRedisPlaceholder = 'SPOTIFY_NOT_FOUND'; // Specific placeholder
 
@@ -93,7 +68,20 @@ export async function GET(req: NextRequest) {
     });
 
     // The client expects a 200 OK even if spotifyUrl is null
-    return NextResponse.json(result, { status: 200 });
+    const found = result?.spotifyUrl != null;
+    return NextResponse.json(result, {
+      status: 200,
+      headers: found
+        ? // An album -> Spotify URL mapping is effectively immutable, and popular
+          // albums recur across users, so this endpoint gets a high cross-user
+          // edge hit rate.
+          cacheHeaders({
+            cdn: SPOTIFY_LINK_TTL,
+            browser: 86400,
+            swr: 2592000,
+          })
+        : cacheHeaders({ cdn: 3600, browser: 0, swr: 86400 }),
+    });
   } catch (error) {
     let statusCode = 500;
     let clientResponseMessage: string;
@@ -129,13 +117,13 @@ export async function GET(req: NextRequest) {
       // Do not send detailed error message to client in production
       return NextResponse.json(
         { message: clientResponseMessage },
-        { status: statusCode }
+        { status: statusCode, headers: NO_STORE }
       );
     } else {
       // In development/other, include more details
       return NextResponse.json(
         { message: clientResponseMessage, error: detailedErrorMessage },
-        { status: statusCode }
+        { status: statusCode, headers: NO_STORE }
       );
     }
   }

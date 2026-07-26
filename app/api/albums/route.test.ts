@@ -7,10 +7,16 @@ import { apiRequestCounter, apiRequestDuration } from '../../../lib/metrics';
 jest.mock('next/server', () => ({
   NextRequest: jest.fn(),
   NextResponse: {
-    json: jest.fn((body: unknown, init?: { status?: number }) => ({
-      status: init?.status ?? 200,
-      json: async () => body,
-    })),
+    json: jest.fn(
+      (
+        body: unknown,
+        init?: { status?: number; headers?: Record<string, string> }
+      ) => ({
+        status: init?.status ?? 200,
+        headers: new Headers(init?.headers ?? {}),
+        json: async () => body,
+      })
+    ),
   },
 }));
 
@@ -160,13 +166,16 @@ describe('GET /api/albums', () => {
       3600,
       JSON.stringify(expectedAlbums)
     );
-    expect(redis.set).toHaveBeenCalledWith(
-      `share:${mockSharedId}`,
-      expect.stringContaining(`"id":"${mockSharedId}"`)
-    );
+    // Share records are created by POST /api/share, never on this read path —
+    // this is what keeps the response identical for identical inputs, and so
+    // cacheable at the CDN.
+    expect(redis.set).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
     expect(responseBody.albums).toEqual(expectedAlbums);
-    expect(responseBody.sharedId).toBe(mockSharedId);
+    expect(responseBody.sharedId).toBeUndefined();
+    expect(response.headers.get('Vercel-CDN-Cache-Control')).toContain(
+      'max-age=3600'
+    );
   });
 
   it('should return empty albums and still generate a shared grid when Last.fm returns none', async () => {
@@ -206,44 +215,79 @@ describe('GET /api/albums', () => {
     );
     expect(response.status).toBe(200);
     expect(responseBody.albums).toEqual([]);
-    expect(responseBody.sharedId).toBe(mockSharedId);
+    expect(responseBody.sharedId).toBeUndefined();
+    // Empty results get a short edge TTL so a brand-new user isn't stuck with an
+    // empty grid cached at the edge for an hour.
+    expect(response.headers.get('Vercel-CDN-Cache-Control')).toContain(
+      'max-age=600'
+    );
   });
 
-  it('should return albums with null sharedId when the share Redis SET fails', async () => {
-    const mockUsername = 'redis-fail-user';
+  it('serves a cache hit without any Redis writes', async () => {
+    const mockUsername = 'cached-user';
     const mockPeriod = '1month';
-    const mockLastFmData = {
-      topalbums: {
-        album: [
-          {
-            name: 'RF Album',
-            artist: { name: 'RF Artist', mbid: 'rf-artist-mbid', url: '' },
-            image: [{ '#text': 'rf.jpg', size: 'extralarge' }],
-            mbid: 'rf-mbid',
-            playcount: '150',
-            url: '',
-          },
-        ],
+    const cachedAlbums: MinimizedAlbum[] = [
+      {
+        name: 'Cached Album',
+        artist: { name: 'Cached Artist', mbid: 'cached-artist-mbid' },
+        imageUrl: 'cached.jpg',
+        mbid: 'cached-mbid',
+        playcount: 42,
       },
-    };
+    ];
 
-    (nanoid as jest.Mock).mockReturnValue('redis-fail-nanoid');
-    (redis.get as jest.Mock).mockResolvedValue(null);
-    (redis.setex as jest.Mock).mockResolvedValue('OK');
-    (redis.set as jest.Mock).mockRejectedValue(new Error('Redis SET failed'));
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: jest.fn().mockResolvedValue(mockLastFmData),
-    });
+    (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedAlbums));
 
     const req = createMockRequest(mockUsername, mockPeriod);
     const response = await GET(req);
     const responseBody = await response.json();
 
+    // The whole point of the change: a cache hit is one Redis GET and nothing
+    // else. It used to also mint a nanoid and SET a permanent share:* key on
+    // every single request, which grew Redis with traffic rather than with
+    // actual shares.
+    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.setex).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
-    expect(responseBody.albums).toHaveLength(1);
-    expect(responseBody.sharedId).toBeNull();
-    expect(responseBody.error).toContain('Failed to save share data');
+    expect(responseBody.albums).toEqual(cachedAlbums);
+  });
+
+  it('uses a longer cache lifetime for slow-moving periods', async () => {
+    const mockUsername = 'overall-user';
+    const mockPeriod = 'overall';
+
+    (redis.get as jest.Mock).mockResolvedValue(null);
+    (redis.setex as jest.Mock).mockResolvedValue('OK');
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        topalbums: {
+          album: [
+            {
+              name: 'Overall Album',
+              artist: { name: 'Overall Artist', mbid: 'o-artist', url: '' },
+              image: [{ '#text': 'o.jpg', size: 'extralarge' }],
+              mbid: 'o-mbid',
+              playcount: '999',
+              url: '',
+            },
+          ],
+        },
+      }),
+    });
+
+    const response = await GET(createMockRequest(mockUsername, mockPeriod));
+
+    // 'overall' charts barely move, so they get 6h rather than 1h.
+    expect(redis.setex).toHaveBeenCalledWith(
+      `lastfm:albums:${mockUsername}:${mockPeriod}:9:minimized`,
+      21600,
+      expect.any(String)
+    );
+    expect(response.headers.get('Vercel-CDN-Cache-Control')).toContain(
+      'max-age=21600'
+    );
   });
 
   it('should return 500 when Last.fm fetch fails', async () => {

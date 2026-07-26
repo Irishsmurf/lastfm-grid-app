@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { registry } from '@/lib/metrics';
 import { logger } from '@/utils/logger';
+import { NO_STORE } from '@/lib/config';
 const CTX = 'MetricsAPI';
 
 export async function GET(_req: NextRequest) {
@@ -11,6 +12,7 @@ export async function GET(_req: NextRequest) {
     status: 200,
     headers: {
       'Content-type': registry.contentType,
+      ...NO_STORE,
     },
   });
 }

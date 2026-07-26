@@ -82,6 +82,7 @@ export default function Home() {
     Record<string, boolean>
   >({});
   const [sharedId, setSharedId] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [gridSize, setGridSize] = useState<9 | 16 | 25>(9);
   const [showAlbumLabels, setShowAlbumLabels] = useState(false);
@@ -276,21 +277,17 @@ export default function Home() {
 
         setAlbums(albumData);
 
-        if (typeof responseData.sharedId === 'string') {
-          setSharedId(responseData.sharedId);
+        // The share record is no longer created here — /api/albums is a pure read
+        // so it can be cached at the CDN. The id is minted on demand when the user
+        // actually clicks Share (see handleShare).
+        setSharedId(null);
+
+        if (albumData.length > 0) {
           trackEvent('generate_grid', {
             username,
             time_range: timeRange,
             grid_size: gridSize,
           });
-        } else if (responseData.sharedId === null && responseData.error) {
-          setSharedId(null);
-          //setError('Fetched albums, but could not generate a shareable link. The grid is not shareable at the moment.');
-          console.warn(
-            'app/page.tsx: Fetched albums, but sharedId was null, Redis error likely occurred.'
-          );
-        } else {
-          setSharedId(null); // If sharedId is not a string and no specific error for it, just set to null
         }
 
         if (albumData.length === 0) {
@@ -636,25 +633,92 @@ export default function Home() {
     return () => clearTimeout(timer); // Cleanup timer
   }, [isGridUpdating]);
 
-  const handleShareGrid = () => {
-    if (!sharedId) {
-      console.error('Share button clicked without a sharedId');
-      return;
+  /**
+   * Copies text, falling back to a hidden textarea + execCommand.
+   *
+   * Safari only allows `clipboard.writeText` while a user gesture is still being
+   * handled, and creating the share link requires awaiting a POST first. When that
+   * await costs us the gesture, writeText rejects and the legacy path still works.
+   */
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
+      } catch {
+        return false;
+      }
     }
-    const url = window.location.origin + '/share/' + sharedId;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-        setShareCopied(true);
-        trackEvent('share_grid', { username, shared_id: sharedId });
-        setTimeout(() => {
-          setShareCopied(false);
-        }, 2000); // Reset after 2 seconds
-      })
-      .catch((err) => {
-        console.error('Failed to copy share link: ', err);
-        // Optionally, set an error state here to inform the user
-      });
+  };
+
+  const handleShareGrid = async () => {
+    if (albums.length === 0 || isSharing) return;
+
+    // Reuse the id if this grid has already been shared, so repeat clicks don't
+    // create duplicate Redis records.
+    let id = sharedId;
+
+    if (!id) {
+      setIsSharing(true);
+      try {
+        const response = await fetch('/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username,
+            period: timeRange,
+            albums: albums.map((album) => ({
+              name: album.name,
+              artist: { name: album.artist.name, mbid: album.artist.mbid },
+              imageUrl: album.imageUrl,
+              mbid: album.mbid,
+              playcount: album.playcount,
+            })),
+          }),
+        });
+
+        if (!response.ok) throw new Error(`Share failed: ${response.status}`);
+
+        const data = await response.json();
+        if (typeof data.sharedId !== 'string') {
+          throw new Error('Share response did not include an id');
+        }
+
+        id = data.sharedId;
+        setSharedId(id);
+      } catch (err) {
+        console.error('Failed to create share link:', err);
+        setError('Could not create a share link. Please try again.');
+        return;
+      } finally {
+        setIsSharing(false);
+      }
+    }
+
+    if (!id) return;
+
+    const url = window.location.origin + '/share/' + id;
+    const copied = await copyToClipboard(url);
+
+    if (copied) {
+      setShareCopied(true);
+      trackEvent('share_grid', { username, shared_id: id });
+      setTimeout(() => setShareCopied(false), 2000);
+    } else {
+      console.error('Failed to copy share link to clipboard');
+      setError(`Copy failed. Your share link: ${url}`);
+    }
   };
 
   const VIEW_SWAP_OUT_MS = 200;
@@ -834,12 +898,15 @@ export default function Home() {
                 </span>
               </p>
               <div className="flex gap-2">
-                {sharedId && (
+                {/* Shown whenever there's a grid to share. The share record is
+                    created on click rather than on grid generation, so /api/albums
+                    stays a cacheable pure read. */}
+                {albums.length > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleShareGrid}
-                    disabled={shareCopied}
+                    disabled={shareCopied || isSharing}
                     className="gap-1.5 h-8 text-xs"
                   >
                     {shareCopied ? (
@@ -847,7 +914,11 @@ export default function Home() {
                     ) : (
                       <Share2 size={13} />
                     )}
-                    {shareCopied ? 'Copied!' : 'Share Grid'}
+                    {shareCopied
+                      ? 'Copied!'
+                      : isSharing
+                        ? 'Creating link…'
+                        : 'Share Grid'}
                   </Button>
                 )}
                 {/* Always mounted so it reserves its slot in the row. When not
