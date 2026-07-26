@@ -25,8 +25,15 @@ jest.mock('../../../lib/redis', () => ({
     get: jest.fn(),
     set: jest.fn(),
     setex: jest.fn(),
+    mget: jest.fn(),
     on: jest.fn(),
   },
+}));
+
+// Spotify link resolution is exercised in lib/spotifyService.test.ts; here it just
+// needs to not reach the network.
+jest.mock('../../../lib/spotifyService', () => ({
+  resolveSpotifyLinks: jest.fn(async () => ({ links: {}, complete: true })),
 }));
 
 jest.mock('../../../utils/logger', () => ({

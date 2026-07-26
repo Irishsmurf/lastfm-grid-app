@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { redis } from '@/lib/redis';
 import type { SharedGridData } from '@/lib/types';
+import { resolveSpotifyLinks } from '@/lib/spotifyService';
 import SharePageClient from './SharePageClient';
 
 interface Props {
@@ -64,6 +66,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function SharedGridPage() {
-  return <SharePageClient />;
+// A share record is an immutable snapshot under a unique id, so the rendered page
+// can be cached aggressively rather than regenerated per visitor.
+export const revalidate = 86400;
+
+export default async function SharedGridPage({ params }: Props) {
+  const { id } = await params;
+  const data = await getSharedGrid(id);
+
+  if (!data) notFound();
+
+  // Resolved here so the grid arrives complete in the initial HTML. The client
+  // used to fetch this record over HTTP and then fire one Spotify request per
+  // album, all after the skeleton had already painted.
+  const { links } = await resolveSpotifyLinks(data.albums);
+
+  return <SharePageClient sharedData={data} spotifyLinks={links} />;
 }

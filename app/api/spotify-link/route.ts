@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchAlbum } from '@/lib/spotifyService'; // Corrected import path
+import {
+  searchAlbum,
+  spotifyLinkCacheKey,
+  SPOTIFY_NOT_FOUND_PLACEHOLDER,
+} from '@/lib/spotifyService';
 import { handleCaching } from '@/lib/cache';
 import { logger } from '@/utils/logger'; // Import logger
 import {
@@ -25,17 +29,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Sanitize or encode parts of the cache key if they can contain special characters
-  // For simplicity here, assuming they are reasonably clean.
-  const safeArtistName = encodeURIComponent(artistName);
-  const safeAlbumName = encodeURIComponent(albumName);
-  const cacheKey = `spotify:link:${safeArtistName}:${safeAlbumName}`;
+  // Shared with the batch resolver in lib/spotifyService.ts so both paths hit the
+  // same cache entries.
+  const cacheKey = spotifyLinkCacheKey(artistName, albumName);
 
   // Cache lifetimes are plain constants — see lib/config.ts.
   const cacheExpirySeconds = SPOTIFY_LINK_TTL;
   const notFoundCacheExpirySeconds = SPOTIFY_NOT_FOUND_TTL;
 
-  const notFoundRedisPlaceholder = 'SPOTIFY_NOT_FOUND'; // Specific placeholder
+  const notFoundRedisPlaceholder = SPOTIFY_NOT_FOUND_PLACEHOLDER;
 
   // Define how to check if the fetched data means "not found"
   const isResultNotFound = (
