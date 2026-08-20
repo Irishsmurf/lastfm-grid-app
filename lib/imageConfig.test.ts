@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import nextConfig from '../next.config';
 
 describe('Next.js Configuration & Regression Tests', () => {
