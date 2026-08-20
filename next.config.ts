@@ -66,6 +66,7 @@ const pwaConfig = {
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  dynamicStartUrl: false,
 };
 
 export default withPWA(pwaConfig)(nextConfig);
