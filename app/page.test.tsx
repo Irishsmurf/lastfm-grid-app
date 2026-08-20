@@ -58,11 +58,6 @@ jest.mock('next/image', () => ({
   ),
 }));
 
-// Mock ThemeToggleButton
-jest.mock('@/components/theme-toggle-button', () => ({
-  ThemeToggleButton: () => <button aria-label="Toggle theme">Theme</button>,
-}));
-
 type IconProps = React.SVGProps<SVGSVGElement>;
 jest.mock('lucide-react', () => ({
   Download: (props: IconProps) => (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Share2, Check } from 'lucide-react';
 import type { SharedGridData, MinimizedAlbum } from '@/lib/types';
@@ -19,11 +20,14 @@ interface SharePageClientProps {
   sharedData: SharedGridData;
   /** Spotify links resolved server-side, keyed by album mbid. */
   spotifyLinks: SpotifyLinks;
+  /** Human-readable period label (e.g. "Last 3 Months"), resolved server-side. */
+  periodLabel: string;
 }
 
 export default function SharePageClient({
   sharedData,
   spotifyLinks,
+  periodLabel,
 }: SharePageClientProps) {
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -52,54 +56,54 @@ export default function SharePageClient({
 
   return (
     <div className="min-h-screen bg-background pb-16 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Hero */}
-        <header className="pt-10 pb-0 text-center">
-          <div className="flex justify-center mb-5">
-            <Image
-              src="/logo.svg"
-              alt="LastFM Album Collage logo"
-              width={72}
-              height={72}
-              priority
-            />
-          </div>
-          <h1 className="font-montserrat font-black uppercase tracking-tight leading-none text-5xl sm:text-6xl lg:text-[5.5rem]">
-            LastFM Album <span className="text-brand-red">Collage</span>
-          </h1>
-        </header>
+      <div className="max-w-4xl mx-auto pt-10">
+        <span className="inline-flex items-center text-[11px] tracking-wide px-2.5 py-1 border border-primary text-primary mb-4">
+          Shared grid
+        </span>
 
-        {/* Grid metadata + copy action */}
-        <div className="border-y border-border mt-8 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Album Grid by {sharedData.username} - Period: {sharedData.period}{' '}
-              | Generated on: {formattedDate}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyLink}
-              disabled={linkCopied}
-              className="gap-2 h-8 text-xs self-start sm:self-auto shrink-0"
-            >
-              {linkCopied ? (
-                <Check className="h-3 w-3 text-brand-success" />
-              ) : (
-                <Share2 size={13} />
-              )}
-              {linkCopied ? 'Copied!' : 'Copy link'}
-            </Button>
-          </div>
+        {/* Heading + metadata */}
+        <div className="flex items-baseline justify-between flex-wrap gap-2.5 mb-5">
+          <h1 className="text-3xl sm:text-4xl">
+            <span className="text-brand-red">{sharedData.username}</span>
+            {"'s grid"}
+          </h1>
+          <span className="text-sm text-muted-foreground">
+            {periodLabel} · {sharedData.albums.length} albums · Generated{' '}
+            {formattedDate}
+          </span>
+        </div>
+        <hr className="hr" />
+
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyLink}
+            disabled={linkCopied}
+            className="gap-2 h-8 text-xs"
+          >
+            {linkCopied ? (
+              <Check className="h-3 w-3 text-brand-success" />
+            ) : (
+              <Share2 size={13} />
+            )}
+            {linkCopied ? 'Copied!' : 'Copy link'}
+          </Button>
         </div>
 
-        {/* Album grid — tight mosaic, no card wrappers */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-6">
+        {/* Album grid — tight mosaic, thin divider rules between tiles */}
+        <div
+          className="grid grid-cols-2 sm:grid-cols-3 gap-0.5"
+          style={{ backgroundColor: 'var(--color-divider)' }}
+        >
           {sharedData.albums.map((album: MinimizedAlbum, index) => {
             const spotifyUrl = spotifyLinks[album.mbid] ?? null;
 
             return (
-              <div key={index} className="album-grid-cell flex flex-col">
+              <div
+                key={index}
+                className="album-grid-cell flex flex-col bg-background"
+              >
                 <div className="aspect-square relative group album-hover-container overflow-hidden">
                   {spotifyUrl && (
                     <div className="absolute top-2 right-2 z-10 p-0.5 bg-black/20 rounded-sm flex items-center justify-center">
@@ -119,8 +123,8 @@ export default function SharePageClient({
                     sizes="(max-width: 640px) 50vw, 33vw"
                     className={`object-cover ${spotifyUrl ? 'group-hover:opacity-70' : ''}`}
                     // Only the first tile is a plausible LCP candidate. Marking all
-                    // nine as priority made them compete with each other and with
-                    // the logo for early bandwidth.
+                    // nine as priority made them compete with each other for
+                    // early bandwidth.
                     priority={index === 0}
                   />
                   {spotifyUrl && (
@@ -159,10 +163,19 @@ export default function SharePageClient({
                       {album.artist.name}
                     </a>
                   </p>
+                  <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                    {album.playcount.toLocaleString()} plays
+                  </p>
                 </div>
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-9">
+          <Button asChild>
+            <Link href="/">Make Your Own Grid</Link>
+          </Button>
         </div>
       </div>
     </div>

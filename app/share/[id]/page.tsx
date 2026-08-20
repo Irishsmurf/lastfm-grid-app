@@ -80,6 +80,13 @@ export default async function SharedGridPage({ params }: Props) {
   // used to fetch this record over HTTP and then fire one Spotify request per
   // album, all after the skeleton had already painted.
   const { links } = await resolveSpotifyLinks(data.albums);
+  const periodLabel = PERIOD_LABELS[data.period] ?? data.period;
 
-  return <SharePageClient sharedData={data} spotifyLinks={links} />;
+  return (
+    <SharePageClient
+      sharedData={data}
+      spotifyLinks={links}
+      periodLabel={periodLabel}
+    />
+  );
 }

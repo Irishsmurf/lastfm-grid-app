@@ -3,6 +3,7 @@ import withPWA from '@ducanh2912/next-pwa';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  devIndicators: false,
   experimental: {
     optimizeCss: true,
     // Rewrites barrel imports to deep ones so only the icons/components actually
