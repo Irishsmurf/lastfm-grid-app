@@ -38,7 +38,7 @@ describe('Next.js Configuration & Regression Tests', () => {
           return pattern.hostname === url.hostname;
         });
 
-        expect(matchesPattern, `URL ${urlStr} should be allowed by remotePatterns`).toBe(true);
+        expect(matchesPattern).toBe(true);
       }
     });
   });
