@@ -32,6 +32,26 @@ const nextConfig: NextConfig = {
         hostname: '*.freetls.fastly.net',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '*.cloudfront.net',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.akamaihd.net',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.last.fm',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.scdn.co',
+        pathname: '/**',
+      },
     ],
     // Album art dominates the bytes on this page; AVIF/WebP cut it substantially.
     formats: ['image/avif', 'image/webp'],

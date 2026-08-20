@@ -7,9 +7,13 @@ describe('Next.js Configuration & Regression Tests', () => {
       'https://lastfm.freetls.fastly.net/i/u/300x300/466f8fd2eaf94f5a92d44c63ffc8b33a.jpg',
       'https://lastfm-img.freetls.fastly.net/i/u/300x300/1c2a2f3bee49cc952f5d0b7916e4e509.png',
       'https://lastfm-img2.freetls.fastly.net/i/u/300x300/7384e60ccd4592662d959e2ec5335864.jpg',
+      'https://d1234567.cloudfront.net/i/u/300x300/abc.jpg',
+      'https://2a.akamaihd.net/i/u/300x300/xyz.png',
+      'https://cdn.last.fm/i/u/300x300/def.jpg',
+      'https://i.scdn.co/image/ab67616d0000b2731c2a2f3bee49cc952f5d0b79',
     ];
 
-    it('matches all Last.fm image CDN domains to prevent 400 Bad Request image optimization errors', () => {
+    it('matches all major music & CDN domains (Fastly, CloudFront, Akamai, Spotify) to prevent 400 Bad Request errors', () => {
       const remotePatterns = nextConfig.images?.remotePatterns || [];
       expect(remotePatterns.length).toBeGreaterThan(0);
 
@@ -34,7 +38,7 @@ describe('Next.js Configuration & Regression Tests', () => {
           return pattern.hostname === url.hostname;
         });
 
-        expect(matchesPattern).toBe(true);
+        expect(matchesPattern, `URL ${urlStr} should be allowed by remotePatterns`).toBe(true);
       }
     });
   });
