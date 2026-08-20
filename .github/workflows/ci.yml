@@ -61,3 +61,22 @@ jobs:
             sed -n '/Route (app)/,/^$/p' build-output.txt || echo 'Build output unavailable.'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E Tests
+        run: npm run test:e2e
+        env:
+          LASTFM_API_KEY: ci-placeholder
+          LASTFM_BASE_URL: https://ws.audioscrobbler.com/2.0/
+          SPOTIFY_CLIENT_ID: ci-placeholder
+          SPOTIFY_CLIENT_SECRET: ci-placeholder
+          REDIS_URL: redis://127.0.0.1:6379
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: G-PLACEHOLDER
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ci.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          NEXT_PUBLIC_FIREBASE_APP_ID: '1:000000000000:web:ciplaceholder'
